@@ -10,7 +10,6 @@
   --bg: #07080f;
   --surface: #0f1019;
   --surface2: #171825;
-  --surface3: #1e2030;
   --border: #252738;
   --accent: #ffe135;
   --tn: #00e5ff;
@@ -18,76 +17,51 @@
   --muted: #5a5d78;
   --success: #00e676;
   --error: #ff4d6d;
-  --warn: #ff9800;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; display: flex; }
 
-/* Sidebar */
-.sidebar {
-  width: 220px; flex-shrink: 0; background: var(--surface);
-  border-right: 1px solid var(--border); display: flex; flex-direction: column;
-  padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
-}
+.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
 .sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .sidebar-logo .logo-top { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
-.sidebar-logo h2 { font-size: 17px; font-weight: 800; color: var(--text); }
+.sidebar-logo h2 { font-size: 17px; font-weight: 800; }
 .sidebar-logo h2 span { color: var(--accent); }
-
-.nav-item {
-  display: flex; align-items: center; gap: 10px; padding: 10px 20px;
-  font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted);
-  transition: all 0.15s; border-left: 3px solid transparent; user-select: none;
-}
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.15s; border-left: 3px solid transparent; }
 .nav-item:hover { color: var(--text); background: var(--surface2); }
 .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(255,225,53,0.05); }
 .nav-item .icon { font-size: 16px; }
-
 .sidebar-status { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
 .conn-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .conn-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
 .conn-dot.off { background: var(--muted); }
 .conn-label { font-size: 11px; font-weight: 600; color: var(--muted); display: flex; align-items: center; margin-bottom: 6px; }
 
-/* Main */
-.main { margin-left: 220px; flex: 1; padding: 32px; min-height: 100vh; }
-
+.main { margin-left: 220px; flex: 1; padding: 32px; }
 .page { display: none; animation: fadeIn 0.25s ease; }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
 .page-header { margin-bottom: 28px; }
 .page-header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
 .page-header h1 span { color: var(--accent); }
 .page-header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
-/* Cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
 .card-title { font-size: 14px; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
 .card-title .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 
-/* Stats row */
 .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
 .stat-value { font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
-/* Forms */
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-.form-row.three { grid-template-columns: 1fr 1fr 1fr; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
-.form-group.full { grid-column: 1 / -1; }
 label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
-input, select {
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
-  padding: 10px 12px; color: var(--text); font-family: 'Space Mono', monospace;
-  font-size: 12px; transition: border-color 0.2s; outline: none; width: 100%;
-}
+input { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; transition: border-color 0.2s; outline: none; width: 100%; }
 input:focus { border-color: var(--accent); }
 input::placeholder { color: var(--muted); }
 
-/* Buttons */
-.btn { padding: 10px 20px; border-radius: 7px; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 7px; }
+.btn { padding: 10px 20px; border-radius: 7px; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
 .btn-sm { padding: 7px 14px; font-size: 12px; }
 .btn-primary { background: var(--accent); color: #000; }
 .btn-primary:hover { background: #ffd000; }
@@ -102,38 +76,29 @@ input::placeholder { color: var(--muted); }
 .btn-success:hover { background: #00c963; }
 .btn-success:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
 
-/* Account list */
-.account-list { display: flex; flex-direction: column; gap: 8px; }
-.account-item {
-  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-}
-.account-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; }
-.account-avatar.ml { background: rgba(255,225,53,0.15); color: var(--accent); }
-.account-avatar.tn { background: rgba(0,229,255,0.15); color: var(--tn); }
+/* ML OAuth button */
+.btn-ml { background: var(--accent); color: #000; font-size: 14px; padding: 14px 28px; border-radius: 8px; font-weight: 800; }
+.btn-ml:hover { background: #ffd000; transform: translateY(-1px); }
+
+.account-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.account-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
+.account-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; background: rgba(255,225,53,0.15); color: var(--accent); }
 .account-info { flex: 1; }
 .account-name { font-size: 13px; font-weight: 700; }
 .account-id { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); }
-.account-actions { display: flex; gap: 8px; }
 
-/* Status messages */
 .status { padding: 10px 14px; border-radius: 7px; font-size: 12px; font-family: 'Space Mono', monospace; display: none; margin-top: 12px; line-height: 1.5; }
 .status.show { display: block; }
 .status.error { background: rgba(255,77,109,0.1); border: 1px solid var(--error); color: var(--error); }
 .status.success { background: rgba(0,230,118,0.1); border: 1px solid var(--success); color: var(--success); }
 .status.info { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); color: var(--tn); }
 
-/* Products */
 .products-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
 .sel-count { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
 .sel-count span { color: var(--accent); font-weight: 700; }
 .select-all-btn { font-size: 12px; font-weight: 700; color: var(--accent); cursor: pointer; background: none; border: none; font-family: 'Syne', sans-serif; text-decoration: underline; }
 
-.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 4px; }
-.products-grid::-webkit-scrollbar { width: 4px; }
-.products-grid::-webkit-scrollbar-track { background: var(--surface2); }
-.products-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
+.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 4px; margin-bottom: 16px; }
 .pcard { background: var(--surface2); border: 2px solid var(--border); border-radius: 9px; padding: 12px; cursor: pointer; transition: all 0.15s; position: relative; }
 .pcard:hover { border-color: var(--muted); }
 .pcard.selected { border-color: var(--accent); background: rgba(255,225,53,0.04); }
@@ -145,13 +110,11 @@ input::placeholder { color: var(--muted); }
 .pcard .pprice { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--accent); }
 .pcard .pstock { font-size: 10px; color: var(--muted); }
 
-/* Progress */
 .progress-wrap { margin: 14px 0; }
 .progress-bg { background: var(--surface2); border-radius: 3px; height: 6px; overflow: hidden; margin-bottom: 6px; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--tn)); border-radius: 3px; transition: width 0.3s; width: 0%; }
 .progress-text { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); }
 
-/* Results */
 .results-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin-top: 12px; }
 .ritem { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 7px; font-size: 11px; font-family: 'Space Mono', monospace; }
 .ritem.ok { background: rgba(0,230,118,0.07); border: 1px solid rgba(0,230,118,0.2); }
@@ -159,7 +122,6 @@ input::placeholder { color: var(--muted); }
 .ritem .rtitle { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ritem .rmsg { color: var(--muted); font-size: 10px; }
 
-/* Log */
 .log-list { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; }
 .log-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--surface2); font-size: 11px; font-family: 'Space Mono', monospace; }
 .log-item .lts { color: var(--muted); width: 80px; flex-shrink: 0; }
@@ -167,24 +129,24 @@ input::placeholder { color: var(--muted); }
 .log-item .laction.publish { background: rgba(255,225,53,0.15); color: var(--accent); }
 .log-item .laction.sync { background: rgba(0,229,255,0.15); color: var(--tn); }
 .log-item .ltitle { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.log-item .lstatus { font-size: 10px; }
 .log-item .lstatus.ok { color: var(--success); }
 .log-item .lstatus.error { color: var(--error); }
 
-/* Spinner */
 .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Account selector tabs */
 .acc-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .acc-tab { padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); color: var(--muted); background: var(--surface2); transition: all 0.15s; }
-.acc-tab:hover { border-color: var(--muted); color: var(--text); }
 .acc-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(255,225,53,0.06); }
 
-/* Responsive */
+.alert-banner { padding: 14px 18px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; display: none; }
+.alert-banner.show { display: block; }
+.alert-banner.success { background: rgba(0,230,118,0.1); border: 1px solid var(--success); color: var(--success); }
+.alert-banner.error { background: rgba(255,77,109,0.1); border: 1px solid var(--error); color: var(--error); }
+
 @media (max-width: 768px) {
   .sidebar { width: 60px; }
-  .sidebar .nav-item span, .sidebar-logo h2, .sidebar-logo .logo-top, .conn-label { display: none; }
+  .sidebar .nav-item span, .sidebar-logo h2, .sidebar-logo .logo-top, .conn-label span { display: none; }
   .main { margin-left: 60px; padding: 20px 16px; }
   .stats-row { grid-template-columns: 1fr 1fr; }
   .form-row { grid-template-columns: 1fr; }
@@ -193,10 +155,9 @@ input::placeholder { color: var(--muted); }
 </head>
 <body>
 
-<!-- Sidebar -->
 <nav class="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-top">Panel de control</div>
+    <div class="logo-top">Panel</div>
     <h2>ML × <span>TN</span></h2>
   </div>
   <div class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span><span>Dashboard</span></div>
@@ -204,87 +165,58 @@ input::placeholder { color: var(--muted); }
   <div class="nav-item" onclick="showPage('publicar')"><span class="icon">🚀</span><span>Publicar</span></div>
   <div class="nav-item" onclick="showPage('sincronizar')"><span class="icon">🔄</span><span>Sincronizar</span></div>
   <div class="nav-item" onclick="showPage('log')"><span class="icon">📋</span><span>Historial</span></div>
-
   <div class="sidebar-status">
     <div class="conn-label"><span class="conn-dot" id="ml-dot"></span><span>ML</span></div>
     <div class="conn-label"><span class="conn-dot" id="tn-dot"></span><span>Tienda Nube</span></div>
   </div>
 </nav>
 
-<!-- Main -->
 <main class="main">
+
+  <!-- Alert banner for OAuth redirects -->
+  <div class="alert-banner" id="alert-banner"></div>
 
   <!-- Dashboard -->
   <div class="page active" id="page-dashboard">
-    <div class="page-header">
-      <h1>Dashboard <span>de sincronización</span></h1>
-      <p>Resumen de tus cuentas y actividad reciente.</p>
-    </div>
+    <div class="page-header"><h1>Dashboard <span>de sincronización</span></h1><p>Resumen de tus cuentas y actividad reciente.</p></div>
     <div class="stats-row">
       <div class="stat-card"><div class="stat-value" id="stat-ml">0</div><div class="stat-label">Cuentas ML</div></div>
       <div class="stat-card"><div class="stat-value" id="stat-tn">—</div><div class="stat-label">Tienda Nube</div></div>
       <div class="stat-card"><div class="stat-value" id="stat-logs">0</div><div class="stat-label">Acciones totales</div></div>
-      <div class="stat-card"><div class="stat-value" id="stat-last">—</div><div class="stat-label">Última sincronización</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-last">—</div><div class="stat-label">Última sync</div></div>
     </div>
     <div class="card">
       <div class="card-title"><div class="dot"></div> Actividad reciente</div>
       <div class="log-list" id="dash-log"><div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Sin actividad aún</div></div>
     </div>
-    <div style="text-align:center;margin-top:16px">
-      <button class="btn btn-ghost btn-sm" onclick="loadState()">↻ Actualizar</button>
-    </div>
+    <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="loadState()">↻ Actualizar</button></div>
   </div>
 
   <!-- Cuentas -->
   <div class="page" id="page-cuentas">
-    <div class="page-header">
-      <h1>Gestión de <span>cuentas</span></h1>
-      <p>Conectá hasta 4 cuentas de MercadoLibre y tu Tienda Nube.</p>
-    </div>
+    <div class="page-header"><h1>Gestión de <span>cuentas</span></h1><p>Conectá hasta 4 cuentas de MercadoLibre y tu Tienda Nube.</p></div>
 
-    <!-- ML -->
     <div class="card">
       <div class="card-title"><div class="dot" style="background:var(--accent)"></div> Cuentas MercadoLibre</div>
-      <div class="account-list" id="ml-accounts-list">
-        <div style="color:var(--muted);font-size:12px">No hay cuentas agregadas.</div>
+      <div class="account-list" id="ml-accounts-list"></div>
+
+      <div style="background:rgba(255,225,53,0.05);border:1px solid rgba(255,225,53,0.2);border-radius:8px;padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">¿Cómo conectar una cuenta de ML?</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">Tocá el botón de abajo, iniciá sesión con la cuenta de ML que querés agregar y autorizá la app. Podés hacer esto hasta 4 veces con distintas cuentas.</div>
+        <a href="/auth/login" class="btn btn-ml">🔗 Conectar cuenta de MercadoLibre</a>
       </div>
-      <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Agregar cuenta ML</div>
-      <div class="form-row three">
-        <div class="form-group">
-          <label>Nombre (ej: Cuenta 1)</label>
-          <input type="text" id="ml-name" placeholder="Mi cuenta principal" />
-        </div>
-        <div class="form-group">
-          <label>User ID de ML</label>
-          <input type="text" id="ml-uid" placeholder="123456789" />
-        </div>
-        <div class="form-group">
-          <label>Access Token</label>
-          <input type="password" id="ml-tok" placeholder="APP_USR-..." />
-        </div>
-      </div>
-      <div id="status-ml" class="status"></div>
-      <button class="btn btn-primary btn-sm" onclick="addML()">+ Agregar cuenta ML</button>
     </div>
 
-    <!-- TN -->
     <div class="card">
       <div class="card-title"><div class="dot" style="background:var(--tn)"></div> Tienda Nube</div>
       <div id="tn-current" style="color:var(--muted);font-size:12px;margin-bottom:16px">No conectada.</div>
       <div class="form-row">
-        <div class="form-group">
-          <label>Store ID</label>
-          <input type="text" id="tn-sid" placeholder="ej: 123456" />
-        </div>
-        <div class="form-group">
-          <label>Access Token</label>
-          <input type="password" id="tn-tok" placeholder="tu_access_token" />
-        </div>
+        <div class="form-group"><label>Store ID</label><input type="text" id="tn-sid" placeholder="ej: 123456" /></div>
+        <div class="form-group"><label>Access Token</label><input type="password" id="tn-tok" placeholder="tu_access_token" /></div>
       </div>
       <div style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);border-radius:7px;padding:12px;font-size:11px;color:var(--tn);margin-bottom:12px;line-height:1.6">
-        <b>¿Dónde encuentro el Store ID?</b> En la URL de tu panel: tiendanube.com/stores/<b>XXXXXX</b>/...<br>
-        <b>¿Y el Access Token?</b> Andá a <a href="https://partners.tiendanube.com" target="_blank" style="color:var(--accent)">partners.tiendanube.com</a> → Crear app → copiá el token de la app.
+        <b>Store ID:</b> en la URL de tu panel: tiendanube.com/stores/<b>XXXXXX</b>/...<br>
+        <b>Access Token:</b> <a href="https://partners.tiendanube.com" target="_blank" style="color:var(--accent)">partners.tiendanube.com</a> → Crear app → copiá el token.
       </div>
       <div id="status-tn" class="status"></div>
       <button class="btn btn-tn btn-sm" onclick="connectTN()">Conectar Tienda Nube</button>
@@ -293,17 +225,13 @@ input::placeholder { color: var(--muted); }
 
   <!-- Publicar -->
   <div class="page" id="page-publicar">
-    <div class="page-header">
-      <h1>Publicar en <span>Tienda Nube</span></h1>
-      <p>Elegí una cuenta de ML, seleccioná productos y publicalos en tu tienda.</p>
-    </div>
+    <div class="page-header"><h1>Publicar en <span>Tienda Nube</span></h1><p>Elegí una cuenta de ML, seleccioná productos y publicalos en tu tienda.</p></div>
     <div class="card">
       <div class="card-title"><div class="dot"></div> Paso 1 — Elegí cuenta de ML</div>
-      <div class="acc-tabs" id="pub-acc-tabs"><div style="color:var(--muted);font-size:12px">Primero agregá cuentas en la sección Cuentas.</div></div>
+      <div class="acc-tabs" id="pub-acc-tabs"></div>
       <button class="btn btn-ghost btn-sm" onclick="loadPublishProducts()" id="load-pub-btn" style="display:none">Cargar productos →</button>
       <div id="status-pub-load" class="status"></div>
     </div>
-
     <div class="card" id="pub-products-card" style="display:none">
       <div class="card-title"><div class="dot"></div> Paso 2 — Seleccioná productos</div>
       <div class="products-toolbar">
@@ -311,17 +239,11 @@ input::placeholder { color: var(--muted); }
         <div class="sel-count">Seleccionados: <span id="pub-sel-count">0</span></div>
       </div>
       <div class="products-grid" id="pub-products-grid"></div>
-      <div style="margin-top:16px">
-        <button class="btn btn-success" id="pub-go-btn" onclick="doPublish()" disabled>🚀 Publicar seleccionados en TN</button>
-      </div>
+      <button class="btn btn-success" id="pub-go-btn" onclick="doPublish()" disabled>🚀 Publicar en Tienda Nube</button>
     </div>
-
     <div class="card" id="pub-progress-card" style="display:none">
       <div class="card-title"><div class="dot" style="background:var(--tn)"></div> Publicando...</div>
-      <div class="progress-wrap">
-        <div class="progress-bg"><div class="progress-fill" id="pub-progress-fill"></div></div>
-        <div class="progress-text" id="pub-progress-text">Iniciando...</div>
-      </div>
+      <div class="progress-wrap"><div class="progress-bg"><div class="progress-fill" id="pub-progress-fill"></div></div><div class="progress-text" id="pub-progress-text">Iniciando...</div></div>
       <div class="results-list" id="pub-results"></div>
       <div id="status-pub-result" class="status"></div>
     </div>
@@ -329,37 +251,24 @@ input::placeholder { color: var(--muted); }
 
   <!-- Sincronizar -->
   <div class="page" id="page-sincronizar">
-    <div class="page-header">
-      <h1>Sincronizar <span>stock y precios</span></h1>
-      <p>Actualizá los precios y stock de tu Tienda Nube con los datos actuales de ML.</p>
-    </div>
+    <div class="page-header"><h1>Sincronizar <span>stock y precios</span></h1><p>Actualizá precios y stock en Tienda Nube con los datos actuales de ML.</p></div>
     <div class="card">
       <div class="card-title"><div class="dot" style="background:var(--tn)"></div> Sincronizar cuenta</div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">
-        Esto actualizará el precio y stock de todos los productos en TN que tengan el SKU de ML (los que publicaste con esta herramienta).
-      </p>
-      <div class="acc-tabs" id="sync-acc-tabs"><div style="color:var(--muted);font-size:12px">Primero agregá cuentas en la sección Cuentas.</div></div>
-      <div style="margin-top:16px">
-        <button class="btn btn-tn" onclick="doSync()" id="sync-btn">🔄 Sincronizar ahora</button>
-      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Actualiza precio y stock de todos los productos en TN que tengan SKU de ML.</p>
+      <div class="acc-tabs" id="sync-acc-tabs"></div>
+      <button class="btn btn-tn" onclick="doSync()" id="sync-btn" style="margin-top:12px">🔄 Sincronizar ahora</button>
       <div id="status-sync" class="status"></div>
     </div>
     <div class="card" id="sync-results-card" style="display:none">
       <div class="card-title"><div class="dot"></div> Resultado</div>
-      <div class="progress-wrap">
-        <div class="progress-bg"><div class="progress-fill" id="sync-progress-fill"></div></div>
-        <div class="progress-text" id="sync-progress-text"></div>
-      </div>
+      <div class="progress-wrap"><div class="progress-bg"><div class="progress-fill" id="sync-progress-fill"></div></div><div class="progress-text" id="sync-progress-text"></div></div>
       <div class="results-list" id="sync-results"></div>
     </div>
   </div>
 
   <!-- Log -->
   <div class="page" id="page-log">
-    <div class="page-header">
-      <h1>Historial de <span>actividad</span></h1>
-      <p>Todas las publicaciones y sincronizaciones realizadas.</p>
-    </div>
+    <div class="page-header"><h1>Historial de <span>actividad</span></h1><p>Todas las publicaciones y sincronizaciones realizadas.</p></div>
     <div class="card">
       <div class="card-title"><div class="dot"></div> Log completo</div>
       <div class="log-list" id="full-log"><div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Sin actividad aún.</div></div>
@@ -369,45 +278,52 @@ input::placeholder { color: var(--muted); }
 </main>
 
 <script>
-  // ── Config ──────────────────────────────────────────────────────────────────
-  // When deployed on Railway, API is same origin. For local dev, change this.
-  const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
-
+  const API = '';
   let appState = { ml_accounts: [], tn_connected: false, tn_store_id: '', sync_log: [], last_sync: null };
-  let pubProducts = [];
-  let pubSelected = [];
-  let pubAccIdx = 0;
-  let syncAccIdx = 0;
+  let pubProducts = [], pubSelected = [], pubAccIdx = 0, syncAccIdx = 0;
 
-  // ── Nav ─────────────────────────────────────────────────────────────────────
+  // Check URL params for OAuth result
+  function checkURLParams() {
+    const params = new URLSearchParams(window.location.search);
+    const banner = document.getElementById('alert-banner');
+    if(params.get('success') === 'connected') {
+      banner.textContent = '✅ ¡Cuenta de MercadoLibre conectada exitosamente!';
+      banner.className = 'alert-banner show success';
+      setTimeout(() => banner.classList.remove('show'), 5000);
+    } else if(params.get('success') === 'reconnected') {
+      banner.textContent = '✅ ¡Cuenta de MercadoLibre reconectada!';
+      banner.className = 'alert-banner show success';
+      setTimeout(() => banner.classList.remove('show'), 5000);
+    } else if(params.get('error')) {
+      const msgs = { auth_failed: 'Error al autenticar con ML.', token_failed: 'No se pudo obtener el token.', max_accounts: 'Ya tenés 4 cuentas conectadas.' };
+      banner.textContent = '❌ ' + (msgs[params.get('error')] || 'Error desconocido.');
+      banner.className = 'alert-banner show error';
+    }
+    if(params.toString()) window.history.replaceState({}, '', '/');
+  }
+
   function showPage(name) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('page-' + name).classList.add('active');
-    const items = document.querySelectorAll('.nav-item');
     const pages = ['dashboard','cuentas','publicar','sincronizar','log'];
-    items[pages.indexOf(name)]?.classList.add('active');
+    document.querySelectorAll('.nav-item')[pages.indexOf(name)]?.classList.add('active');
     if(name === 'dashboard' || name === 'log') renderLog();
     if(name === 'publicar') renderPubTabs();
     if(name === 'sincronizar') renderSyncTabs();
   }
 
-  // ── State ───────────────────────────────────────────────────────────────────
   async function loadState() {
     try {
       const r = await fetch(API + '/api/state');
       appState = await r.json();
       updateUI();
-    } catch(e) {
-      console.error('Cannot reach API:', e);
-    }
+    } catch(e) { console.error('API error:', e); }
   }
 
   function updateUI() {
-    // Dots
     document.getElementById('ml-dot').className = 'conn-dot ' + (appState.ml_accounts.length > 0 ? 'on' : 'off');
     document.getElementById('tn-dot').className = 'conn-dot ' + (appState.tn_connected ? 'on' : 'off');
-    // Stats
     document.getElementById('stat-ml').textContent = appState.ml_accounts.length;
     document.getElementById('stat-tn').textContent = appState.tn_connected ? '✓' : '✗';
     document.getElementById('stat-logs').textContent = appState.sync_log.length;
@@ -415,9 +331,7 @@ input::placeholder { color: var(--muted); }
       const d = new Date(appState.last_sync * 1000);
       document.getElementById('stat-last').textContent = d.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'});
     }
-    // ML accounts list
     renderMLAccounts();
-    // TN current
     if(appState.tn_connected) {
       document.getElementById('tn-current').innerHTML = `<span style="color:var(--success)">✓ Conectada</span> — Store ID: <span style="font-family:'Space Mono',monospace;color:var(--tn)">${appState.tn_store_id}</span>`;
     }
@@ -428,17 +342,18 @@ input::placeholder { color: var(--muted); }
 
   function renderMLAccounts() {
     const el = document.getElementById('ml-accounts-list');
-    if(!appState.ml_accounts.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">No hay cuentas agregadas.</div>'; return; }
+    if(!appState.ml_accounts.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:12px;margin-bottom:12px">No hay cuentas conectadas aún.</div>';
+      return;
+    }
     el.innerHTML = appState.ml_accounts.map((a, i) => `
       <div class="account-item">
-        <div class="account-avatar ml">${a.name[0].toUpperCase()}</div>
+        <div class="account-avatar">${a.name[0].toUpperCase()}</div>
         <div class="account-info">
           <div class="account-name">${a.name}</div>
           <div class="account-id">ID: ${a.user_id}</div>
         </div>
-        <div class="account-actions">
-          <button class="btn btn-danger btn-sm" onclick="removeML(${i})">✕ Quitar</button>
-        </div>
+        <button class="btn btn-danger btn-sm" onclick="removeML(${i})">✕ Quitar</button>
       </div>
     `).join('');
   }
@@ -447,71 +362,39 @@ input::placeholder { color: var(--muted); }
     const el = document.getElementById('pub-acc-tabs');
     const btn = document.getElementById('load-pub-btn');
     if(!appState.ml_accounts.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:12px">Primero agregá cuentas en la sección Cuentas.</div>';
-      btn.style.display = 'none';
-      return;
+      el.innerHTML = '<div style="color:var(--muted);font-size:12px">Primero conectá cuentas en la sección Cuentas.</div>';
+      btn.style.display = 'none'; return;
     }
-    el.innerHTML = appState.ml_accounts.map((a, i) => `
-      <div class="acc-tab ${i === pubAccIdx ? 'active' : ''}" onclick="selectPubAcc(${i})">${a.name}</div>
-    `).join('');
+    el.innerHTML = appState.ml_accounts.map((a, i) => `<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selectPubAcc(${i})">${a.name}</div>`).join('');
     btn.style.display = 'inline-flex';
   }
 
   function renderSyncTabs() {
     const el = document.getElementById('sync-acc-tabs');
-    if(!appState.ml_accounts.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:12px">Primero agregá cuentas en la sección Cuentas.</div>';
-      return;
-    }
-    el.innerHTML = appState.ml_accounts.map((a, i) => `
-      <div class="acc-tab ${i === syncAccIdx ? 'active' : ''}" onclick="selectSyncAcc(${i})">${a.name}</div>
-    `).join('');
+    if(!appState.ml_accounts.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Primero conectá cuentas en la sección Cuentas.</div>'; return; }
+    el.innerHTML = appState.ml_accounts.map((a, i) => `<div class="acc-tab ${i===syncAccIdx?'active':''}" onclick="selectSyncAcc(${i})">${a.name}</div>`).join('');
   }
 
   function selectPubAcc(i) { pubAccIdx = i; renderPubTabs(); document.getElementById('pub-products-card').style.display = 'none'; }
   function selectSyncAcc(i) { syncAccIdx = i; renderSyncTabs(); }
 
   function renderLog() {
-    const logs = [...(appState.sync_log || [])].reverse().slice(0, 50);
+    const logs = [...(appState.sync_log||[])].reverse().slice(0,50);
     const html = logs.length ? logs.map(l => {
-      const d = new Date(l.ts * 1000);
-      const time = d.toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      return `<div class="log-item">
-        <span class="lts">${time}</span>
-        <span class="laction ${l.action}">${l.action}</span>
-        <span class="ltitle">${l.product}</span>
-        <span class="lstatus ${l.status}">${l.status === 'ok' ? '✓' : '✗'}</span>
-      </div>`;
+      const d = new Date(l.ts*1000);
+      const time = d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div class="log-item"><span class="lts">${time}</span><span class="laction ${l.action}">${l.action}</span><span class="ltitle">${l.product}</span><span class="lstatus ${l.status}">${l.status==='ok'?'✓':'✗'}</span></div>`;
     }).join('') : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Sin actividad aún.</div>';
     document.getElementById('dash-log').innerHTML = html;
     document.getElementById('full-log').innerHTML = html;
   }
 
-  // ── Status helpers ──────────────────────────────────────────────────────────
   function showSt(id, msg, type) { const el = document.getElementById(id); el.innerHTML = msg; el.className = 'status show ' + type; }
   function hideSt(id) { document.getElementById(id).className = 'status'; }
 
-  // ── ML accounts ─────────────────────────────────────────────────────────────
-  async function addML() {
-    const name = document.getElementById('ml-name').value.trim();
-    const uid  = document.getElementById('ml-uid').value.trim();
-    const tok  = document.getElementById('ml-tok').value.trim();
-    if(!name || !uid || !tok) { showSt('status-ml','⚠️ Completá todos los campos.','error'); return; }
-    try {
-      const r = await fetch(API + '/api/ml/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name,user_id:uid,token:tok}) });
-      const d = await r.json();
-      if(!r.ok) throw new Error(d.detail || 'Error');
-      showSt('status-ml', '✓ Cuenta agregada correctamente.', 'success');
-      document.getElementById('ml-name').value = '';
-      document.getElementById('ml-uid').value = '';
-      document.getElementById('ml-tok').value = '';
-      await loadState();
-    } catch(e) { showSt('status-ml', '❌ ' + e.message, 'error'); }
-  }
-
   async function removeML(i) {
     if(!confirm('¿Quitar esta cuenta?')) return;
-    await fetch(API + '/api/ml/' + i, { method: 'DELETE' });
+    await fetch(API + '/api/ml/' + i, {method:'DELETE'});
     await loadState();
   }
 
@@ -520,7 +403,7 @@ input::placeholder { color: var(--muted); }
     const tok = document.getElementById('tn-tok').value.trim();
     if(!sid || !tok) { showSt('status-tn','⚠️ Completá Store ID y Token.','error'); return; }
     try {
-      const r = await fetch(API + '/api/tn/connect', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({store_id:sid,token:tok}) });
+      const r = await fetch(API + '/api/tn/connect', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({store_id:sid,token:tok})});
       const d = await r.json();
       if(!r.ok) throw new Error(d.detail || 'Error');
       showSt('status-tn', '✓ Tienda Nube conectada.', 'success');
@@ -528,7 +411,6 @@ input::placeholder { color: var(--muted); }
     } catch(e) { showSt('status-tn', '❌ ' + e.message, 'error'); }
   }
 
-  // ── Publish ─────────────────────────────────────────────────────────────────
   async function loadPublishProducts() {
     if(!appState.ml_accounts.length) return;
     const btn = document.getElementById('load-pub-btn');
@@ -539,7 +421,7 @@ input::placeholder { color: var(--muted); }
     try {
       const r = await fetch(API + '/api/ml/' + pubAccIdx + '/products');
       const d = await r.json();
-      if(!r.ok) throw new Error(d.detail || 'Error');
+      if(!r.ok) throw new Error(d.detail || 'Error al cargar. El token puede haber vencido — reconectá la cuenta en Cuentas.');
       pubProducts = d.products;
       pubSelected = [];
       renderPubProducts();
@@ -562,7 +444,7 @@ input::placeholder { color: var(--muted); }
       card.onclick = () => togglePubProduct(idx, card);
       const imgUrl = p.pictures?.[0]?.url || p.thumbnail || '';
       const imgHtml = imgUrl ? `<img src="${imgUrl}" onerror="this.style.display='none'" />` : `<div class="pimg-ph">📦</div>`;
-      const price = new Intl.NumberFormat('es-AR', {style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
+      const price = new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
       card.innerHTML = `<div class="pcheck">✓</div>${imgHtml}<div class="ptitle">${p.title}</div><div class="pprice">${price}</div><div class="pstock">Stock: ${p.available_quantity??'—'}</div>`;
       grid.appendChild(card);
     });
@@ -578,10 +460,7 @@ input::placeholder { color: var(--muted); }
     const cards = document.querySelectorAll('#pub-products-grid .pcard');
     const allSel = pubSelected.length === pubProducts.length;
     pubSelected = [];
-    cards.forEach((card, idx) => {
-      if(!allSel) { pubSelected.push(idx); card.classList.add('selected'); }
-      else card.classList.remove('selected');
-    });
+    cards.forEach((card, idx) => { if(!allSel) { pubSelected.push(idx); card.classList.add('selected'); } else card.classList.remove('selected'); });
     updatePubCount();
   }
 
@@ -591,25 +470,15 @@ input::placeholder { color: var(--muted); }
   }
 
   async function doPublish() {
-    if(!appState.tn_connected) { showSt('status-pub-load','⚠️ Primero conectá Tienda Nube en la sección Cuentas.','error'); return; }
-    const acc = appState.ml_accounts[pubAccIdx];
-    // We need the token — re-fetch isn't stored in state for security. Prompt user.
-    const token = prompt(`Ingresá el Access Token de ML para la cuenta "${acc.name}":`);
-    if(!token) return;
-
+    if(!appState.tn_connected) { showSt('status-pub-load','⚠️ Primero conectá Tienda Nube.','error'); return; }
     const itemIds = pubSelected.map(i => pubProducts[i].id);
     document.getElementById('pub-progress-card').style.display = 'block';
     document.getElementById('pub-results').innerHTML = '';
     document.getElementById('pub-progress-fill').style.width = '0%';
     document.getElementById('pub-progress-text').textContent = 'Publicando...';
     hideSt('status-pub-result');
-
     try {
-      const r = await fetch(API + '/api/publish', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({item_ids: itemIds, ml_token: token})
-      });
+      const r = await fetch(API + '/api/publish', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({item_ids: itemIds, ml_account_index: pubAccIdx})});
       const d = await r.json();
       const results = d.results || [];
       document.getElementById('pub-progress-fill').style.width = '100%';
@@ -620,19 +489,17 @@ input::placeholder { color: var(--muted); }
       results.forEach(r => {
         const item = document.createElement('div');
         item.className = 'ritem ' + (r.ok ? 'ok' : 'fail');
-        item.innerHTML = `<span>${r.ok ? '✅' : '❌'}</span><span class="rtitle">${r.title || r.id}</span><span class="rmsg">${r.msg}</span>`;
+        item.innerHTML = `<span>${r.ok?'✅':'❌'}</span><span class="rtitle">${r.title||r.id}</span><span class="rmsg">${r.msg}</span>`;
         list.appendChild(item);
       });
       if(ok > 0) showSt('status-pub-result', `✓ ${ok} producto(s) publicados en Tienda Nube.`, 'success');
-      if(fail > 0) showSt('status-pub-result', `⚠️ ${fail} producto(s) fallaron.`, 'error');
+      if(fail > 0) showSt('status-pub-result', `⚠️ ${fail} con error.`, 'error');
       await loadState();
     } catch(e) { showSt('status-pub-result', '❌ Error: ' + e.message, 'error'); }
   }
 
-  // ── Sync ────────────────────────────────────────────────────────────────────
   async function doSync() {
     if(!appState.tn_connected) { showSt('status-sync','⚠️ Primero conectá Tienda Nube.','error'); return; }
-    if(!appState.ml_accounts.length) { showSt('status-sync','⚠️ No hay cuentas de ML.','error'); return; }
     const btn = document.getElementById('sync-btn');
     btn.innerHTML = '<span class="spinner"></span> Sincronizando...';
     btn.disabled = true;
@@ -641,9 +508,8 @@ input::placeholder { color: var(--muted); }
     document.getElementById('sync-results').innerHTML = '';
     document.getElementById('sync-progress-fill').style.width = '0%';
     document.getElementById('sync-progress-text').textContent = 'Sincronizando...';
-
     try {
-      const r = await fetch(API + '/api/sync/' + syncAccIdx, { method:'POST' });
+      const r = await fetch(API + '/api/sync/' + syncAccIdx, {method:'POST'});
       const d = await r.json();
       const results = d.results || [];
       document.getElementById('sync-progress-fill').style.width = '100%';
@@ -653,20 +519,19 @@ input::placeholder { color: var(--muted); }
       results.forEach(r => {
         const item = document.createElement('div');
         item.className = 'ritem ' + (r.ok ? 'ok' : 'fail');
-        item.innerHTML = `<span>${r.ok ? '✅' : '⚠️'}</span><span class="rtitle">${r.title}</span><span class="rmsg">${r.action}</span>`;
+        item.innerHTML = `<span>${r.ok?'✅':'⚠️'}</span><span class="rtitle">${r.title}</span><span class="rmsg">${r.action}</span>`;
         list.appendChild(item);
       });
-      showSt('status-sync', `✓ Sincronización completa: ${ok} productos actualizados.`, 'success');
+      showSt('status-sync', `✓ Sincronización completa: ${ok} actualizados.`, 'success');
       await loadState();
     } catch(e) { showSt('status-sync', '❌ Error: ' + e.message, 'error'); }
-
     btn.innerHTML = '🔄 Sincronizar ahora';
     btn.disabled = false;
   }
 
-  // ── Init ────────────────────────────────────────────────────────────────────
+  checkURLParams();
   loadState();
-  setInterval(loadState, 30000); // refresh every 30s
+  setInterval(loadState, 30000);
 </script>
 </body>
 </html>
