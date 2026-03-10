@@ -249,7 +249,7 @@ async def sync_account(index: int):
     save_data(state)
     return {"results": results, "total": len(results)}
 
-# ── Serve frontend ─────────────────────────────────────────────────────────────
-frontend_path = Path("../frontend")
+# Serve frontend
+frontend_path = Path("frontend")
 if frontend_path.exists():
     app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
