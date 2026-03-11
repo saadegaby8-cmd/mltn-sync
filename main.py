@@ -9,6 +9,7 @@ import os
 import time
 import secrets
 from pathlib import Path
+import redis as redislib
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -21,17 +22,41 @@ ADMIN_EMAIL      = os.getenv("ADMIN_EMAIL", "admin@sync.com")
 ADMIN_PASSWORD   = os.getenv("ADMIN_PASSWORD", "sync1234")
 ML_BASE = "https://api.mercadolibre.com"
 TN_BASE = "https://api.tiendanube.com/v1"
-DATA_FILE = "data.json"
 SESSIONS = {}
+REDIS_KEY = "mltn_sync_data"
+
+def get_redis():
+    url = os.getenv("REDIS_URL")
+    if not url:
+        return None
+    try:
+        r = redislib.from_url(url, decode_responses=True)
+        r.ping()
+        return r
+    except:
+        return None
 
 def load_data():
-    if Path(DATA_FILE).exists():
-        with open(DATA_FILE) as f:
-            return json.load(f)
+    r = get_redis()
+    if r:
+        try:
+            raw = r.get(REDIS_KEY)
+            if raw:
+                return json.loads(raw)
+        except:
+            pass
     return {"ml_accounts": [], "tn_account": {}, "sync_log": [], "last_sync": None, "links": []}
 
 def save_data(d):
-    with open(DATA_FILE, "w") as f:
+    r = get_redis()
+    if r:
+        try:
+            r.set(REDIS_KEY, json.dumps(d))
+            return
+        except:
+            pass
+    # fallback to file
+    with open("data.json", "w") as f:
         json.dump(d, f, indent=2)
 
 state = load_data()
@@ -47,6 +72,29 @@ def get_session(request: Request):
         raise HTTPException(status_code=401, detail="No autorizado.")
     SESSIONS[token] = time.time() + 86400 * 7
     return token
+
+
+@app.get("/test/{index}")
+async def test_ml(index: int, token: str = ""):
+    """Public test - pass token as query param"""
+    if not token and index < len(state["ml_accounts"]):
+        token = state["ml_accounts"][index].get("token", "")
+    if not token:
+        return {"error": "no token"}
+    async with httpx.AsyncClient(timeout=15) as client:
+        r1 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        me = r1.json()
+        user_id = str(me.get("id", ""))
+        r2 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?search_type=scan&access_token={token}")
+        scan = r2.json()
+        r3 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit=5&offset=0&access_token={token}")
+        normal = r3.json()
+    return {
+        "user_id": user_id,
+        "nickname": me.get("nickname"),
+        "scan_result": scan,
+        "normal_result": normal
+    }
 
 @app.get("/health")
 def health():
@@ -419,6 +467,20 @@ async def duplicate_products(request: Request, _: str = Depends(get_session)):
             except Exception as e:
                 results.append({"id": item_id, "ok": False, "msg": str(e)})
     return {"results": results}
+
+
+@app.get("/test-ml/{user_id}/{token}")
+async def test_ml(user_id: str, token: str):
+    """Public test - shows raw ML response"""
+    async with httpx.AsyncClient(timeout=15) as client:
+        r1 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        r2 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit=5&offset=0&access_token={token}")
+        r3 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?search_type=scan&access_token={token}")
+    return {
+        "me": r1.json(),
+        "search_offset": r2.json(),
+        "search_scan": r3.json()
+    }
 
 frontend_path = Path("frontend")
 if frontend_path.exists():
