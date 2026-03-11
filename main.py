@@ -22,16 +22,48 @@ ADMIN_PASSWORD   = os.getenv("ADMIN_PASSWORD", "sync1234")
 ML_BASE = "https://api.mercadolibre.com"
 TN_BASE = "https://api.tiendanube.com/v1"
 SESSIONS = {}
-DATA_FILE = "data.json"
+SESSIONS = {}
+REDIS_URL = os.getenv("REDIS_URL", "")
+REDIS_KEY = "mltn:data"
+_rclient = None
+
+def get_redis():
+    global _rclient
+    if _rclient:
+        return _rclient
+    if not REDIS_URL:
+        return None
+    try:
+        import redis
+        _rclient = redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=3)
+        _rclient.ping()
+        return _rclient
+    except Exception:
+        return None
 
 def load_data():
-    if Path(DATA_FILE).exists():
-        with open(DATA_FILE) as f:
+    r = get_redis()
+    if r:
+        try:
+            raw = r.get(REDIS_KEY)
+            if raw:
+                return json.loads(raw)
+        except Exception:
+            pass
+    if Path("data.json").exists():
+        with open("data.json") as f:
             return json.load(f)
     return {"ml_accounts": [], "tn_account": {}, "sync_log": [], "last_sync": None, "links": []}
 
 def save_data(d):
-    with open(DATA_FILE, "w") as f:
+    r = get_redis()
+    if r:
+        try:
+            r.set(REDIS_KEY, json.dumps(d))
+            return
+        except Exception:
+            pass
+    with open("data.json", "w") as f:
         json.dump(d, f, indent=2)
 
 state = load_data()
