@@ -57,6 +57,10 @@ def get_session(request: Request):
     SESSIONS[token] = time.time() + 86400 * 7
     return token
 
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 @app.post("/api/login")
 def login(req: LoginRequest):
     if req.email.strip().lower() != ADMIN_EMAIL.lower() or req.password != ADMIN_PASSWORD:
