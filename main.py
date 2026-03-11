@@ -225,7 +225,7 @@ def remove_ml_account(index: int, _: str = Depends(get_session)):
 
 @app.post("/api/tn/connect")
 def connect_tn(acc: TNAccount, _: str = Depends(get_session)):
-    state["tn_account"] = acc.dict()
+    state["tn_account"] = acc.model_dump()
     save_data(state)
     return {"ok": True}
 
