@@ -135,7 +135,7 @@ async def get_valid_token(index: int) -> str:
 async def ml_get_all_items(user_id: str, token: str) -> list:
     all_ids = []
     offset = 0
-    limit = 100
+    limit = 50
     async with httpx.AsyncClient(timeout=30) as client:
         while True:
             r = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit={limit}&offset={offset}&access_token={token}")
@@ -194,6 +194,19 @@ async def connect_tn(request: Request, _: str = Depends(get_session)):
     state["tn_account"] = {"store_id": body.get("store_id",""), "token": body.get("token","")}
     save_data(state)
     return {"ok": True}
+
+@app.get("/api/ml/{index}/debug")
+async def debug_ml(index: int, _: str = Depends(get_session)):
+    if index < 0 or index >= len(state["ml_accounts"]):
+        raise HTTPException(status_code=404)
+    acc = state["ml_accounts"][index]
+    token = await get_valid_token(index)
+    async with httpx.AsyncClient(timeout=15) as client:
+        r1 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        me = r1.json()
+        r2 = await client.get(f"{ML_BASE}/users/{acc['user_id']}/items/search?limit=10&offset=0&access_token={token}")
+        search = r2.json()
+    return {"saved_user_id": acc["user_id"], "token_expired": time.time() > acc.get("token_expiry", 0), "me": me, "search": search}
 
 @app.get("/api/ml/{index}/products")
 async def get_ml_products(index: int, _: str = Depends(get_session)):
