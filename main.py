@@ -9,7 +9,6 @@ import os
 import time
 import secrets
 from pathlib import Path
-import redis as redislib
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -23,40 +22,16 @@ ADMIN_PASSWORD   = os.getenv("ADMIN_PASSWORD", "sync1234")
 ML_BASE = "https://api.mercadolibre.com"
 TN_BASE = "https://api.tiendanube.com/v1"
 SESSIONS = {}
-REDIS_KEY = "mltn_sync_data"
-
-def get_redis():
-    url = os.getenv("REDIS_URL")
-    if not url:
-        return None
-    try:
-        r = redislib.from_url(url, decode_responses=True)
-        r.ping()
-        return r
-    except:
-        return None
+DATA_FILE = "data.json"
 
 def load_data():
-    r = get_redis()
-    if r:
-        try:
-            raw = r.get(REDIS_KEY)
-            if raw:
-                return json.loads(raw)
-        except:
-            pass
+    if Path(DATA_FILE).exists():
+        with open(DATA_FILE) as f:
+            return json.load(f)
     return {"ml_accounts": [], "tn_account": {}, "sync_log": [], "last_sync": None, "links": []}
 
 def save_data(d):
-    r = get_redis()
-    if r:
-        try:
-            r.set(REDIS_KEY, json.dumps(d))
-            return
-        except:
-            pass
-    # fallback to file
-    with open("data.json", "w") as f:
+    with open(DATA_FILE, "w") as f:
         json.dump(d, f, indent=2)
 
 state = load_data()
