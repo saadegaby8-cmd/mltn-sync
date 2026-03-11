@@ -160,9 +160,12 @@ async def ml_get_all_items(user_id: str, token: str) -> list:
     # First verify token is valid
     async with httpx.AsyncClient(timeout=15) as client:
         me_r = await client.get(f"{ML_BASE}/users/me?access_token={token}")
-        me = me_r.json()
-        if "error" in me:
-            raise HTTPException(status_code=401, detail="Token invalido. Reconectá la cuenta desde Conectar canales.")
+        try:
+            me = me_r.json()
+        except Exception:
+            raise HTTPException(status_code=401, detail=f"ML no respondió (status {me_r.status_code}). Reconectá la cuenta.")
+        if "error" in me or "id" not in me:
+            raise HTTPException(status_code=401, detail=f"Token invalido: {me.get('message','?')}. Reconectá la cuenta.")
         real_user_id = str(me["id"])
     # Try scroll/scan first (best for large catalogs)
     async with httpx.AsyncClient(timeout=30) as client:
