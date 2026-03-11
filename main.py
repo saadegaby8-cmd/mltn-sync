@@ -57,12 +57,12 @@ async def test_ml(index: int, token: str = ""):
     if not token:
         return {"error": "no token"}
     async with httpx.AsyncClient(timeout=15) as client:
-        r1 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        r1 = await client.get(f"{ML_BASE}/users/me")
         me = r1.json()
         user_id = str(me.get("id", ""))
-        r2 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?search_type=scan&access_token={token}")
+        r2 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?search_type=scan")
         scan = r2.json()
-        r3 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit=5&offset=0&access_token={token}")
+        r3 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit=5&offset=0")
         normal = r3.json()
     return {
         "user_id": user_id,
@@ -115,7 +115,7 @@ async def ml_callback(code: str = None, error: str = None):
     user_id = str(td.get("user_id", ""))
     expires_in = td.get("expires_in", 21600)
     async with httpx.AsyncClient(timeout=10) as client:
-        ur = await client.get(f"{ML_BASE}/users/{user_id}?access_token={access_token}")
+        ur = await client.get(f"{ML_BASE}/users/{user_id}")
         user_info = ur.json()
     nickname = user_info.get("nickname", f"Cuenta {len(state['ml_accounts'])+1}")
     for acc in state["ml_accounts"]:
@@ -155,27 +155,35 @@ async def get_valid_token(index: int) -> str:
             pass
     return acc["token"]
 
+def ml_headers(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
 async def ml_get_all_items(user_id: str, token: str) -> list:
     all_ids = []
-    # First verify token is valid
+    hdrs = ml_headers(token)
+    # Verify token using Authorization header
     async with httpx.AsyncClient(timeout=15) as client:
-        me_r = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        me_r = await client.get(f"{ML_BASE}/users/me", headers=hdrs)
+        if me_r.status_code != 200:
+            raise HTTPException(status_code=401, detail=f"Token invalido (status {me_r.status_code}). Reconectá la cuenta.")
         try:
             me = me_r.json()
         except Exception:
-            raise HTTPException(status_code=401, detail=f"ML no respondió (status {me_r.status_code}). Reconectá la cuenta.")
-        if "error" in me or "id" not in me:
+            raise HTTPException(status_code=401, detail="ML no respondió. Reconectá la cuenta.")
+        if "id" not in me:
             raise HTTPException(status_code=401, detail=f"Token invalido: {me.get('message','?')}. Reconectá la cuenta.")
         real_user_id = str(me["id"])
-    # Try scroll/scan first (best for large catalogs)
+    # Scan for large catalogs
     async with httpx.AsyncClient(timeout=30) as client:
         scroll_id = None
         for _ in range(100):
             if scroll_id:
-                url = f"{ML_BASE}/users/{real_user_id}/items/search?search_type=scan&scroll_id={scroll_id}&access_token={token}"
+                url = f"{ML_BASE}/users/{real_user_id}/items/search?search_type=scan&scroll_id={scroll_id}"
             else:
-                url = f"{ML_BASE}/users/{real_user_id}/items/search?search_type=scan&access_token={token}"
-            r = await client.get(url)
+                url = f"{ML_BASE}/users/{real_user_id}/items/search?search_type=scan"
+            r = await client.get(url, headers=hdrs)
+            if r.status_code != 200:
+                break
             data = r.json()
             if "error" in data:
                 break
@@ -187,16 +195,20 @@ async def ml_get_all_items(user_id: str, token: str) -> list:
             if not scroll_id:
                 break
             await asyncio.sleep(0.15)
-    # Fallback: simple pagination
+    # Fallback: offset pagination
     if not all_ids:
         async with httpx.AsyncClient(timeout=30) as client:
             offset = 0
             while True:
-                r = await client.get(f"{ML_BASE}/users/{real_user_id}/items/search?limit=50&offset={offset}&access_token={token}")
+                r = await client.get(f"{ML_BASE}/users/{real_user_id}/items/search?limit=50&offset={offset}", headers=hdrs)
+                if r.status_code != 200:
+                    if offset == 0:
+                        raise HTTPException(status_code=400, detail=f"Error ML {r.status_code}: {r.text[:300]}")
+                    break
                 data = r.json()
                 if "error" in data:
                     if offset == 0:
-                        raise HTTPException(status_code=400, detail=f"Error cargando productos: {data.get('message', str(data))}")
+                        raise HTTPException(status_code=400, detail=f"Error ML: {data.get('message', str(data))}")
                     break
                 ids = data.get("results", [])
                 if not ids:
@@ -213,7 +225,7 @@ async def ml_get_all_items(user_id: str, token: str) -> list:
     async with httpx.AsyncClient(timeout=60) as client:
         for i in range(0, len(all_ids), 20):
             batch = all_ids[i:i+20]
-            r = await client.get(f"{ML_BASE}/items?ids={','.join(batch)}&access_token={token}")
+            r = await client.get(f"{ML_BASE}/items?ids={','.join(batch)}", headers=ml_headers(token))
             for item in r.json():
                 if item.get("code") == 200:
                     body = item["body"]
@@ -260,9 +272,9 @@ async def debug_ml(index: int, _: str = Depends(get_session)):
     acc = state["ml_accounts"][index]
     token = await get_valid_token(index)
     async with httpx.AsyncClient(timeout=15) as client:
-        r1 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        r1 = await client.get(f"{ML_BASE}/users/me")
         me = r1.json()
-        r2 = await client.get(f"{ML_BASE}/users/{acc['user_id']}/items/search?limit=10&offset=0&access_token={token}")
+        r2 = await client.get(f"{ML_BASE}/users/{acc['user_id']}/items/search?limit=10&offset=0")
         search = r2.json()
     return {"saved_user_id": acc["user_id"], "token_expired": time.time() > acc.get("token_expiry", 0), "me": me, "search": search}
 
@@ -339,12 +351,12 @@ async def publish_products(request: Request, _: str = Depends(get_session)):
     for item_id in item_ids:
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                r = await client.get(f"{ML_BASE}/items/{item_id}?access_token={token}")
+                r = await client.get(f"{ML_BASE}/items/{item_id}", headers=ml_headers(token))
                 product = r.json()
                 if "error" in product:
                     results.append({"id": item_id, "ok": False, "msg": product.get("message","Error ML")})
                     continue
-                dr = await client.get(f"{ML_BASE}/items/{item_id}/description?access_token={token}")
+                dr = await client.get(f"{ML_BASE}/items/{item_id}/description", headers=ml_headers(token))
                 description = dr.json().get("plain_text", "")
                 variations = product.get("variations", [])
                 if variations:
@@ -401,7 +413,7 @@ async def sync_manual(_: str = Depends(get_session)):
         token = await get_valid_token(acc_idx)
         try:
             async with httpx.AsyncClient(timeout=20) as client:
-                r = await client.get(f"{ML_BASE}/items/{link['ml_item_id']}?access_token={token}")
+                r = await client.get(f"{ML_BASE}/items/{link['ml_item_id']}", headers=ml_headers(token))
                 ml_item = r.json()
                 if "error" in ml_item:
                     results.append({"title": link["ml_item_id"], "ok": False, "action": ml_item.get("message","Error ML")})
@@ -451,7 +463,7 @@ async def duplicate_products(request: Request, _: str = Depends(get_session)):
     async with httpx.AsyncClient(timeout=30) as client:
         for item_id in item_ids:
             try:
-                r = await client.get(f"{ML_BASE}/items/{item_id}?access_token={from_token}")
+                r = await client.get(f"{ML_BASE}/items/{item_id}", headers=ml_headers(from_token))
                 item = r.json()
                 if "error" in item:
                     results.append({"id": item_id, "ok": False, "msg": item.get("message","Error")})
@@ -469,7 +481,7 @@ async def duplicate_products(request: Request, _: str = Depends(get_session)):
                 }
                 if item.get("variations"):
                     payload["variations"] = item["variations"]
-                r2 = await client.post(f"{ML_BASE}/items?access_token={to_token}", json=payload)
+                r2 = await client.post(f"{ML_BASE}/items", headers=ml_headers(to_token), json=payload)
                 ok = r2.status_code in (200, 201)
                 msg = "Duplicado" if ok else r2.json().get("message", f"Error {r2.status_code}")
                 results.append({"id": item_id, "title": item.get("title",""), "ok": ok, "msg": msg})
@@ -483,9 +495,9 @@ async def duplicate_products(request: Request, _: str = Depends(get_session)):
 async def test_ml(user_id: str, token: str):
     """Public test - shows raw ML response"""
     async with httpx.AsyncClient(timeout=15) as client:
-        r1 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
-        r2 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit=5&offset=0&access_token={token}")
-        r3 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?search_type=scan&access_token={token}")
+        r1 = await client.get(f"{ML_BASE}/users/me")
+        r2 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit=5&offset=0")
+        r3 = await client.get(f"{ML_BASE}/users/{user_id}/items/search?search_type=scan")
     return {
         "me": r1.json(),
         "search_offset": r2.json(),
