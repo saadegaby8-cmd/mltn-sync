@@ -182,21 +182,53 @@ async def get_valid_token(index: int) -> str:
 
 async def ml_get_all_items(user_id: str, token: str) -> list:
     all_ids = []
-    offset = 0
-    limit = 50
+    # First verify token is valid
+    async with httpx.AsyncClient(timeout=15) as client:
+        me_r = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        me = me_r.json()
+        if "error" in me:
+            raise HTTPException(status_code=401, detail="Token invalido. Reconectá la cuenta desde Conectar canales.")
+        real_user_id = str(me["id"])
+    # Try scroll/scan first (best for large catalogs)
     async with httpx.AsyncClient(timeout=30) as client:
-        while True:
-            r = await client.get(f"{ML_BASE}/users/{user_id}/items/search?limit={limit}&offset={offset}&access_token={token}")
+        scroll_id = None
+        for _ in range(100):
+            if scroll_id:
+                url = f"{ML_BASE}/users/{real_user_id}/items/search?search_type=scan&scroll_id={scroll_id}&access_token={token}"
+            else:
+                url = f"{ML_BASE}/users/{real_user_id}/items/search?search_type=scan&access_token={token}"
+            r = await client.get(url)
             data = r.json()
             if "error" in data:
-                raise HTTPException(status_code=400, detail=data.get("message", data["error"]))
-            ids = data.get("results", [])
-            all_ids.extend(ids)
-            total = data.get("paging", {}).get("total", 0)
-            offset += limit
-            if offset >= total or not ids:
                 break
-            await asyncio.sleep(0.1)
+            ids = data.get("results", [])
+            if not ids:
+                break
+            all_ids.extend(ids)
+            scroll_id = data.get("scroll_id")
+            if not scroll_id:
+                break
+            await asyncio.sleep(0.15)
+    # Fallback: simple pagination
+    if not all_ids:
+        async with httpx.AsyncClient(timeout=30) as client:
+            offset = 0
+            while True:
+                r = await client.get(f"{ML_BASE}/users/{real_user_id}/items/search?limit=50&offset={offset}&access_token={token}")
+                data = r.json()
+                if "error" in data:
+                    if offset == 0:
+                        raise HTTPException(status_code=400, detail=f"Error cargando productos: {data.get('message', str(data))}")
+                    break
+                ids = data.get("results", [])
+                if not ids:
+                    break
+                all_ids.extend(ids)
+                total = data.get("paging", {}).get("total", 0)
+                offset += 50
+                if offset >= total:
+                    break
+                await asyncio.sleep(0.15)
     if not all_ids:
         return []
     products = []
