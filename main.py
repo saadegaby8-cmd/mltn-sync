@@ -71,6 +71,29 @@ async def test_ml(index: int, token: str = ""):
         "normal_result": normal
     }
 
+
+@app.get("/diag")
+async def diag():
+    """Public diagnostic - shows ML API response"""
+    if not state["ml_accounts"]:
+        return {"error": "No hay cuentas conectadas"}
+    acc = state["ml_accounts"][0]
+    token = acc.get("token", "")
+    result = {}
+    async with httpx.AsyncClient(timeout=15) as client:
+        # Test with Bearer header
+        r1 = await client.get(f"{ML_BASE}/users/me", headers={"Authorization": f"Bearer {token}"})
+        result["bearer_status"] = r1.status_code
+        result["bearer_body"] = r1.text[:500]
+        # Test with access_token param
+        r2 = await client.get(f"{ML_BASE}/users/me?access_token={token}")
+        result["param_status"] = r2.status_code
+        result["param_body"] = r2.text[:500]
+        result["token_preview"] = token[:20] + "..." if token else "EMPTY"
+        result["token_expiry"] = acc.get("token_expiry", 0)
+        result["token_expired"] = __import__("time").time() > acc.get("token_expiry", 0)
+    return result
+
 @app.get("/health")
 def health():
     return {"ok": True}
