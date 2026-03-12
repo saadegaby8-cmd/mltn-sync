@@ -687,7 +687,7 @@ function renderSyncInfo(){
   document.getElementById('sync-links-info').innerHTML=n?`<span style="color:#00a381;font-weight:600">✓ ${n} enlace(s) configurado(s)</span>`:'<span style="color:#e17055">⚠ No hay enlaces configurados. Creálos desde el Panel de productos.</span>';
 }
 
-function showMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg;el.className='msg show '+type;}
+function showMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg;el.className='msg show '+(type==='info'?'inf':type);}
 function hideMsg(id){document.getElementById(id).className='msg';}
 
 async function removeML(i){if(!confirm('¿Quitar esta cuenta?'))return;await fetch('/api/ml/'+i,{method:'DELETE',headers:hdr()});await loadState();}
@@ -709,19 +709,69 @@ function renderProdTabs(){
 }
 function selProdAcc(i){prodAccIdx=i;renderProdTabs();}
 
+let syncPollInterval=null;
 async function loadProdProds(){
   const btn=document.getElementById('load-prod-btn');
   btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-prod');
   try{
     const r=await fetch('/api/ml/'+prodAccIdx+'/products',{headers:hdr()});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error. Token vencido — reconectá la cuenta.');
+    if(!r.ok)throw new Error(d.detail||'Error');
+    if(!d.synced){
+      // No hay productos sincronizados — iniciar sincronización
+      showMsg('msg-prod','⏳ Productos no sincronizados. Iniciando sincronización con MercadoLibre...','info');
+      await startMLSync();
+      return;
+    }
     prodProds=d.products;prodSel=[];prodPg=0;prodSF='todas';
     document.getElementById('prod-q').value='';
     document.querySelectorAll('#page-productos .fpill').forEach((b,i)=>b.classList.toggle('active',i===0));
+    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
     applyProdF();
   }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
   btn.innerHTML='Cargar';btn.disabled=false;
+}
+
+async function startMLSync(){
+  const btn=document.getElementById('load-prod-btn');
+  try{
+    const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error al iniciar');
+    showMsg('msg-prod','⏳ Sincronizando productos con MercadoLibre. Esto puede tardar varios minutos con catálogos grandes...','info');
+    btn.innerHTML='⏳ Sincronizando...';btn.disabled=true;
+    // Polling cada 5 segundos
+    if(syncPollInterval) clearInterval(syncPollInterval);
+    syncPollInterval=setInterval(async()=>{
+      try{
+        const sr=await fetch('/api/ml/'+prodAccIdx+'/sync/status',{headers:hdr()});
+        const sd=await sr.json();
+        const st=sd.status||{};
+        if(st.status==='done'||(!sd.running&&st.status&&st.status.startsWith('error'))){
+          clearInterval(syncPollInterval);syncPollInterval=null;
+          if(st.status==='done'){
+            showMsg('msg-prod',`✅ Sincronización completa — ${st.total} productos`,'ok');
+            // Cargar productos del cache
+            const pr=await fetch('/api/ml/'+prodAccIdx+'/products',{headers:hdr()});
+            const pd=await pr.json();
+            prodProds=pd.products;prodSel=[];prodPg=0;
+            applyProdF();
+          }else{
+            showMsg('msg-prod','❌ Error: '+st.status,'err');
+          }
+          btn.innerHTML='Cargar';btn.disabled=false;
+        }else{
+          const fetched=st.fetched||0;const total=st.total||0;
+          const statusTxt=st.status==='fetching_ids'?'Obteniendo lista de publicaciones...':
+            `Descargando detalles: ${fetched}${total?' / '+total:''} productos...`;
+          showMsg('msg-prod','⏳ '+statusTxt,'info');
+        }
+      }catch(e){}
+    },5000);
+  }catch(e){
+    showMsg('msg-prod','❌ '+e.message,'err');
+    btn.innerHTML='Cargar';btn.disabled=false;
+  }
 }
 
 function setProdF(val,el){prodSF=val;prodPg=0;document.querySelectorAll('#page-productos .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyProdF();}
