@@ -220,12 +220,14 @@ async def do_sync_products(i: int, uid: str, token: str):
     set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
-        # Usar paginacion normal (offset) que no tiene limite de 1000
+        # ML limita a 1000 con paginacion normal
+        # Usar scroll scan que no tiene ese limite
         async with httpx.AsyncClient(timeout=60) as c:
-            offset = 0
-            limit = 100
-            while True:
-                url = f"{ML_API}/users/{uid}/items/search?limit={limit}&offset={offset}"
+            scroll_id = None
+            for _ in range(1000):
+                url = f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100"
+                if scroll_id:
+                    url += f"&scroll_id={scroll_id}"
                 try:
                     r = await c.get(url, headers=hdrs)
                     if r.status_code == 429:
@@ -239,11 +241,10 @@ async def do_sync_products(i: int, uid: str, token: str):
                         break
                     all_ids.extend(ids)
                     set_sync_status(uid, "fetching_ids", total=len(all_ids), fetched=0)
-                    total_available = d.get("paging", {}).get("total", 0)
-                    if len(all_ids) >= total_available:
+                    scroll_id = d.get("scroll_id")
+                    if not scroll_id:
                         break
-                    offset += limit
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.8)
                 except Exception:
                     break
 
@@ -278,7 +279,6 @@ async def do_sync_products(i: int, uid: str, token: str):
                     except Exception:
                         await asyncio.sleep(5)
                 set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
-                # Guardar parcial cada 200 productos
                 if len(products) % 200 == 0 and len(products) > 0:
                     set_cached_products(uid, products)
                 await asyncio.sleep(1.5)
