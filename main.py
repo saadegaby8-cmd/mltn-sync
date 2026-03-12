@@ -18,17 +18,21 @@ ML_API        = "https://api.mercadolibre.com"
 
 SESSIONS = {}
 
-# -- Redis persistence ---------------------------------------------------------
 def get_redis():
     url = os.getenv("REDIS_URL", "")
     if not url:
         return None
     try:
         import redis
-        r = redis.from_url(url, decode_responses=True, socket_timeout=3)
+        if url.startswith("rediss://"):
+            r = redis.from_url(url, decode_responses=True, socket_timeout=5,
+                               ssl_cert_reqs=None)
+        else:
+            r = redis.from_url(url, decode_responses=True, socket_timeout=5)
         r.ping()
         return r
-    except:
+    except Exception as e:
+        print(f"Redis error: {e}")
         return None
 
 def load_state():
@@ -62,7 +66,6 @@ except:
 if "links" not in ST: ST["links"] = []
 if "accounts" not in ST: ST["accounts"] = []
 
-# -- Auth ----------------------------------------------------------------------
 def auth(req: Request):
     t = req.headers.get("X-Session-Token", "")
     if not t or t not in SESSIONS or SESSIONS[t] < time.time():
@@ -88,7 +91,6 @@ def logout(s=Depends(auth)):
     SESSIONS.pop(s, None)
     return {"ok": True}
 
-# -- ML OAuth ------------------------------------------------------------------
 @app.get("/auth/login")
 def ml_login():
     return RedirectResponse(
@@ -147,7 +149,6 @@ async def fresh_token(i: int) -> str:
             pass
     return acc["token"]
 
-# -- State ---------------------------------------------------------------------
 @app.get("/api/state")
 def get_state(_=Depends(auth)):
     return {
@@ -175,7 +176,6 @@ async def connect_tn(req: Request, _=Depends(auth)):
     save_state()
     return {"ok": True}
 
-# -- Products ------------------------------------------------------------------
 SYNC_RUNNING = {}
 
 def redis_products_key(uid): return f"mltn:products:{uid}"
@@ -220,7 +220,6 @@ async def do_sync_products(i: int, uid: str, token: str):
     set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
-        # Paso 1: obtener todos los IDs
         async with httpx.AsyncClient(timeout=60) as c:
             scroll_id = None
             for _ in range(500):
@@ -249,9 +248,9 @@ async def do_sync_products(i: int, uid: str, token: str):
 
         if not all_ids:
             set_sync_status(uid, "error: no se encontraron productos")
+            SYNC_RUNNING.pop(uid, None)
             return
 
-        # Paso 2: obtener detalles en batches
         set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=0)
         products = []
         async with httpx.AsyncClient(timeout=60) as c:
@@ -294,7 +293,6 @@ async def start_sync(i: int, background_tasks: BackgroundTasks, _=Depends(auth))
         return {"ok": False, "msg": "Ya esta sincronizando"}
     token = await fresh_token(i)
     SYNC_RUNNING[uid] = True
-    # Usar BackgroundTasks de FastAPI en lugar de loop.create_task
     background_tasks.add_task(do_sync_products, i, uid, token)
     return {"ok": True, "msg": "Sincronizacion iniciada"}
 
