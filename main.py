@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -18,7 +18,7 @@ ML_API        = "https://api.mercadolibre.com"
 
 SESSIONS = {}
 
-# ── Redis persistence ──────────────────────────────────────────────────────────
+# -- Redis persistence ---------------------------------------------------------
 def get_redis():
     url = os.getenv("REDIS_URL", "")
     if not url:
@@ -62,7 +62,7 @@ except:
 if "links" not in ST: ST["links"] = []
 if "accounts" not in ST: ST["accounts"] = []
 
-# ── Auth ───────────────────────────────────────────────────────────────────────
+# -- Auth ----------------------------------------------------------------------
 def auth(req: Request):
     t = req.headers.get("X-Session-Token", "")
     if not t or t not in SESSIONS or SESSIONS[t] < time.time():
@@ -78,7 +78,7 @@ def health():
 async def login(req: Request):
     b = await req.json()
     if b.get("email","").lower() != ADMIN_EMAIL.lower() or b.get("password","") != ADMIN_PASS:
-        raise HTTPException(401, "Email o contraseña incorrectos.")
+        raise HTTPException(401, "Email o contrasena incorrectos.")
     t = secrets.token_hex(32)
     SESSIONS[t] = time.time() + 86400 * 7
     return {"token": t, "ok": True}
@@ -88,7 +88,7 @@ def logout(s=Depends(auth)):
     SESSIONS.pop(s, None)
     return {"ok": True}
 
-# ── ML OAuth ───────────────────────────────────────────────────────────────────
+# -- ML OAuth ------------------------------------------------------------------
 @app.get("/auth/login")
 def ml_login():
     return RedirectResponse(
@@ -147,7 +147,7 @@ async def fresh_token(i: int) -> str:
             pass
     return acc["token"]
 
-# ── State ──────────────────────────────────────────────────────────────────────
+# -- State ---------------------------------------------------------------------
 @app.get("/api/state")
 def get_state(_=Depends(auth)):
     return {
@@ -175,8 +175,8 @@ async def connect_tn(req: Request, _=Depends(auth)):
     save_state()
     return {"ok": True}
 
-# ── Products (guardados en Redis como Astroselling) ────────────────────────────
-SYNC_RUNNING = {}  # {uid: True/False}
+# -- Products ------------------------------------------------------------------
+SYNC_RUNNING = {}
 
 def redis_products_key(uid): return f"mltn:products:{uid}"
 def redis_status_key(uid): return f"mltn:sync_status:{uid}"
@@ -217,68 +217,86 @@ def get_sync_status(uid):
 
 async def do_sync_products(i: int, uid: str, token: str):
     hdrs = {"Authorization": f"Bearer {token}"}
-    set_sync_status(uid, "fetching_ids")
+    set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
-        async with httpx.AsyncClient(timeout=30) as c:
+        # Paso 1: obtener todos los IDs
+        async with httpx.AsyncClient(timeout=60) as c:
             scroll_id = None
             for _ in range(500):
                 url = f"{ML_API}/users/{uid}/items/search?search_type=scan"
                 if scroll_id:
                     url += f"&scroll_id={scroll_id}"
-                await asyncio.sleep(1.0)
-                r = await c.get(url, headers=hdrs)
-                if r.status_code == 429:
-                    await asyncio.sleep(60)
+                try:
                     r = await c.get(url, headers=hdrs)
-                if r.status_code != 200:
+                    if r.status_code == 429:
+                        await asyncio.sleep(30)
+                        r = await c.get(url, headers=hdrs)
+                    if r.status_code != 200:
+                        break
+                    d = r.json()
+                    ids = d.get("results", [])
+                    if not ids:
+                        break
+                    all_ids.extend(ids)
+                    set_sync_status(uid, "fetching_ids", total=len(all_ids), fetched=0)
+                    scroll_id = d.get("scroll_id")
+                    if not scroll_id:
+                        break
+                    await asyncio.sleep(0.5)
+                except Exception:
                     break
-                d = r.json()
-                ids = d.get("results", [])
-                if not ids: break
-                all_ids.extend(ids)
-                scroll_id = d.get("scroll_id")
-                if not scroll_id: break
-        set_sync_status(uid, "fetching_details", total=len(all_ids))
+
+        if not all_ids:
+            set_sync_status(uid, "error: no se encontraron productos")
+            return
+
+        # Paso 2: obtener detalles en batches
+        set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=0)
         products = []
         async with httpx.AsyncClient(timeout=60) as c:
             for x in range(0, len(all_ids), 20):
                 batch = all_ids[x:x+20]
-                await asyncio.sleep(1.0)
-                r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
-                if r.status_code == 429:
-                    await asyncio.sleep(60)
+                try:
                     r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
-                if r.status_code != 200:
-                    continue
-                for item in r.json():
-                    if item.get("code") == 200:
-                        b = item["body"]
-                        for v in b.get("variations",[]):
-                            v["_attrs"] = {a["name"]:a["value_name"] for a in v.get("attribute_combinations",[])}
-                        b["_has_variations"] = len(b.get("variations",[])) > 0
-                        b["_variation_count"] = len(b.get("variations",[]))
-                        products.append(b)
+                    if r.status_code == 429:
+                        await asyncio.sleep(30)
+                        r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
+                    if r.status_code == 200:
+                        for item in r.json():
+                            if item.get("code") == 200:
+                                b = item["body"]
+                                for v in b.get("variations",[]):
+                                    v["_attrs"] = {a["name"]:a["value_name"] for a in v.get("attribute_combinations",[])}
+                                b["_has_variations"] = len(b.get("variations",[])) > 0
+                                b["_variation_count"] = len(b.get("variations",[]))
+                                products.append(b)
+                except Exception:
+                    pass
                 set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
+                await asyncio.sleep(0.3)
+
         set_cached_products(uid, products)
+        set_sync_status(uid, "done", total=len(products), fetched=len(products))
+
     except Exception as e:
         set_sync_status(uid, f"error: {str(e)}")
     finally:
         SYNC_RUNNING.pop(uid, None)
 
 @app.post("/api/ml/{i}/sync")
-async def start_sync(i: int, req: Request, _=Depends(auth)):
+async def start_sync(i: int, background_tasks: BackgroundTasks, _=Depends(auth)):
     if i < 0 or i >= len(ST["accounts"]):
         raise HTTPException(404)
     acc = ST["accounts"][i]
     uid = acc["uid"]
     if uid in SYNC_RUNNING:
-        return {"ok": False, "msg": "Ya está sincronizando"}
+        return {"ok": False, "msg": "Ya esta sincronizando"}
     token = await fresh_token(i)
     SYNC_RUNNING[uid] = True
-    loop = asyncio.get_event_loop()
-    loop.create_task(do_sync_products(i, uid, token))
-    return {"ok": True, "msg": "Sincronización iniciada"}
+    # Usar BackgroundTasks de FastAPI en lugar de loop.create_task
+    background_tasks.add_task(do_sync_products, i, uid, token)
+    return {"ok": True, "msg": "Sincronizacion iniciada"}
 
 @app.get("/api/ml/{i}/sync/status")
 def sync_status(i: int, _=Depends(auth)):
@@ -298,8 +316,7 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
     products = get_cached_products(uid)
     if products is None:
         return {"products": [], "total": 0, "synced": False,
-                "msg": "Productos no sincronizados. Presioná Sincronizar."}
-    # Filtrar
+                "msg": "Productos no sincronizados. Presiona Sincronizar."}
     if status != "all":
         products = [p for p in products if p.get("status","") == status]
     if search:
@@ -309,7 +326,6 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
     start = (page-1)*limit
     page_products = products[start:start+limit]
     return {"products": page_products, "total": total, "synced": True, "page": page, "limit": limit}
-
 
 @app.get("/api/tn/products")
 async def get_tn_products(_=Depends(auth)):
