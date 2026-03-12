@@ -714,7 +714,7 @@ async function loadProdProds(){
   const btn=document.getElementById('load-prod-btn');
   btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-prod');
   try{
-    const r=await fetch('/api/ml/'+prodAccIdx+'/products',{headers:hdr()});
+    const r=await fetch('/api/ml/'+prodAccIdx+'/products?limit=5000',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
     if(!d.synced){
@@ -752,7 +752,7 @@ async function startMLSync(){
           if(st.status==='done'){
             showMsg('msg-prod',`✅ Sincronización completa — ${st.total} productos`,'ok');
             // Cargar productos del cache
-            const pr=await fetch('/api/ml/'+prodAccIdx+'/products',{headers:hdr()});
+            const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=5000',{headers:hdr()});
             const pd=await pr.json();
             prodProds=pd.products;prodSel=[];prodPg=0;
             applyProdF();
