@@ -328,12 +328,25 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
       <!-- PUBLICAR -->
       <div class="page" id="page-publicar">
-        <div class="page-title">Publicar en Tienda Nube</div>
+        <div class="page-title">Publicar</div>
         <div class="panel">
-          <div class="panel-hd"><h3>Cuenta de ML</h3></div>
+          <div class="panel-hd"><h3>Cuenta de ML origen</h3></div>
           <div class="panel-bd">
             <div class="acc-tabs" id="pub-tabs"></div>
-            <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none">Cargar productos →</button>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Publicar en</label>
+                <select id="pub-target" onchange="togglePubTarget()" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif">
+                  <option value="tn">TiendaNube</option>
+                  <option value="ml">Otra cuenta ML</option>
+                </select>
+              </div>
+              <div id="pub-ml-dest-wrap" style="display:none">
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Cuenta ML destino</label>
+                <select id="pub-ml-dest" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif"></select>
+              </div>
+            </div>
+            <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none;margin-top:12px">Cargar productos →</button>
             <div id="msg-pub" class="msg"></div>
           </div>
         </div>
@@ -354,7 +367,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-pub" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="doPublish()">🚀 Publicar en Tienda Nube</button>
+              <button class="btn btn-green btn-sm" onclick="doPublish()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
               <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
             </div>
           </div>
@@ -655,10 +668,14 @@ function updateUI(){
   if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
   else{cards.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="ch-card"><div class="ch-logo">${a.name[0].toUpperCase()}</div><div class="ch-info"><div class="ch-name">${a.name}</div><div class="ch-sub">MercadoLibre · ID ${a.user_id}${!a.token_ok?' · <span style="color:#d68000">Token vencido — reconectá</span>':''}</div></div><button class="btn btn-red btn-sm" onclick="removeML(${i})">Quitar</button></div>`).join('');}
   if(appState.tn_connected){document.getElementById('tn-cur').innerHTML=`<span style="color:#00a381;font-weight:600">✓ Conectada</span> — Store ID: <b>${appState.tn_store_id}</b>`;}
-  // dup selects
-  const opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
-  document.getElementById('dup-from').innerHTML=opts;
-  document.getElementById('dup-to').innerHTML=opts;
+  // dup selects — solo init si vacios
+  const _df=document.getElementById('dup-from');
+  if(!_df.options.length){
+    const _opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+    _df.innerHTML=_opts;
+    document.getElementById('dup-to').innerHTML=_opts;
+    if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
+  }
   renderLog();renderProdTabs();renderPubTabs();renderLinks();renderSyncInfo();
 }
 
@@ -714,7 +731,7 @@ async function loadProdProds(){
   const btn=document.getElementById('load-prod-btn');
   btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-prod');
   try{
-    const r=await fetch('/api/ml/'+prodAccIdx+'/products?limit=5000',{headers:hdr()});
+    const r=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
     if(!d.synced){
@@ -752,7 +769,7 @@ async function startMLSync(){
           if(st.status==='done'){
             showMsg('msg-prod',`✅ Sincronización completa — ${st.total} productos`,'ok');
             // Cargar productos del cache
-            const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=5000',{headers:hdr()});
+            const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
             const pd=await pr.json();
             prodProds=pd.products;prodSel=[];prodPg=0;
             applyProdF();
@@ -877,6 +894,7 @@ function renderPubTabs(){
   if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
   el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
   btn.style.display='inline-flex';
+  renderPubMLDest();
 }
 function selPubAcc(i){pubAccIdx=i;renderPubTabs();document.getElementById('pub-prod-panel').style.display='none';}
 
@@ -955,15 +973,29 @@ function updatePubAB(){
 function clearPubSel(){pubSel=[];renderPubT();}
 function pPub(d){pubPg+=d;renderPubT();}
 
+function togglePubTarget(){
+  const target=document.getElementById('pub-target').value;
+  document.getElementById('pub-ml-dest-wrap').style.display=target==='ml'?'block':'none';
+  const btn=document.getElementById('btn-do-publish');
+  btn.textContent=target==='ml'?'📋 Publicar en cuenta ML':'🚀 Publicar en Tienda Nube';
+}
+function renderPubMLDest(){
+  const sel=document.getElementById('pub-ml-dest');
+  sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  if(appState.ml_accounts.length>1)sel.selectedIndex=1;
+}
 async function doPublish(){
-  if(!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  const target=document.getElementById('pub-target').value;
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
   document.getElementById('pub-prog-panel').style.display='block';
   document.getElementById('pub-res').innerHTML='';
   document.getElementById('pub-pf').style.width='0%';
   document.getElementById('pub-pt').textContent='Publicando...';
   hideMsg('msg-pub-res');
   try{
-    const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify({item_ids:pubSel,ml_account_index:pubAccIdx})});
+    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target};
+    if(target==='ml')payload.target_ml_index=parseInt(document.getElementById('pub-ml-dest').value);
+    const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify(payload)});
     const d=await r.json();const results=d.results||[];
     document.getElementById('pub-pf').style.width='100%';
     const ok=results.filter(r=>r.ok).length;const fail=results.length-ok;
@@ -988,7 +1020,7 @@ async function loadDupProds(){
   const btn=document.querySelector('#page-duplicar .btn-blue');
   btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-dup');
   try{
-    const r=await fetch('/api/ml/'+from+'/products',{headers:hdr()});
+    const r=await fetch('/api/ml/'+from+'/products?limit=9999',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
     dupProds=d.products;dupSel=[];dupPg=0;
