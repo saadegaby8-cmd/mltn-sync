@@ -220,16 +220,16 @@ async def do_sync_products(i: int, uid: str, token: str):
     set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
+        # Usar paginacion normal (offset) que no tiene limite de 1000
         async with httpx.AsyncClient(timeout=60) as c:
-            scroll_id = None
-            for _ in range(500):
-                url = f"{ML_API}/users/{uid}/items/search?search_type=scan"
-                if scroll_id:
-                    url += f"&scroll_id={scroll_id}"
+            offset = 0
+            limit = 100
+            while True:
+                url = f"{ML_API}/users/{uid}/items/search?limit={limit}&offset={offset}"
                 try:
                     r = await c.get(url, headers=hdrs)
                     if r.status_code == 429:
-                        await asyncio.sleep(30)
+                        await asyncio.sleep(60)
                         r = await c.get(url, headers=hdrs)
                     if r.status_code != 200:
                         break
@@ -239,9 +239,10 @@ async def do_sync_products(i: int, uid: str, token: str):
                         break
                     all_ids.extend(ids)
                     set_sync_status(uid, "fetching_ids", total=len(all_ids), fetched=0)
-                    scroll_id = d.get("scroll_id")
-                    if not scroll_id:
+                    total_available = d.get("paging", {}).get("total", 0)
+                    if len(all_ids) >= total_available:
                         break
+                    offset += limit
                     await asyncio.sleep(0.5)
                 except Exception:
                     break
@@ -251,6 +252,7 @@ async def do_sync_products(i: int, uid: str, token: str):
             SYNC_RUNNING.pop(uid, None)
             return
 
+        # Obtener detalles en batches de 20
         set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=0)
         products = []
         async with httpx.AsyncClient(timeout=60) as c:
@@ -276,8 +278,8 @@ async def do_sync_products(i: int, uid: str, token: str):
                     except Exception:
                         await asyncio.sleep(5)
                 set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
-                # Guardar parcial cada 100 productos
-                if len(products) % 100 == 0 and len(products) > 0:
+                # Guardar parcial cada 200 productos
+                if len(products) % 200 == 0 and len(products) > 0:
                     set_cached_products(uid, products)
                 await asyncio.sleep(1.5)
 
@@ -418,6 +420,42 @@ async def publish(req: Request, _=Depends(auth)):
     b = await req.json()
     item_ids = b.get("item_ids", [])
     idx = b.get("ml_account_index", 0)
+    target = b.get("target", "tn")  # "tn" o "ml"
+    target_ml_idx = b.get("target_ml_index", 0)
+
+    # Publicar en ML (duplicar a otra cuenta)
+    if target == "ml":
+        if target_ml_idx >= len(ST["accounts"]):
+            raise HTTPException(400, "Cuenta ML destino no existe.")
+        from_t = await fresh_token(idx)
+        to_t = await fresh_token(target_ml_idx)
+        results = []
+        async with httpx.AsyncClient(timeout=30) as c:
+            for iid in item_ids:
+                try:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization":f"Bearer {from_t}"})
+                    item = r.json()
+                    payload = {"title":item["title"],"category_id":item.get("category_id",""),
+                               "price":item.get("price",0),"currency_id":item.get("currency_id","ARS"),
+                               "available_quantity":item.get("available_quantity",0),
+                               "listing_type_id":item.get("listing_type_id","gold_special"),
+                               "condition":item.get("condition","new"),
+                               "pictures":[{"source":p["url"]} for p in (item.get("pictures") or [])[:12]],
+                               "attributes":item.get("attributes",[])}
+                    if item.get("variations"):
+                        payload["variations"] = item["variations"]
+                    r2 = await c.post(f"{ML_API}/items", headers={"Authorization":f"Bearer {to_t}"}, json=payload)
+                    ok = r2.status_code in (200,201)
+                    results.append({"id":iid,"title":item.get("title",""),"ok":ok,
+                                    "msg":"Publicado en ML" if ok else r2.json().get("message","Error")})
+                    ST["log"].append({"ts":int(time.time()),"action":"publish_ml","product":item.get("title",""),"status":"ok" if ok else "error"})
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    results.append({"id":iid,"ok":False,"msg":str(e)})
+        save_state()
+        return {"results": results}
+
+    # Publicar en TiendaNube (comportamiento original)
     if not ST["tn"].get("store_id"):
         raise HTTPException(400, "TN no conectada.")
     token = await fresh_token(idx)
