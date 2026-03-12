@@ -1,1176 +1,486 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ML × TN Sync</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#f4f6f9;color:#1a1a2e;font-family:'Inter',sans-serif;min-height:100vh;font-size:14px}
-/* LOGIN */
-.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f6f9}
-.login-box{background:#fff;border-radius:12px;border:1px solid #e8ecf0;padding:40px 36px;width:360px;box-shadow:0 4px 24px rgba(0,0,0,0.07)}
-.login-logo{text-align:center;margin-bottom:28px}
-.login-logo .star{font-size:28px}
-.login-logo h2{font-size:20px;font-weight:700;margin-top:8px}
-.login-logo p{font-size:13px;color:#7a8299;margin-top:4px}
-.lform-group{margin-bottom:16px}
-.lform-group label{display:block;font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-.lform-group input{width:100%;padding:10px 14px;border:1px solid #dde1e9;border-radius:7px;font-size:14px;outline:none;font-family:'Inter',sans-serif;background:#f9fafb}
-.lform-group input:focus{border-color:#4f9eff;background:#fff}
-.btn-login{width:100%;padding:11px;border-radius:7px;background:#4f9eff;color:#fff;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;margin-top:4px}
-.btn-login:hover{background:#3a8ef0}
-.login-err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b;padding:9px 14px;border-radius:6px;font-size:12px;margin-top:12px;display:none}
-.login-err.show{display:block}
-/* APP */
-.app-wrap{display:flex;min-height:100vh}
-.sidebar{width:200px;flex-shrink:0;background:#1a1f36;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
-.sidebar-logo{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px}
-.sidebar-logo .star{color:#fff;font-size:16px}
-.sidebar-logo span{color:#fff;font-weight:700;font-size:14px}
-.s-section{padding:12px 0 2px}
-.s-title{padding:0 14px 5px;font-size:10px;font-weight:600;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
-.s-title:hover{color:rgba(255,255,255,.55)}
-.nav-i{display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;color:rgba(255,255,255,.55);transition:all .15s}
-.nav-i:hover{color:#fff;background:rgba(255,255,255,.07)}
-.nav-i.active{color:#fff;background:rgba(255,255,255,.12)}
-.nav-sub{padding:5px 14px 5px 38px;font-size:12px;color:rgba(255,255,255,.45);cursor:pointer;transition:all .15s}
-.nav-sub:hover{color:#fff}
-.nav-sub.active{color:#4f9eff}
-.nav-ch{display:flex;align-items:center;gap:7px;padding:4px 14px;font-size:11px;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s}
-.nav-ch:hover{color:#fff;background:rgba(255,255,255,.05)}
-.ch-av{width:18px;height:18px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
-.s-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between}
-.s-user{font-size:11px;color:rgba(255,255,255,.4)}
-.btn-logout{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif}
-.btn-logout:hover{color:#fff}
-/* TOPBAR */
-.topbar{position:fixed;top:0;left:200px;right:0;height:52px;background:#1a1f36;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:flex-end;padding:0 24px;gap:14px;z-index:99}
-.topbar-av{width:32px;height:32px;border-radius:50%;background:#e91e63;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;cursor:pointer}
-/* MAIN */
-.main{margin-left:200px;margin-top:52px;flex:1;padding:24px 28px}
-.page{display:none}
-.page.active{display:block;animation:fadeIn .2s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.page-title{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:20px}
-/* CARDS */
-.cards-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
-.dash-card{background:#fff;border-radius:10px;padding:18px 22px;border:1px solid #e8ecf0}
-.dc-label{font-size:11px;color:#7a8299;font-weight:500;margin-bottom:6px}
-.dc-val{font-size:26px;font-weight:700;color:#1a1a2e}
-.dc-sub{font-size:12px;color:#7a8299;margin-top:3px}
-.prog-bar{background:#e8ecf0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden}
-.prog-fill{height:100%;background:linear-gradient(90deg,#4f9eff,#00c6ae);border-radius:4px;transition:width .4s}
-/* PANEL */
-.panel{background:#fff;border-radius:10px;border:1px solid #e8ecf0;margin-bottom:18px}
-.panel-hd{padding:14px 18px;border-bottom:1px solid #e8ecf0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.panel-hd h3{font-size:14px;font-weight:600}
-.panel-bd{padding:18px}
-/* FILTERS */
-.fbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.fpill{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #dde1e9;background:#fff;color:#5a6080;transition:all .15s}
-.fpill:hover{border-color:#4f9eff;color:#4f9eff}
-.fpill.active{background:#eef4ff;border-color:#4f9eff;color:#4f9eff;font-weight:600}
-.fpill.g{border-color:#00b894;color:#00b894}.fpill.g.active{background:#e6f9f4}
-.fpill.o{border-color:#f39c12;color:#f39c12}.fpill.o.active{background:#fef9ec}
-.fpill.r{border-color:#e17055;color:#e17055}.fpill.r.active{background:#fdf0ec}
-.s-wrap{flex:1;min-width:180px;position:relative}
-.s-wrap input{width:100%;padding:7px 12px 7px 32px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;background:#f9fafb;font-family:'Inter',sans-serif}
-.s-wrap input:focus{border-color:#4f9eff;background:#fff}
-.s-wrap input::placeholder{color:#b0b7c9}
-.s-wrap::before{content:'🔍';position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px}
-/* TABLE */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse}
-thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#7a8299;border-bottom:1px solid #e8ecf0;white-space:nowrap}
-th.chk{width:32px}
-tbody tr{border-bottom:1px solid #f0f2f6;transition:background .1s;cursor:pointer}
-tbody tr:hover{background:#f9fafb}
-tbody tr.sel{background:#eef4ff}
-tbody tr.var-row{background:#fafbff}
-tbody tr.var-row:hover{background:#f0f4ff}
-td{padding:9px 12px;font-size:13px;vertical-align:middle}
-.thumb{width:38px;height:38px;object-fit:contain;border-radius:5px;border:1px solid #e8ecf0;background:#f9fafb}
-.thumb-ph{width:38px;height:38px;border-radius:5px;border:1px solid #e8ecf0;background:#f0f2f6;display:flex;align-items:center;justify-content:center;font-size:14px}
-.ptitle{font-weight:500;color:#1a1a2e;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.psku{font-size:10px;color:#7a8299;margin-top:1px}
-.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
-.ba{background:#e6f9f4;color:#00a381}
-.bp{background:#fff4e0;color:#d68000}
-.bc{background:#fde8e8;color:#c0392b}
-.stock-0{color:#e17055;font-weight:600}
-.var-badge{background:#eef4ff;color:#4f9eff;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:5px}
-.expand-btn{background:none;border:none;cursor:pointer;color:#7a8299;font-size:13px;padding:2px 6px;border-radius:4px}
-.expand-btn:hover{background:#f0f2f6;color:#1a1a2e}
-/* ACTION BAR */
-.action-bar{background:#f0f6ff;border:1px solid #c5d9f8;border-radius:7px;padding:9px 14px;display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.ab-info{font-size:13px;color:#4f9eff;font-weight:600;flex:1}
-/* PAGINATION */
-.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid #e8ecf0;font-size:12px;color:#7a8299;flex-wrap:wrap;gap:8px}
-.pag-btns{display:flex;align-items:center;gap:4px}
-.pb{padding:4px 9px;border:1px solid #dde1e9;border-radius:5px;cursor:pointer;background:#fff;font-size:12px;color:#5a6080;transition:all .15s}
-.pb:hover{border-color:#4f9eff;color:#4f9eff}
-.pb.active{background:#4f9eff;border-color:#4f9eff;color:#fff}
-.per-sel{border:1px solid #dde1e9;border-radius:5px;padding:3px 7px;font-size:12px;color:#5a6080;background:#fff;outline:none;cursor:pointer}
-/* BUTTONS */
-.btn{padding:7px 16px;border-radius:6px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:5px;text-decoration:none}
-.btn-sm{padding:5px 11px;font-size:12px}
-.btn-blue{background:#4f9eff;color:#fff}.btn-blue:hover{background:#3a8ef0}.btn-blue:disabled{background:#b0cdf8;cursor:not-allowed}
-.btn-green{background:#00b894;color:#fff}.btn-green:hover{background:#009d7e}.btn-green:disabled{background:#a8e6dc;cursor:not-allowed}
-.btn-out{background:#fff;color:#5a6080;border:1px solid #dde1e9}.btn-out:hover{border-color:#4f9eff;color:#4f9eff}
-.btn-red{background:#fff;color:#e17055;border:1px solid #e17055}.btn-red:hover{background:#fdf0ec}
-.btn-ml{background:#ffe135;color:#000;font-size:14px;padding:11px 22px;border-radius:7px;font-weight:700}.btn-ml:hover{background:#ffd000}
-.btn-purple{background:#6c63ff;color:#fff}.btn-purple:hover{background:#574fd6}
-/* FORM */
-.f-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
-.fg{display:flex;flex-direction:column;gap:4px}
-.fg label{font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px}
-.fg input,.fg select{padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;font-family:'Inter',sans-serif;background:#f9fafb}
-.fg input:focus,.fg select:focus{border-color:#4f9eff;background:#fff}
-.fg input::placeholder{color:#b0b7c9}
-.hint{font-size:11px;color:#7a8299;background:#f4f6f9;border:1px solid #e8ecf0;border-radius:6px;padding:9px 12px;margin-bottom:10px;line-height:1.6}
-.hint a{color:#4f9eff}
-/* MESSAGES */
-.msg{padding:9px 12px;border-radius:6px;font-size:12px;display:none;margin-top:8px;line-height:1.5}
-.msg.show{display:block}
-.msg.err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b}
-.msg.ok{background:#e6f9f4;border:1px solid #a8e6dc;color:#007a5e}
-.msg.inf{background:#eef4ff;border:1px solid #b8d4f8;color:#2c5fa8}
-.alert{padding:11px 16px;border-radius:7px;font-size:13px;margin-bottom:16px;display:none;font-weight:500}
-.alert.show{display:block}
-.alert.ok{background:#e6f9f4;border:1px solid #a8e6dc;color:#007a5e}
-.alert.err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b}
-/* LOG */
-.log-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f2f6;font-size:12px}
-.lts{color:#7a8299;width:85px;flex-shrink:0}
-.lbadge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;flex-shrink:0}
-.lbadge.publish{background:#eef4ff;color:#4f9eff}
-.lbadge.sync{background:#e6f9f4;color:#00a381}
-.lbadge.duplicate{background:#f3f0ff;color:#6c63ff}
-.ltitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lstatus.ok{color:#00a381;font-weight:600}
-.lstatus.error{color:#c0392b;font-weight:600}
-/* PROGRESS */
-.prog-wrap{margin:10px 0}
-.prog-bg{background:#e8ecf0;border-radius:3px;height:5px;overflow:hidden;margin-bottom:5px}
-.prog-f{height:100%;background:linear-gradient(90deg,#4f9eff,#00c6ae);border-radius:3px;transition:width .3s;width:0%}
-.prog-txt{font-size:11px;color:#7a8299}
-.res-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-top:10px}
-.ri{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:5px;font-size:12px}
-.ri.ok{background:#e6f9f4}
-.ri.fail{background:#fde8e8}
-.ri .rt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ri .rm{color:#7a8299;font-size:11px}
-.spinner{display:inline-block;width:12px;height:12px;border:2px solid #dde1e9;border-top-color:#4f9eff;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty{text-align:center;padding:36px 20px;color:#7a8299;font-size:13px}
-.empty .ei{font-size:28px;margin-bottom:8px}
-/* LINK MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
-.modal-bg.show{display:flex}
-.modal{background:#fff;border-radius:12px;padding:28px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto}
-.modal h3{font-size:16px;font-weight:700;margin-bottom:16px}
-.modal-close{float:right;cursor:pointer;color:#7a8299;font-size:18px;background:none;border:none;line-height:1}
-.tn-prod-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;margin:12px 0}
-.tn-prod-item{padding:10px 14px;border:1px solid #dde1e9;border-radius:7px;cursor:pointer;transition:all .15s}
-.tn-prod-item:hover{border-color:#4f9eff;background:#eef4ff}
-.tn-prod-item.sel{border-color:#4f9eff;background:#eef4ff}
-.tn-prod-item .tpn{font-weight:600;font-size:13px}
-.tn-prod-item .tpv{font-size:11px;color:#7a8299;margin-top:3px}
-.tn-search{width:100%;padding:8px 12px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;margin-bottom:10px;font-family:'Inter',sans-serif}
-.tn-search:focus{border-color:#4f9eff}
-/* CH CARDS */
-.ch-card{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f0f2f6;transition:background .1s}
-.ch-card:hover{background:#f9fafb}
-.ch-logo{width:40px;height:40px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:#fff;font-weight:700}
-.ch-info{flex:1}
-.ch-name{font-weight:600;font-size:13px}
-.ch-sub{font-size:11px;color:#7a8299;margin-top:2px}
-.acc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.acc-tab{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #dde1e9;color:#5a6080;background:#fff;transition:all .15s}
-.acc-tab:hover{border-color:#4f9eff;color:#4f9eff}
-.acc-tab.active{border-color:#4f9eff;color:#4f9eff;background:#eef4ff;font-weight:600}
-.token-warn{font-size:11px;color:#d68000;background:#fff4e0;padding:3px 8px;border-radius:4px;margin-left:6px}
-</style>
-</head>
-<body>
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+import httpx, asyncio, json, os, time, secrets
+from pathlib import Path
 
-<!-- LOGIN -->
-<div id="login-screen" class="login-wrap">
-  <div class="login-box">
-    <div class="login-logo">
-      <div class="star">✦</div>
-      <h2>ML × TN Sync</h2>
-      <p>Iniciá sesión para continuar</p>
-    </div>
-    <div class="lform-group"><label>Email</label><input type="email" id="li-email" placeholder="admin@sync.com" onkeydown="if(event.key==='Enter')doLogin()" /></div>
-    <div class="lform-group"><label>Contraseña</label><input type="password" id="li-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" /></div>
-    <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
-    <div class="login-err" id="li-err"></div>
-  </div>
-</div>
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-<!-- APP -->
-<div id="app-screen" class="app-wrap" style="display:none">
-  <nav class="sidebar">
-    <div class="sidebar-logo"><span class="star">✦</span><span>ML × TN Sync</span></div>
-    <div class="s-section">
-      <div class="nav-i active" onclick="showPage('inicio')">🏠 Inicio</div>
-    </div>
-    <div class="s-section">
-      <div class="s-title" onclick="toggleSec('canales')">Canales <span id="arr-canales">▾</span></div>
-      <div id="sec-canales">
-        <div class="nav-i" onclick="showPage('cuentas')">🔗 Conectar canales</div>
-        <div id="sb-channels"></div>
-      </div>
-    </div>
-    <div class="s-section">
-      <div class="s-title" onclick="toggleSec('productos')">Productos <span id="arr-productos">▾</span></div>
-      <div id="sec-productos">
-        <div class="nav-sub active" onclick="showPage('productos')">Panel de productos</div>
-        <div class="nav-sub" onclick="showPage('publicar')">Publicar</div>
-        <div class="nav-sub" onclick="showPage('duplicar')">Duplicar entre cuentas</div>
-      </div>
-    </div>
-    <div class="s-section">
-      <div class="nav-i" onclick="showPage('enlaces')">🔗 Mis enlaces</div>
-      <div class="nav-i" onclick="showPage('sincronizar')">🔄 Sincronizar</div>
-      <div class="nav-i" onclick="showPage('log')">📋 Historial</div>
-    </div>
-    <div class="s-bottom">
-      <span class="s-user" id="sb-user">admin</span>
-      <button class="btn-logout" onclick="doLogout()">Salir</button>
-    </div>
-  </nav>
+ML_APP_ID     = os.getenv("ML_CLIENT_ID", "4576804985048120")
+ML_SECRET     = os.getenv("ML_CLIENT_SECRET", "j0FhuZVrZ3XUhdZIsdddpGISWt39JuHY")
+APP_URL       = os.getenv("APP_URL", "https://mltn-sync-production.up.railway.app")
+REDIRECT_URI  = f"{APP_URL}/auth/callback"
+ADMIN_EMAIL   = os.getenv("ADMIN_EMAIL", "admin@sync.com")
+ADMIN_PASS    = os.getenv("ADMIN_PASSWORD", "sync1234")
+ML_API        = "https://api.mercadolibre.com"
 
-  <div style="flex:1;display:flex;flex-direction:column">
-    <div class="topbar"><div class="topbar-av" id="top-av">A</div></div>
-    <main class="main">
-      <div class="alert" id="app-alert"></div>
+SESSIONS = {}
 
-      <!-- INICIO -->
-      <div class="page active" id="page-inicio">
-        <div class="page-title">Hola de nuevo!</div>
-        <div style="font-size:12px;color:#7a8299;margin-bottom:16px">Mis datos</div>
-        <div class="cards-row">
-          <div class="dash-card">
-            <div class="dc-label">Canales conectados</div>
-            <div style="display:flex;align-items:baseline;gap:6px"><div class="dc-val" id="d-canales">0</div><div style="font-size:12px;color:#7a8299">de 4</div></div>
-            <div class="prog-bar"><div class="prog-fill" id="d-can-bar" style="width:0%"></div></div>
-            <div id="d-ch-icons" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap"></div>
-          </div>
-          <div class="dash-card">
-            <div class="dc-label">Tienda Nube</div>
-            <div class="dc-val" id="d-tn">—</div>
-            <div class="dc-sub" id="d-tn-sub">No conectada</div>
-          </div>
-          <div class="dash-card">
-            <div class="dc-label">Acciones realizadas</div>
-            <div class="dc-val" id="d-acc">0</div>
-            <div class="dc-sub">Última sync: <span id="d-last">—</span></div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Actividad reciente</h3><button class="btn btn-out btn-sm" onclick="loadState()">↻ Actualizar</button></div>
-          <div style="padding:0 18px 6px"><div id="d-log"><div class="empty"><div class="ei">📋</div>Sin actividad aún</div></div></div>
-        </div>
-      </div>
+# ── Redis persistence ──────────────────────────────────────────────────────────
+def get_redis():
+    url = os.getenv("REDIS_URL", "")
+    if not url:
+        return None
+    try:
+        import redis
+        r = redis.from_url(url, decode_responses=True, socket_timeout=3)
+        r.ping()
+        return r
+    except:
+        return None
 
-      <!-- PRODUCTOS -->
-      <div class="page" id="page-productos">
-        <div class="page-title">Panel de productos</div>
-        <div class="panel">
-          <div class="panel-hd">
-            <div class="acc-tabs" id="prod-tabs" style="margin:0"></div>
-            <button class="btn btn-blue btn-sm" id="load-prod-btn" onclick="loadProdProds()" style="display:none">Cargar</button>
-          </div>
-          <div class="panel-bd" style="padding-bottom:0">
-            <div id="ab-prod" class="action-bar" style="display:none">
-              <span class="ab-info" id="ab-prod-info">0 seleccionados</span>
-              <button class="btn btn-blue btn-sm" onclick="goPublishSelected()">🚀 Publicar en TN</button>
-              <button class="btn btn-purple btn-sm" onclick="showPage('duplicar')">📋 Duplicar</button>
-              <button class="btn btn-out btn-sm" onclick="clearProdSel()">✕</button>
-            </div>
-            <div class="fbar">
-              <div class="s-wrap"><input type="text" id="prod-q" placeholder="Buscar producto..." oninput="applyProdF()" /></div>
-              <button class="fpill active" onclick="setProdF('todas',this)">Todas</button>
-              <button class="fpill g" onclick="setProdF('active',this)">● Activas</button>
-              <button class="fpill o" onclick="setProdF('paused',this)">● Pausadas</button>
-              <button class="fpill r" onclick="setProdF('closed',this)">● Cerradas</button>
-              <span id="prod-cnt" style="font-size:11px;color:#7a8299;margin-left:4px"></span>
-            </div>
-            <div id="msg-prod" class="msg"></div>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
-                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>VARIACIONES</th><th>ESTADO</th><th>ENLACE</th>
-              </tr></thead>
-              <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">📦</div>Seleccioná cuenta y cargá productos</div></td></tr></tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <span id="prod-pag-info"></span>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:12px;color:#7a8299">Listar</span>
-              <select class="per-sel" id="prod-pp" onchange="renderProdT()"><option>10</option><option>25</option><option>50</option></select>
-              <div class="pag-btns">
-                <button class="pb" onclick="pProd(-1)">‹</button>
-                <span id="prod-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
-                <button class="pb" onclick="pProd(1)">›</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+def load_state():
+    r = get_redis()
+    if r:
+        try:
+            raw = r.get("mltn:state")
+            if raw:
+                return json.loads(raw)
+        except:
+            pass
+    if Path("state.json").exists():
+        return json.loads(Path("state.json").read_text())
+    return {"accounts": [], "tn": {}, "log": [], "links": []}
 
-      <!-- PUBLICAR -->
-      <div class="page" id="page-publicar">
-        <div class="page-title">Publicar en Tienda Nube</div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Cuenta de ML</h3></div>
-          <div class="panel-bd">
-            <div class="acc-tabs" id="pub-tabs"></div>
-            <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none">Cargar productos →</button>
-            <div id="msg-pub" class="msg"></div>
-          </div>
-        </div>
-        <div class="panel" id="pub-prod-panel" style="display:none">
-          <div class="panel-hd">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <h3>Seleccioná productos</h3>
-              <span id="pub-cnt" style="font-size:11px;color:#7a8299"></span>
-            </div>
-            <div class="fbar" style="margin:0">
-              <div class="s-wrap" style="min-width:160px"><input type="text" id="pub-q" placeholder="Buscar..." oninput="applyPubF()" /></div>
-              <button class="fpill active" onclick="setPubF('todas',this)">Todas</button>
-              <button class="fpill g" onclick="setPubF('active',this)">● Activas</button>
-              <button class="fpill o" onclick="setPubF('paused',this)">● Pausadas</button>
-              <button class="fpill r" onclick="setPubF('closed',this)">● Cerradas</button>
-            </div>
-          </div>
-          <div class="panel-bd" style="padding-bottom:0">
-            <div id="ab-pub" class="action-bar" style="display:none">
-              <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="doPublish()">🚀 Publicar en Tienda Nube</button>
-              <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
-            </div>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th class="chk"><input type="checkbox" id="chk-all-pub" onchange="selAllPub(this)"/></th>
-                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>VARIACIONES</th><th>ESTADO</th>
-              </tr></thead>
-              <tbody id="pub-body"></tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <span id="pub-pag-info"></span>
-            <div style="display:flex;align-items:center;gap:10px">
-              <select class="per-sel" id="pub-pp" onchange="renderPubT()"><option>10</option><option>25</option><option>50</option></select>
-              <div class="pag-btns">
-                <button class="pb" onclick="pPub(-1)">‹</button>
-                <span id="pub-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
-                <button class="pb" onclick="pPub(1)">›</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="panel" id="pub-prog-panel" style="display:none">
-          <div class="panel-hd"><h3>Publicando...</h3></div>
-          <div class="panel-bd">
-            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="pub-pf"></div></div><div class="prog-txt" id="pub-pt">Iniciando...</div></div>
-            <div class="res-list" id="pub-res"></div>
-            <div id="msg-pub-res" class="msg"></div>
-          </div>
-        </div>
-      </div>
+def save_state():
+    r = get_redis()
+    data = json.dumps(ST)
+    if r:
+        try:
+            r.set("mltn:state", data)
+            return
+        except:
+            pass
+    Path("state.json").write_text(data)
 
-      <!-- DUPLICAR -->
-      <div class="page" id="page-duplicar">
-        <div class="page-title">Duplicar publicaciones</div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Configuración</h3></div>
-          <div class="panel-bd">
-            <div class="f-row">
-              <div class="fg"><label>Cuenta origen</label><select id="dup-from" class="fg"></select></div>
-              <div class="fg"><label>Cuenta destino</label><select id="dup-to" class="fg"></select></div>
-            </div>
-            <button class="btn btn-blue btn-sm" onclick="loadDupProds()">Cargar productos →</button>
-            <div id="msg-dup" class="msg"></div>
-          </div>
-        </div>
-        <div class="panel" id="dup-prod-panel" style="display:none">
-          <div class="panel-hd">
-            <h3>Seleccioná qué duplicar</h3>
-            <div class="s-wrap" style="max-width:260px;margin:0"><input type="text" id="dup-q" placeholder="Buscar..." oninput="applyDupF()" /></div>
-          </div>
-          <div class="panel-bd" style="padding-bottom:0">
-            <div id="ab-dup" class="action-bar" style="display:none">
-              <span class="ab-info" id="ab-dup-info">0 seleccionados</span>
-              <button class="btn btn-purple btn-sm" onclick="doDuplicate()">📋 Duplicar a cuenta destino</button>
-              <button class="btn btn-out btn-sm" onclick="clearDupSel()">✕</button>
-            </div>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th class="chk"><input type="checkbox" id="chk-all-dup" onchange="selAllDup(this)"/></th>
-                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>ESTADO</th>
-              </tr></thead>
-              <tbody id="dup-body"></tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <span id="dup-pag-info"></span>
-            <div style="display:flex;align-items:center;gap:10px">
-              <select class="per-sel" id="dup-pp" onchange="renderDupT()"><option>10</option><option>25</option><option>50</option></select>
-              <div class="pag-btns">
-                <button class="pb" onclick="pDup(-1)">‹</button>
-                <span id="dup-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
-                <button class="pb" onclick="pDup(1)">›</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="panel" id="dup-prog-panel" style="display:none">
-          <div class="panel-hd"><h3>Duplicando...</h3></div>
-          <div class="panel-bd">
-            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="dup-pf"></div></div><div class="prog-txt" id="dup-pt"></div></div>
-            <div class="res-list" id="dup-res"></div>
-          </div>
-        </div>
-      </div>
+try:
+    ST = load_state()
+except:
+    ST = {"accounts": [], "tn": {}, "log": [], "links": []}
+if "links" not in ST: ST["links"] = []
+if "accounts" not in ST: ST["accounts"] = []
 
-      <!-- ENLACES -->
-      <div class="page" id="page-enlaces">
-        <div class="page-title">Mis enlaces ML ↔ TN</div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Productos enlazados</h3><span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span></div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>PRODUCTO ML</th><th>VARIACIÓN ML</th><th>PRODUCTO TN</th><th>VARIANTE TN</th><th></th></tr></thead>
-              <tbody id="links-body"><tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+# ── Auth ───────────────────────────────────────────────────────────────────────
+def auth(req: Request):
+    t = req.headers.get("X-Session-Token", "")
+    if not t or t not in SESSIONS or SESSIONS[t] < time.time():
+        raise HTTPException(401, "No autorizado.")
+    SESSIONS[t] = time.time() + 86400 * 7
+    return t
 
-      <!-- CUENTAS -->
-      <div class="page" id="page-cuentas">
-        <div class="page-title">Conectar canales</div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Cuentas MercadoLibre</h3></div>
-          <div id="ml-cards"></div>
-          <div class="panel-bd">
-            <div style="background:#fffbec;border:1px solid #ffe58f;border-radius:7px;padding:14px;margin-bottom:4px">
-              <div style="font-size:13px;font-weight:600;margin-bottom:5px">Conectar nueva cuenta</div>
-              <div style="font-size:12px;color:#7a8299;margin-bottom:12px;line-height:1.6">Hacé clic, iniciá sesión con la cuenta de ML y autorizá. Podés agregar hasta 4 cuentas.</div>
-              <a href="/auth/login" class="btn btn-ml">🔗 Conectar cuenta de MercadoLibre</a>
-            </div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Tienda Nube</h3></div>
-          <div class="panel-bd">
-            <div id="tn-cur" style="font-size:13px;color:#7a8299;margin-bottom:14px">No conectada.</div>
-            <div class="f-row">
-              <div class="fg"><label>Store ID</label><input type="text" id="tn-sid" placeholder="ej: 123456" /></div>
-              <div class="fg"><label>Access Token</label><input type="password" id="tn-tok" placeholder="tu_access_token" /></div>
-            </div>
-            <div class="hint"><b>Store ID:</b> en la URL: tiendanube.com/stores/<b>XXXXXX</b>/...<br><b>Access Token:</b> <a href="https://partners.tiendanube.com" target="_blank">partners.tiendanube.com</a> → tu app → copiá el token.</div>
-            <div id="msg-tn" class="msg"></div>
-            <button class="btn btn-blue btn-sm" onclick="connectTN()">Conectar Tienda Nube</button>
-          </div>
-        </div>
-      </div>
+@app.get("/health")
+def health():
+    return {"ok": True}
 
-      <!-- SINCRONIZAR -->
-      <div class="page" id="page-sincronizar">
-        <div class="page-title">Sincronizar stock y precios</div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Sincronización por enlaces manuales</h3></div>
-          <div class="panel-bd">
-            <p style="font-size:13px;color:#7a8299;margin-bottom:14px;line-height:1.6">Actualizá precio y stock en Tienda Nube según los enlaces que configuraste manualmente. Sin SKU automático.</p>
-            <div id="sync-links-info" style="font-size:13px;margin-bottom:16px"></div>
-            <button class="btn btn-green" onclick="doSync()" id="sync-btn">🔄 Sincronizar ahora</button>
-            <div id="msg-sync" class="msg"></div>
-          </div>
-        </div>
-        <div class="panel" id="sync-res-panel" style="display:none">
-          <div class="panel-hd"><h3>Resultado</h3></div>
-          <div class="panel-bd">
-            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="sync-pf"></div></div><div class="prog-txt" id="sync-pt"></div></div>
-            <div class="res-list" id="sync-res"></div>
-          </div>
-        </div>
-      </div>
+@app.post("/api/login")
+async def login(req: Request):
+    b = await req.json()
+    if b.get("email","").lower() != ADMIN_EMAIL.lower() or b.get("password","") != ADMIN_PASS:
+        raise HTTPException(401, "Email o contraseña incorrectos.")
+    t = secrets.token_hex(32)
+    SESSIONS[t] = time.time() + 86400 * 7
+    return {"token": t, "ok": True}
 
-      <!-- LOG -->
-      <div class="page" id="page-log">
-        <div class="page-title">Historial</div>
-        <div class="panel">
-          <div class="panel-hd"><h3>Log completo</h3></div>
-          <div style="padding:0 18px 8px"><div id="full-log"><div class="empty"><div class="ei">📋</div>Sin actividad aún</div></div></div>
-        </div>
-      </div>
-    </main>
-  </div>
-</div>
+@app.post("/api/logout")
+def logout(s=Depends(auth)):
+    SESSIONS.pop(s, None)
+    return {"ok": True}
 
-<!-- LINK MODAL -->
-<div class="modal-bg" id="link-modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal()">✕</button>
-    <h3>Enlazar con Tienda Nube</h3>
-    <div id="modal-ml-info" style="font-size:13px;color:#7a8299;margin-bottom:14px"></div>
-    <input type="text" class="tn-search" id="tn-prod-search" placeholder="Buscar producto en TN..." oninput="filterTNProds()" />
-    <div class="tn-prod-list" id="tn-prod-list"><div class="empty"><div class="ei">⏳</div>Cargando productos de TN...</div></div>
-    <div id="modal-var-sel" style="display:none;margin-top:10px">
-      <div style="font-size:12px;font-weight:600;color:#7a8299;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Variante de TN (opcional)</div>
-      <select class="fg" id="tn-var-sel" style="width:100%"><option value="">— Sin variante específica —</option></select>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:16px">
-      <button class="btn btn-blue" onclick="saveLink()">Guardar enlace</button>
-      <button class="btn btn-out" onclick="closeModal()">Cancelar</button>
-    </div>
-    <div id="msg-modal" class="msg"></div>
-  </div>
-</div>
+# ── ML OAuth ───────────────────────────────────────────────────────────────────
+@app.get("/auth/login")
+def ml_login():
+    return RedirectResponse(
+        f"https://auth.mercadolibre.com.ar/authorization"
+        f"?response_type=code&client_id={ML_APP_ID}&redirect_uri={REDIRECT_URI}"
+    )
 
-<script>
-const API = '';
-let SESSION = localStorage.getItem('session_token') || '';
-let appState = {ml_accounts:[],tn_connected:false,tn_store_id:'',sync_log:[],last_sync:null,links:[]};
+@app.get("/auth/callback")
+async def ml_callback(code: str = None, error: str = None):
+    if not code:
+        return RedirectResponse(f"{APP_URL}/?error=auth_failed")
+    async with httpx.AsyncClient(timeout=20) as c:
+        r = await c.post("https://api.mercadolibre.com/oauth/token",
+            data={"grant_type":"authorization_code","client_id":ML_APP_ID,
+                  "client_secret":ML_SECRET,"code":code,"redirect_uri":REDIRECT_URI},
+            headers={"Content-Type":"application/x-www-form-urlencoded"})
+        td = r.json()
+    if "access_token" not in td:
+        return RedirectResponse(f"{APP_URL}/?error=token_failed")
+    token = td["access_token"]
+    uid = str(td.get("user_id",""))
+    async with httpx.AsyncClient(timeout=10) as c:
+        ur = await c.get(f"{ML_API}/users/{uid}", headers={"Authorization":f"Bearer {token}"})
+        info = ur.json()
+    name = info.get("nickname", f"Cuenta {len(ST['accounts'])+1}")
+    for acc in ST["accounts"]:
+        if acc["uid"] == uid:
+            acc.update({"token":token,"refresh":td.get("refresh_token",""),
+                        "expiry":time.time()+td.get("expires_in",21600)-300})
+            save_state()
+            return RedirectResponse(f"{APP_URL}/?success=reconnected")
+    if len(ST["accounts"]) >= 4:
+        return RedirectResponse(f"{APP_URL}/?error=max_accounts")
+    ST["accounts"].append({"name":name,"uid":uid,"token":token,
+                           "refresh":td.get("refresh_token",""),
+                           "expiry":time.time()+td.get("expires_in",21600)-300})
+    save_state()
+    return RedirectResponse(f"{APP_URL}/?success=connected")
 
-// Products state
-let prodProds=[], prodFilt=[], prodSel=[], prodAccIdx=0, prodPg=0, prodSF='todas';
-let pubProds=[], pubFilt=[], pubSel=[], pubAccIdx=0, pubPg=0, pubSF='todas';
-let dupProds=[], dupFilt=[], dupSel=[], dupPg=0;
-let tnProds=[], tnProdsFilt=[];
-let modalML={item_id:null,var_id:null,acc_idx:null,title:null};
-let selectedTNProd=null;
+async def fresh_token(i: int) -> str:
+    acc = ST["accounts"][i]
+    if time.time() > acc.get("expiry",0) and acc.get("refresh"):
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.post("https://api.mercadolibre.com/oauth/token",
+                    data={"grant_type":"refresh_token","client_id":ML_APP_ID,
+                          "client_secret":ML_SECRET,"refresh_token":acc["refresh"]},
+                    headers={"Content-Type":"application/x-www-form-urlencoded"})
+                td = r.json()
+            if "access_token" in td:
+                acc["token"] = td["access_token"]
+                acc["refresh"] = td.get("refresh_token", acc["refresh"])
+                acc["expiry"] = time.time() + td.get("expires_in",21600) - 300
+                save_state()
+        except:
+            pass
+    return acc["token"]
 
-function hdr(){return {'Content-Type':'application/json','X-Session-Token':SESSION}}
-
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
-async function doLogin(){
-  const email=document.getElementById('li-email').value.trim();
-  const pw=document.getElementById('li-pw').value;
-  const err=document.getElementById('li-err');
-  err.classList.remove('show');
-  try{
-    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
-    const d=await r.json();
-    if(!r.ok){err.textContent=d.detail||'Error';err.classList.add('show');return;}
-    SESSION=d.token;
-    localStorage.setItem('session_token',SESSION);
-    showApp();
-  }catch(e){err.textContent='Error de conexión.';err.classList.add('show');}
-}
-
-async function doLogout(){
-  try{await fetch('/api/logout',{method:'POST',headers:hdr()});}catch(e){}
-  SESSION='';localStorage.removeItem('session_token');
-  document.getElementById('app-screen').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-}
-
-function showApp(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app-screen').style.display='flex';
-  checkURLParams();
-  loadState();
-}
-
-// On load
-window.addEventListener('load',()=>{
-  if(SESSION){
-    fetch('/api/state',{headers:hdr()}).then(r=>{
-      if(r.ok)showApp(); else{SESSION='';localStorage.removeItem('session_token');}
-    }).catch(()=>{});
-  }
-});
-
-function checkURLParams(){
-  const p=new URLSearchParams(window.location.search);
-  const b=document.getElementById('app-alert');
-  if(p.get('success')==='connected'){b.textContent='✅ Cuenta de MercadoLibre conectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
-  else if(p.get('success')==='reconnected'){b.textContent='✅ Cuenta reconectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
-  else if(p.get('error')){const m={auth_failed:'Error al autenticar.',token_failed:'Error de token.',max_accounts:'Máximo 4 cuentas.'};b.textContent='❌ '+(m[p.get('error')]||'Error.');b.className='alert err show';}
-  if(p.toString())window.history.replaceState({},'','/');
-}
-
-function toggleSec(id){
-  const el=document.getElementById('sec-'+id),arr=document.getElementById('arr-'+id);
-  if(el.style.display==='none'){el.style.display='';arr.textContent='▾';}else{el.style.display='none';arr.textContent='▸';}
-}
-
-function showPage(name){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  document.querySelectorAll('.nav-i,.nav-sub').forEach(n=>n.classList.remove('active'));
-  if(name==='inicio')document.querySelector('.nav-i').classList.add('active');
-  if(name==='productos'||name==='publicar'||name==='duplicar'){
-    const subs=document.querySelectorAll('.nav-sub');
-    if(name==='productos')subs[0]?.classList.add('active');
-    if(name==='publicar')subs[1]?.classList.add('active');
-    if(name==='duplicar')subs[2]?.classList.add('active');
-  }
-  if(name==='log'||name==='inicio')renderLog();
-  if(name==='produtos')renderProdTabs();
-  if(name==='publicar')renderPubTabs();
-  if(name==='duplicar')renderDupAccs();
-  if(name==='enlaces')renderLinks();
-  if(name==='sincronizar')renderSyncInfo();
-}
-
-async function loadState(){
-  try{
-    const r=await fetch('/api/state',{headers:hdr()});
-    if(r.status===401){doLogout();return;}
-    appState=await r.json();
-    updateUI();
-  }catch(e){}
-}
-
-function updateUI(){
-  const n=appState.ml_accounts.length;
-  document.getElementById('d-canales').textContent=n;
-  document.getElementById('d-can-bar').style.width=(n/4*100)+'%';
-  document.getElementById('d-tn').textContent=appState.tn_connected?'✓':'✗';
-  document.getElementById('d-tn').style.color=appState.tn_connected?'#00a381':'#e17055';
-  document.getElementById('d-tn-sub').textContent=appState.tn_connected?'Conectada (ID: '+appState.tn_store_id+')':'No conectada';
-  document.getElementById('d-acc').textContent=appState.sync_log.length;
-  if(appState.last_sync){const d=new Date(appState.last_sync*1000);document.getElementById('d-last').textContent=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
-  // icons
-  document.getElementById('d-ch-icons').innerHTML=appState.ml_accounts.map(a=>`<div title="${a.name}" style="width:30px;height:30px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">${a.name[0].toUpperCase()}</div>`).join('');
-  // sidebar channels
-  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map(a=>`<div class="nav-ch"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
-  // ML cards
-  const cards=document.getElementById('ml-cards');
-  if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
-  else{cards.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="ch-card"><div class="ch-logo">${a.name[0].toUpperCase()}</div><div class="ch-info"><div class="ch-name">${a.name}</div><div class="ch-sub">MercadoLibre · ID ${a.user_id}${!a.token_ok?' · <span style="color:#d68000">Token vencido — reconectá</span>':''}</div></div><button class="btn btn-red btn-sm" onclick="removeML(${i})">Quitar</button></div>`).join('');}
-  if(appState.tn_connected){document.getElementById('tn-cur').innerHTML=`<span style="color:#00a381;font-weight:600">✓ Conectada</span> — Store ID: <b>${appState.tn_store_id}</b>`;}
-  // dup selects
-  const opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
-  document.getElementById('dup-from').innerHTML=opts;
-  document.getElementById('dup-to').innerHTML=opts;
-  renderLog();renderProdTabs();renderPubTabs();renderLinks();renderSyncInfo();
-}
-
-function renderLog(){
-  const logs=[...(appState.sync_log||[])].reverse().slice(0,80);
-  const html=logs.length?logs.map(l=>{const d=new Date(l.ts*1000);const t=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<div class="log-row"><span class="lts">${t}</span><span class="lbadge ${l.action}">${l.action}</span><span class="ltitle">${l.product}</span><span class="lstatus ${l.status}">${l.status==='ok'?'✓':'✗'}</span></div>`;}).join(''):'<div class="empty"><div class="ei">📋</div>Sin actividad aún.</div>';
-  document.getElementById('d-log').innerHTML=html;
-  document.getElementById('full-log').innerHTML=html;
-}
-
-function renderLinks(){
-  const links=appState.links||[];
-  document.getElementById('links-count').textContent=links.length+' enlaces';
-  if(!links.length){document.getElementById('links-body').innerHTML='<tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr>';return;}
-  document.getElementById('links-body').innerHTML=links.map(l=>`<tr>
-    <td><b>${l.ml_item_id}</b></td>
-    <td>${l.ml_variation_id||'—'}</td>
-    <td>${l.tn_product_id}</td>
-    <td>${l.tn_variant_id||'—'}</td>
-    <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
-  </tr>`).join('');
-}
-
-function renderSyncInfo(){
-  const n=(appState.links||[]).length;
-  document.getElementById('sync-links-info').innerHTML=n?`<span style="color:#00a381;font-weight:600">✓ ${n} enlace(s) configurado(s)</span>`:'<span style="color:#e17055">⚠ No hay enlaces configurados. Creálos desde el Panel de productos.</span>';
-}
-
-function showMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg;el.className='msg show '+(type==='info'?'inf':type);}
-function hideMsg(id){document.getElementById(id).className='msg';}
-
-async function removeML(i){if(!confirm('¿Quitar esta cuenta?'))return;await fetch('/api/ml/'+i,{method:'DELETE',headers:hdr()});await loadState();}
-
-async function connectTN(){
-  const sid=document.getElementById('tn-sid').value.trim();
-  const tok=document.getElementById('tn-tok').value.trim();
-  if(!sid||!tok){showMsg('msg-tn','⚠️ Completá ambos campos.','err');return;}
-  try{const r=await fetch('/api/tn/connect',{method:'POST',headers:hdr(),body:JSON.stringify({store_id:sid,token:tok})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');showMsg('msg-tn','✓ Tienda Nube conectada.','ok');await loadState();}
-  catch(e){showMsg('msg-tn','❌ '+e.message,'err');}
-}
-
-// ── PROD TABLE ─────────────────────────────────────────────────────────────────
-function renderProdTabs(){
-  const el=document.getElementById('prod-tabs');const btn=document.getElementById('load-prod-btn');
-  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas en Canales.</span>';btn.style.display='none';return;}
-  el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===prodAccIdx?'active':''}" onclick="selProdAcc(${i})">${a.name}${!a.token_ok?'<span class="token-warn">⚠ token</span>':''}</div>`).join('');
-  btn.style.display='inline-flex';
-}
-function selProdAcc(i){prodAccIdx=i;renderProdTabs();}
-
-let syncPollInterval=null;
-async function loadProdProds(){
-  const btn=document.getElementById('load-prod-btn');
-  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-prod');
-  try{
-    const r=await fetch('/api/ml/'+prodAccIdx+'/products',{headers:hdr()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error');
-    if(!d.synced){
-      // No hay productos sincronizados — iniciar sincronización
-      showMsg('msg-prod','⏳ Productos no sincronizados. Iniciando sincronización con MercadoLibre...','info');
-      await startMLSync();
-      return;
+# ── State ──────────────────────────────────────────────────────────────────────
+@app.get("/api/state")
+def get_state(_=Depends(auth)):
+    return {
+        "ml_accounts": [{"name":a["name"],"user_id":a["uid"],
+                         "token_ok": time.time() < a.get("expiry",0)} for a in ST["accounts"]],
+        "tn_connected": bool(ST["tn"].get("store_id")),
+        "tn_store_id": ST["tn"].get("store_id",""),
+        "last_sync": None,
+        "sync_log": ST["log"][-50:],
+        "links": ST["links"]
     }
-    prodProds=d.products;prodSel=[];prodPg=0;prodSF='todas';
-    document.getElementById('prod-q').value='';
-    document.querySelectorAll('#page-productos .fpill').forEach((b,i)=>b.classList.toggle('active',i===0));
-    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
-    applyProdF();
-  }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar';btn.disabled=false;
-}
 
-async function startMLSync(){
-  const btn=document.getElementById('load-prod-btn');
-  try{
-    const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error al iniciar');
-    showMsg('msg-prod','⏳ Sincronizando productos con MercadoLibre. Esto puede tardar varios minutos con catálogos grandes...','info');
-    btn.innerHTML='⏳ Sincronizando...';btn.disabled=true;
-    // Polling cada 5 segundos
-    if(syncPollInterval) clearInterval(syncPollInterval);
-    syncPollInterval=setInterval(async()=>{
-      try{
-        const sr=await fetch('/api/ml/'+prodAccIdx+'/sync/status',{headers:hdr()});
-        const sd=await sr.json();
-        const st=sd.status||{};
-        if(st.status==='done'||(!sd.running&&st.status&&st.status.startsWith('error'))){
-          clearInterval(syncPollInterval);syncPollInterval=null;
-          if(st.status==='done'){
-            showMsg('msg-prod',`✅ Sincronización completa — ${st.total} productos`,'ok');
-            // Cargar productos del cache
-            const pr=await fetch('/api/ml/'+prodAccIdx+'/products',{headers:hdr()});
-            const pd=await pr.json();
-            prodProds=pd.products;prodSel=[];prodPg=0;
-            applyProdF();
-          }else{
-            showMsg('msg-prod','❌ Error: '+st.status,'err');
-          }
-          btn.innerHTML='Cargar';btn.disabled=false;
-        }else{
-          const fetched=st.fetched||0;const total=st.total||0;
-          const statusTxt=st.status==='fetching_ids'?'Obteniendo lista de publicaciones...':
-            `Descargando detalles: ${fetched}${total?' / '+total:''} productos...`;
-          showMsg('msg-prod','⏳ '+statusTxt,'info');
-        }
-      }catch(e){}
-    },5000);
-  }catch(e){
-    showMsg('msg-prod','❌ '+e.message,'err');
-    btn.innerHTML='Cargar';btn.disabled=false;
-  }
-}
+@app.delete("/api/ml/{i}")
+def remove_ml(i: int, _=Depends(auth)):
+    if i < 0 or i >= len(ST["accounts"]):
+        raise HTTPException(404)
+    ST["accounts"].pop(i)
+    save_state()
+    return {"ok": True}
 
-function setProdF(val,el){prodSF=val;prodPg=0;document.querySelectorAll('#page-productos .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyProdF();}
-function applyProdF(){
-  const q=document.getElementById('prod-q').value.toLowerCase();
-  prodFilt=prodProds.filter(p=>(!q||p.title.toLowerCase().includes(q))&&(prodSF==='todas'||p.status===prodSF));
-  prodPg=0;document.getElementById('prod-cnt').textContent=`${prodFilt.length} / ${prodProds.length}`;renderProdT();
-}
+@app.post("/api/tn/connect")
+async def connect_tn(req: Request, _=Depends(auth)):
+    b = await req.json()
+    ST["tn"] = {"store_id": b.get("store_id",""), "token": b.get("token","")}
+    save_state()
+    return {"ok": True}
 
-function renderProdT(){
-  const pp=parseInt(document.getElementById('prod-pp').value)||10;
-  const total=prodFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
-  if(prodPg>=pages)prodPg=pages-1;
-  const start=prodPg*pp;const slice=prodFilt.slice(start,start+pp);
-  document.getElementById('prod-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
-  document.getElementById('prod-pag-cur').textContent=`${prodPg+1}/${pages}`;
-  const links=appState.links||[];
-  const tbody=document.getElementById('prod-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div>${prodProds.length?'Sin resultados.':'Cargá los productos primero.'}</div></td></tr>`;return;}
-  let rows='';
-  slice.forEach(p=>{
-    const sel=prodSel.includes(p.id);
-    const img=p.pictures?.[0]?.url||p.thumbnail||'';
-    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
-    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
-    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
-    const st=p.status==='active'?'active':p.status==='paused'?'paused':'closed';
-    const stL=st==='active'?'Activa':st==='paused'?'Pausada':'Cerrada';
-    const stC=st==='active'?'ba':st==='paused'?'bp':'bc';
-    const hasVar=p._has_variations;
-    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} var</span>`:'';
-    const linked=links.find(l=>l.ml_item_id===p.id);
-    const linkBtn=linked?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">✏ Enlace</button>`:
-      `<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
-    const expBtn=hasVar?`<button class="expand-btn" onclick="toggleVars('${p.id}',this)" title="Ver variaciones">▶</button>`:'';
-    rows+=`<tr class="${sel?'sel':''}" data-id="${p.id}" onclick="toggleProdRow('${p.id}',this)">
-      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleProdRow('${p.id}',this.closest('tr'))" /></td>
-      <td>${imgH}</td>
-      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
-      <td>${stk}</td>
-      <td style="font-weight:600">${price}</td>
-      <td>${varBadge}${expBtn}</td>
-      <td><span class="badge ${stC}">${stL}</span></td>
-      <td onclick="event.stopPropagation()">${linkBtn}</td>
-    </tr>`;
-    if(hasVar){
-      rows+=`<tr id="vars-${p.id}" style="display:none"><td colspan="8" style="padding:0;background:#fafbff">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:#f0f4ff">
-            <td style="padding:6px 12px 6px 52px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">VARIACIÓN</td>
-            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">STOCK</td>
-            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">PRECIO</td>
-            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">ENLACE</td>
-          </tr></thead>
-          <tbody>
-          ${(p.variations||[]).map(v=>{
-            const vatrs=Object.entries(v._attrs||{}).map(([k,val])=>`${k}: ${val}`).join(' / ')||'Variación '+v.id;
-            const vprice=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(v.price||p.price||0);
-            const vstk=v.available_quantity>0?v.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
-            const vlinked=links.find(l=>l.ml_item_id===p.id&&l.ml_variation_id==v.id);
-            const vlBtn=vlinked?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">✏ Enlace</button>`:
-              `<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
-            return `<tr class="var-row"><td style="padding:6px 12px 6px 52px;font-size:12px">${vatrs}</td><td style="padding:6px 12px;font-size:12px">${vstk}</td><td style="padding:6px 12px;font-size:12px;font-weight:600">${vprice}</td><td style="padding:6px 12px" onclick="event.stopPropagation()">${vlBtn}</td></tr>`;
-          }).join('')}
-          </tbody>
-        </table>
-      </td></tr>`;
-    }
-  });
-  tbody.innerHTML=rows;
-  updateProdAB();
-}
+# ── Products (guardados en Redis como Astroselling) ────────────────────────────
+SYNC_RUNNING = {}  # {uid: True/False}
 
-function toggleVars(id,btn){
-  const row=document.getElementById('vars-'+id);
-  if(row.style.display==='none'||!row.style.display){row.style.display='';btn.textContent='▼';}
-  else{row.style.display='none';btn.textContent='▶';}
-}
+def redis_products_key(uid): return f"mltn:products:{uid}"
+def redis_status_key(uid): return f"mltn:sync_status:{uid}"
 
-function toggleProdRow(id,tr){
-  if(prodSel.includes(id)){prodSel=prodSel.filter(i=>i!==id);tr.classList.remove('sel');}
-  else{prodSel.push(id);tr.classList.add('sel');}
-  updateProdAB();
-}
-function selAllProd(cb){
-  const ids=prodFilt.map(p=>p.id);
-  if(cb.checked)ids.forEach(id=>{if(!prodSel.includes(id))prodSel.push(id);});
-  else prodSel=prodSel.filter(id=>!ids.includes(id));
-  renderProdT();
-}
-function updateProdAB(){
-  const bar=document.getElementById('ab-prod');
-  if(prodSel.length){bar.style.display='flex';document.getElementById('ab-prod-info').textContent=prodSel.length+' seleccionados';}
-  else bar.style.display='none';
-}
-function clearProdSel(){prodSel=[];renderProdT();}
-function pProd(d){prodPg+=d;renderProdT();}
-function goPublishSelected(){pubSel=[...prodSel];showPage('publicar');}
+def get_cached_products(uid):
+    r = get_redis()
+    if r:
+        try:
+            raw = r.get(redis_products_key(uid))
+            if raw:
+                return json.loads(raw)
+        except: pass
+    return None
 
-// ── PUB TABLE ──────────────────────────────────────────────────────────────────
-function renderPubTabs(){
-  const el=document.getElementById('pub-tabs');const btn=document.getElementById('load-pub-btn');
-  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
-  el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
-  btn.style.display='inline-flex';
-}
-function selPubAcc(i){pubAccIdx=i;renderPubTabs();document.getElementById('pub-prod-panel').style.display='none';}
+def set_cached_products(uid, products):
+    r = get_redis()
+    if r:
+        try:
+            r.set(redis_products_key(uid), json.dumps(products))
+            r.set(redis_status_key(uid), json.dumps({"status":"done","total":len(products),"ts":int(time.time())}))
+        except: pass
 
-async function loadPubProds(){
-  const btn=document.getElementById('load-pub-btn');
-  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-pub');
-  try{
-    const r=await fetch('/api/ml/'+pubAccIdx+'/products',{headers:hdr()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error. Token vencido — reconectá la cuenta.');
-    pubProds=d.products;
-    if(pubSel.length){}
-    pubPg=0;pubSF='todas';
-    document.getElementById('pub-q').value='';
-    document.querySelectorAll('#page-publicar .fpill').forEach((b,i)=>b.classList.toggle('active',i===0));
-    applyPubF();
-    document.getElementById('pub-prod-panel').style.display='block';
-    document.getElementById('pub-prog-panel').style.display='none';
-  }catch(e){showMsg('msg-pub','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar productos →';btn.disabled=false;
-}
+def set_sync_status(uid, status, total=0, fetched=0):
+    r = get_redis()
+    if r:
+        try:
+            r.set(redis_status_key(uid), json.dumps({"status":status,"total":total,"fetched":fetched,"ts":int(time.time())}))
+        except: pass
 
-function setPubF(val,el){pubSF=val;pubPg=0;document.querySelectorAll('#page-publicar .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyPubF();}
-function applyPubF(){
-  const q=document.getElementById('pub-q').value.toLowerCase();
-  pubFilt=pubProds.filter(p=>(!q||p.title.toLowerCase().includes(q))&&(pubSF==='todas'||p.status===pubSF));
-  pubPg=0;document.getElementById('pub-cnt').textContent=`${pubFilt.length} de ${pubProds.length}`;renderPubT();
-}
+def get_sync_status(uid):
+    r = get_redis()
+    if r:
+        try:
+            raw = r.get(redis_status_key(uid))
+            if raw: return json.loads(raw)
+        except: pass
+    return None
 
-function renderPubT(){
-  const pp=parseInt(document.getElementById('pub-pp').value)||10;
-  const total=pubFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
-  if(pubPg>=pages)pubPg=pages-1;
-  const start=pubPg*pp;const slice=pubFilt.slice(start,start+pp);
-  document.getElementById('pub-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
-  document.getElementById('pub-pag-cur').textContent=`${pubPg+1}/${pages}`;
-  const tbody=document.getElementById('pub-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>${pubProds.length?'Sin resultados.':'Cargá los productos primero.'}</div></td></tr>`;return;}
-  tbody.innerHTML=slice.map(p=>{
-    const sel=pubSel.includes(p.id);
-    const img=p.pictures?.[0]?.url||p.thumbnail||'';
-    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
-    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
-    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
-    const st=p.status==='active'?'active':p.status==='paused'?'paused':'closed';
-    const stL=st==='active'?'Activa':st==='paused'?'Pausada':'Cerrada';
-    const stC=st==='active'?'ba':st==='paused'?'bp':'bc';
-    const varB=p._has_variations?`<span class="var-badge">${p._variation_count} var</span>`:'';
-    return `<tr class="${sel?'sel':''}" onclick="togglePubRow('${p.id}',this)">
-      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="togglePubRow('${p.id}',this.closest('tr'))" /></td>
-      <td>${imgH}</td>
-      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
-      <td>${stk}</td><td style="font-weight:600">${price}</td>
-      <td>${varB}</td>
-      <td><span class="badge ${stC}">${stL}</span></td>
-    </tr>`;
-  }).join('');
-  updatePubAB();
-}
-function togglePubRow(id,tr){
-  if(pubSel.includes(id)){pubSel=pubSel.filter(i=>i!==id);tr.classList.remove('sel');}
-  else{pubSel.push(id);tr.classList.add('sel');}
-  updatePubAB();
-}
-function selAllPub(cb){
-  const ids=pubFilt.map(p=>p.id);
-  if(cb.checked)ids.forEach(id=>{if(!pubSel.includes(id))pubSel.push(id);});
-  else pubSel=pubSel.filter(id=>!ids.includes(id));
-  renderPubT();
-}
-function updatePubAB(){
-  const bar=document.getElementById('ab-pub');
-  if(pubSel.length){bar.style.display='flex';document.getElementById('ab-pub-info').textContent=pubSel.length+' seleccionados';}
-  else bar.style.display='none';
-}
-function clearPubSel(){pubSel=[];renderPubT();}
-function pPub(d){pubPg+=d;renderPubT();}
+async def do_sync_products(i: int, uid: str, token: str):
+    hdrs = {"Authorization": f"Bearer {token}"}
+    set_sync_status(uid, "fetching_ids")
+    all_ids = []
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            scroll_id = None
+            for _ in range(500):
+                url = f"{ML_API}/users/{uid}/items/search?search_type=scan"
+                if scroll_id:
+                    url += f"&scroll_id={scroll_id}"
+                await asyncio.sleep(1.0)
+                r = await c.get(url, headers=hdrs)
+                if r.status_code == 429:
+                    await asyncio.sleep(60)
+                    r = await c.get(url, headers=hdrs)
+                if r.status_code != 200:
+                    break
+                d = r.json()
+                ids = d.get("results", [])
+                if not ids: break
+                all_ids.extend(ids)
+                scroll_id = d.get("scroll_id")
+                if not scroll_id: break
+        set_sync_status(uid, "fetching_details", total=len(all_ids))
+        products = []
+        async with httpx.AsyncClient(timeout=60) as c:
+            for x in range(0, len(all_ids), 20):
+                batch = all_ids[x:x+20]
+                await asyncio.sleep(1.0)
+                r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
+                if r.status_code == 429:
+                    await asyncio.sleep(60)
+                    r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
+                if r.status_code != 200:
+                    continue
+                for item in r.json():
+                    if item.get("code") == 200:
+                        b = item["body"]
+                        for v in b.get("variations",[]):
+                            v["_attrs"] = {a["name"]:a["value_name"] for a in v.get("attribute_combinations",[])}
+                        b["_has_variations"] = len(b.get("variations",[])) > 0
+                        b["_variation_count"] = len(b.get("variations",[]))
+                        products.append(b)
+                set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
+        set_cached_products(uid, products)
+    except Exception as e:
+        set_sync_status(uid, f"error: {str(e)}")
+    finally:
+        SYNC_RUNNING.pop(uid, None)
 
-async function doPublish(){
-  if(!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
-  document.getElementById('pub-prog-panel').style.display='block';
-  document.getElementById('pub-res').innerHTML='';
-  document.getElementById('pub-pf').style.width='0%';
-  document.getElementById('pub-pt').textContent='Publicando...';
-  hideMsg('msg-pub-res');
-  try{
-    const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify({item_ids:pubSel,ml_account_index:pubAccIdx})});
-    const d=await r.json();const results=d.results||[];
-    document.getElementById('pub-pf').style.width='100%';
-    const ok=results.filter(r=>r.ok).length;const fail=results.length-ok;
-    document.getElementById('pub-pt').textContent=`Listo: ${ok} publicados, ${fail} con error.`;
-    const list=document.getElementById('pub-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
-    if(ok>0)showMsg('msg-pub-res',`✓ ${ok} publicado(s).`,'ok');
-    if(fail>0)showMsg('msg-pub-res',`⚠ ${fail} con error.`,'err');
-    await loadState();
-  }catch(e){showMsg('msg-pub-res','❌ Error: '+e.message,'err');}
-}
+@app.post("/api/ml/{i}/sync")
+async def start_sync(i: int, req: Request, _=Depends(auth)):
+    if i < 0 or i >= len(ST["accounts"]):
+        raise HTTPException(404)
+    acc = ST["accounts"][i]
+    uid = acc["uid"]
+    if uid in SYNC_RUNNING:
+        return {"ok": False, "msg": "Ya está sincronizando"}
+    token = await fresh_token(i)
+    SYNC_RUNNING[uid] = True
+    loop = asyncio.get_event_loop()
+    loop.create_task(do_sync_products(i, uid, token))
+    return {"ok": True, "msg": "Sincronización iniciada"}
 
-// ── DUPLICAR ───────────────────────────────────────────────────────────────────
-function renderDupAccs(){
-  const opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
-  document.getElementById('dup-from').innerHTML=opts;
-  document.getElementById('dup-to').innerHTML=opts;
-  if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
-}
-async function loadDupProds(){
-  const from=parseInt(document.getElementById('dup-from').value);
-  const btn=document.querySelector('#page-duplicar .btn-blue');
-  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-dup');
-  try{
-    const r=await fetch('/api/ml/'+from+'/products',{headers:hdr()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error');
-    dupProds=d.products;dupSel=[];dupPg=0;
-    document.getElementById('dup-q').value='';
-    applyDupF();
-    document.getElementById('dup-prod-panel').style.display='block';
-    document.getElementById('dup-prog-panel').style.display='none';
-  }catch(e){showMsg('msg-dup','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar productos →';btn.disabled=false;
-}
-function applyDupF(){
-  const q=document.getElementById('dup-q').value.toLowerCase();
-  dupFilt=dupProds.filter(p=>!q||p.title.toLowerCase().includes(q));
-  dupPg=0;renderDupT();
-}
-function renderDupT(){
-  const pp=parseInt(document.getElementById('dup-pp').value)||10;
-  const total=dupFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
-  if(dupPg>=pages)dupPg=pages-1;
-  const start=dupPg*pp;const slice=dupFilt.slice(start,start+pp);
-  document.getElementById('dup-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
-  document.getElementById('dup-pag-cur').textContent=`${dupPg+1}/${pages}`;
-  const tbody=document.getElementById('dup-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="ei">🔍</div>Sin resultados.</div></td></tr>`;return;}
-  tbody.innerHTML=slice.map(p=>{
-    const sel=dupSel.includes(p.id);
-    const img=p.pictures?.[0]?.url||p.thumbnail||'';
-    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
-    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
-    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
-    const st=p.status==='active'?'ba':p.status==='paused'?'bp':'bc';
-    const stL=p.status==='active'?'Activa':p.status==='paused'?'Pausada':'Cerrada';
-    return `<tr class="${sel?'sel':''}" onclick="toggleDupRow('${p.id}',this)">
-      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleDupRow('${p.id}',this.closest('tr'))" /></td>
-      <td>${imgH}</td>
-      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
-      <td>${stk}</td><td style="font-weight:600">${price}</td>
-      <td><span class="badge ${st}">${stL}</span></td>
-    </tr>`;
-  }).join('');
-  updateDupAB();
-}
-function toggleDupRow(id,tr){
-  if(dupSel.includes(id)){dupSel=dupSel.filter(i=>i!==id);tr.classList.remove('sel');}
-  else{dupSel.push(id);tr.classList.add('sel');}
-  updateDupAB();
-}
-function selAllDup(cb){
-  const ids=dupFilt.map(p=>p.id);
-  if(cb.checked)ids.forEach(id=>{if(!dupSel.includes(id))dupSel.push(id);});
-  else dupSel=dupSel.filter(id=>!ids.includes(id));
-  renderDupT();
-}
-function updateDupAB(){
-  const bar=document.getElementById('ab-dup');
-  if(dupSel.length){bar.style.display='flex';document.getElementById('ab-dup-info').textContent=dupSel.length+' seleccionados';}
-  else bar.style.display='none';
-}
-function clearDupSel(){dupSel=[];renderDupT();}
-function pDup(d){dupPg+=d;renderDupT();}
+@app.get("/api/ml/{i}/sync/status")
+def sync_status(i: int, _=Depends(auth)):
+    if i < 0 or i >= len(ST["accounts"]):
+        raise HTTPException(404)
+    uid = ST["accounts"][i]["uid"]
+    status = get_sync_status(uid)
+    running = uid in SYNC_RUNNING
+    return {"running": running, "status": status}
 
-async function doDuplicate(){
-  const from=parseInt(document.getElementById('dup-from').value);
-  const to=parseInt(document.getElementById('dup-to').value);
-  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
-  document.getElementById('dup-prog-panel').style.display='block';
-  document.getElementById('dup-res').innerHTML='';
-  document.getElementById('dup-pf').style.width='0%';
-  document.getElementById('dup-pt').textContent='Duplicando...';
-  try{
-    const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({item_ids:dupSel,from_account:from,to_account:to})});
-    const d=await r.json();const results=d.results||[];
-    document.getElementById('dup-pf').style.width='100%';
-    const ok=results.filter(r=>r.ok).length;
-    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.`;
-    const list=document.getElementById('dup-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
-    await loadState();
-  }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
-}
+@app.get("/api/ml/{i}/products")
+async def get_products(i: int, page: int = 1, limit: int = 50,
+                       status: str = "all", search: str = "", _=Depends(auth)):
+    if i < 0 or i >= len(ST["accounts"]):
+        raise HTTPException(404)
+    uid = ST["accounts"][i]["uid"]
+    products = get_cached_products(uid)
+    if products is None:
+        return {"products": [], "total": 0, "synced": False,
+                "msg": "Productos no sincronizados. Presioná Sincronizar."}
+    # Filtrar
+    if status != "all":
+        products = [p for p in products if p.get("status","") == status]
+    if search:
+        s = search.lower()
+        products = [p for p in products if s in p.get("title","").lower()]
+    total = len(products)
+    start = (page-1)*limit
+    page_products = products[start:start+limit]
+    return {"products": page_products, "total": total, "synced": True, "page": page, "limit": limit}
 
-// ── LINK MODAL ─────────────────────────────────────────────────────────────────
-async function openModal(itemId, varId, accIdx, title){
-  modalML={item_id:itemId,var_id:varId,acc_idx:accIdx,title};
-  selectedTNProd=null;
-  document.getElementById('modal-ml-info').textContent='Enlazar: '+title;
-  document.getElementById('tn-prod-search').value='';
-  document.getElementById('modal-var-sel').style.display='none';
-  document.getElementById('msg-modal').className='msg';
-  document.getElementById('link-modal').classList.add('show');
-  document.getElementById('tn-prod-list').innerHTML='<div class="empty"><div class="ei">⏳</div>Cargando...</div>';
-  try{
-    const r=await fetch('/api/tn/products',{headers:hdr()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'TN no conectada');
-    tnProds=d.products||[];tnProdsFilt=[...tnProds];
-    renderTNProdList();
-  }catch(e){document.getElementById('tn-prod-list').innerHTML=`<div class="empty"><div class="ei">❌</div>${e.message}</div>`;}
-}
 
-function filterTNProds(){
-  const q=document.getElementById('tn-prod-search').value.toLowerCase();
-  tnProdsFilt=tnProds.filter(p=>{const name=p.name?.es||p.name||'';return !q||name.toLowerCase().includes(q);});
-  renderTNProdList();
-}
+@app.get("/api/tn/products")
+async def get_tn_products(_=Depends(auth)):
+    if not ST["tn"].get("store_id"):
+        raise HTTPException(400, "TN no conectada.")
+    tn = ST["tn"]
+    hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
+    all_p = []
+    async with httpx.AsyncClient(timeout=30) as c:
+        for pg in range(1, 50):
+            r = await c.get(f"https://api.tiendanube.com/v1/{tn['store_id']}/products?page={pg}&per_page=50", headers=hdrs)
+            d = r.json()
+            if not isinstance(d, list) or not d:
+                break
+            all_p.extend(d)
+            if len(d) < 50:
+                break
+            await asyncio.sleep(0.1)
+    return {"products": all_p, "total": len(all_p)}
 
-function renderTNProdList(){
-  const el=document.getElementById('tn-prod-list');
-  if(!tnProdsFilt.length){el.innerHTML='<div class="empty"><div class="ei">🔍</div>Sin resultados</div>';return;}
-  el.innerHTML=tnProdsFilt.slice(0,50).map(p=>{
-    const name=p.name?.es||p.name||'ID '+p.id;
-    const variants=p.variants||[];
-    const sel=selectedTNProd?.id===p.id;
-    return `<div class="tn-prod-item ${sel?'sel':''}" onclick="selectTNProd(${p.id})" data-id="${p.id}">
-      <div class="tpn">${name}</div>
-      <div class="tpv">${variants.length} variante(s) · ID ${p.id}</div>
-    </div>`;
-  }).join('');
-}
+@app.post("/api/links/add")
+async def add_link(req: Request, _=Depends(auth)):
+    b = await req.json()
+    key = b["ml_item_id"] + ("_"+b["ml_variation_id"] if b.get("ml_variation_id") else "")
+    ST["links"] = [l for l in ST["links"]
+                   if (l["ml_item_id"]+("_"+l.get("ml_variation_id","") if l.get("ml_variation_id") else "")) != key]
+    ST["links"].append(b)
+    save_state()
+    return {"ok": True}
 
-function selectTNProd(id){
-  selectedTNProd=tnProds.find(p=>p.id===id);
-  document.querySelectorAll('.tn-prod-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.id)===id));
-  const variants=selectedTNProd?.variants||[];
-  const varSel=document.getElementById('tn-var-sel');
-  varSel.innerHTML='<option value="">— Sin variante específica —</option>'+variants.map(v=>`<option value="${v.id}">${(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id}</option>`).join('');
-  document.getElementById('modal-var-sel').style.display=variants.length>0?'block':'none';
-}
+@app.post("/api/links/remove")
+async def remove_link(req: Request, _=Depends(auth)):
+    b = await req.json()
+    key = b["ml_item_id"] + ("_"+b.get("ml_variation_id","") if b.get("ml_variation_id") else "")
+    ST["links"] = [l for l in ST["links"]
+                   if (l["ml_item_id"]+("_"+l.get("ml_variation_id","") if l.get("ml_variation_id") else "")) != key]
+    save_state()
+    return {"ok": True}
 
-async function saveLink(){
-  if(!selectedTNProd){showMsg('msg-modal','⚠ Seleccioná un producto de TN.','err');return;}
-  const tnVarId=document.getElementById('tn-var-sel').value||null;
-  try{
-    const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
-      ml_item_id:modalML.item_id,
-      ml_variation_id:modalML.var_id,
-      ml_account_index:modalML.acc_idx,
-      tn_product_id:String(selectedTNProd.id),
-      tn_variant_id:tnVarId
-    })});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error');
-    showMsg('msg-modal','✓ Enlace guardado.','ok');
-    await loadState();
-    setTimeout(closeModal,800);
-  }catch(e){showMsg('msg-modal','❌ '+e.message,'err');}
-}
+@app.post("/api/sync/manual")
+async def sync(_=Depends(auth)):
+    if not ST["tn"].get("store_id"):
+        raise HTTPException(400, "TN no conectada.")
+    tn = ST["tn"]
+    tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
+    results = []
+    for link in ST["links"]:
+        idx = link.get("ml_account_index", 0)
+        if idx >= len(ST["accounts"]):
+            continue
+        token = await fresh_token(idx)
+        ml_hdrs = {"Authorization": f"Bearer {token}"}
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.get(f"{ML_API}/items/{link['ml_item_id']}", headers=ml_hdrs)
+                item = r.json()
+                var_id = link.get("ml_variation_id")
+                if var_id:
+                    v = next((x for x in item.get("variations",[]) if str(x["id"])==str(var_id)), None)
+                    price = str(v.get("price", item.get("price",0))) if v else str(item.get("price",0))
+                    stock = v.get("available_quantity",0) if v else item.get("available_quantity",0)
+                else:
+                    price = str(item.get("price",0))
+                    stock = item.get("available_quantity",0)
+                pid = link["tn_product_id"]
+                vid = link.get("tn_variant_id")
+                if not vid:
+                    rp = await c.get(f"https://api.tiendanube.com/v1/{tn['store_id']}/products/{pid}", headers=tn_hdrs)
+                    vid = (rp.json().get("variants") or [{}])[0].get("id")
+                if vid:
+                    r2 = await c.put(f"https://api.tiendanube.com/v1/{tn['store_id']}/products/{pid}/variants/{vid}",
+                                     headers=tn_hdrs, json={"price":price,"stock":stock})
+                    ok = r2.status_code in (200,201)
+                else:
+                    ok = False
+                results.append({"title": item.get("title",""), "ok": ok})
+                ST["log"].append({"ts":int(time.time()),"action":"sync","product":item.get("title",""),"status":"ok" if ok else "error"})
+            await asyncio.sleep(0.2)
+        except Exception as e:
+            results.append({"title": link["ml_item_id"], "ok": False, "action": str(e)})
+    save_state()
+    return {"results": results}
 
-async function removeLink(mlId,mlVarId){
-  if(!confirm('¿Eliminar este enlace?'))return;
-  await fetch('/api/links/remove',{method:'POST',headers:hdr(),body:JSON.stringify({ml_item_id:mlId,ml_variation_id:mlVarId||null})});
-  await loadState();
-}
+@app.post("/api/publish")
+async def publish(req: Request, _=Depends(auth)):
+    b = await req.json()
+    item_ids = b.get("item_ids", [])
+    idx = b.get("ml_account_index", 0)
+    if not ST["tn"].get("store_id"):
+        raise HTTPException(400, "TN no conectada.")
+    token = await fresh_token(idx)
+    ml_hdrs = {"Authorization": f"Bearer {token}"}
+    tn = ST["tn"]
+    tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
+    results = []
+    for iid in item_ids:
+        try:
+            async with httpx.AsyncClient(timeout=20) as c:
+                r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
+                item = r.json()
+                dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
+                desc = dr.json().get("plain_text", item.get("title",""))
+                variations = item.get("variations",[])
+                if variations:
+                    variants = [{"price":str(v.get("price",item.get("price",0))),
+                                 "stock_management":True,"stock":v.get("available_quantity",0),
+                                 "values":[{"es":a["value_name"]} for a in v.get("attribute_combinations",[])]}
+                                for v in variations]
+                else:
+                    variants = [{"price":str(item.get("price",0)),"stock_management":True,
+                                 "stock":item.get("available_quantity",0)}]
+                payload = {"name":{"es":item["title"]},"description":{"es":desc},
+                           "published":True,"variants":variants,
+                           "images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:5]]}
+                pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                                  headers=tn_hdrs, json=payload)
+                ok = pr.status_code in (200,201)
+                results.append({"id":iid,"title":item.get("title",""),"ok":ok,
+                                 "msg":"Publicado" if ok else pr.json().get("description","Error")})
+                ST["log"].append({"ts":int(time.time()),"action":"publish","product":item.get("title",""),
+                                  "status":"ok" if ok else "error"})
+            await asyncio.sleep(0.3)
+        except Exception as e:
+            results.append({"id":iid,"ok":False,"msg":str(e)})
+    save_state()
+    return {"results": results}
 
-function closeModal(){document.getElementById('link-modal').classList.remove('show');}
+@app.post("/api/duplicate")
+async def duplicate(req: Request, _=Depends(auth)):
+    b = await req.json()
+    from_t = await fresh_token(b.get("from_account",0))
+    to_t = await fresh_token(b.get("to_account",1))
+    results = []
+    async with httpx.AsyncClient(timeout=30) as c:
+        for iid in b.get("item_ids",[]):
+            r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization":f"Bearer {from_t}"})
+            item = r.json()
+            payload = {"title":item["title"],"category_id":item.get("category_id",""),
+                       "price":item.get("price",0),"currency_id":item.get("currency_id","ARS"),
+                       "available_quantity":item.get("available_quantity",0),
+                       "listing_type_id":item.get("listing_type_id","gold_special"),
+                       "condition":item.get("condition","new"),
+                       "pictures":[{"source":p["url"]} for p in (item.get("pictures") or [])[:12]],
+                       "attributes":item.get("attributes",[])}
+            if item.get("variations"):
+                payload["variations"] = item["variations"]
+            r2 = await c.post(f"{ML_API}/items", headers={"Authorization":f"Bearer {to_t}"}, json=payload)
+            ok = r2.status_code in (200,201)
+            results.append({"id":iid,"title":item.get("title",""),"ok":ok})
+            await asyncio.sleep(0.5)
+    return {"results": results}
 
-// ── SYNC ───────────────────────────────────────────────────────────────────────
-async function doSync(){
-  if(!appState.tn_connected){showMsg('msg-sync','⚠ Primero conectá Tienda Nube.','err');return;}
-  const btn=document.getElementById('sync-btn');
-  btn.innerHTML='<span class="spinner"></span> Sincronizando...';btn.disabled=true;
-  hideMsg('msg-sync');
-  document.getElementById('sync-res-panel').style.display='block';
-  document.getElementById('sync-res').innerHTML='';
-  document.getElementById('sync-pf').style.width='0%';
-  document.getElementById('sync-pt').textContent='Sincronizando...';
-  try{
-    const r=await fetch('/api/sync/manual',{method:'POST',headers:hdr()});
-    const d=await r.json();const results=d.results||[];
-    document.getElementById('sync-pf').style.width='100%';
-    const ok=results.filter(r=>r.ok).length;
-    document.getElementById('sync-pt').textContent=d.msg||`Listo: ${ok}/${results.length} actualizados.`;
-    const list=document.getElementById('sync-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'⚠️'}</span><span class="rt">${r.title}</span><span class="rm">${r.action}</span>`;list.appendChild(item);});
-    showMsg('msg-sync',`✓ Sync completa: ${ok} actualizados.`,'ok');
-    await loadState();
-  }catch(e){showMsg('msg-sync','❌ Error: '+e.message,'err');}
-  btn.innerHTML='🔄 Sincronizar ahora';btn.disabled=false;
-}
+@app.get("/diag")
+async def diag():
+    r = get_redis()
+    redis_ok = False
+    try:
+        if r: r.ping(); redis_ok = True
+    except: pass
+    result = {"redis": redis_ok, "accounts": len(ST["accounts"])}
+    if ST["accounts"]:
+        acc = ST["accounts"][0]
+        token = acc.get("token","")
+        result["token_preview"] = token[:20]+"..." if token else "EMPTY"
+        result["token_expired"] = time.time() > acc.get("expiry",0)
+        async with httpx.AsyncClient(timeout=10) as c:
+            r2 = await c.get(f"{ML_API}/users/me", headers={"Authorization":f"Bearer {token}"})
+            result["ml_status"] = r2.status_code
+            result["ml_body"] = r2.text[:300]
+    return result
 
-loadState();
-setInterval(loadState,30000);
-</script>
-</body>
-</html>
+fp = Path("frontend")
+if fp.exists():
+    app.mount("/", StaticFiles(directory=str(fp), html=True), name="static")
