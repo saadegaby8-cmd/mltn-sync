@@ -256,24 +256,30 @@ async def do_sync_products(i: int, uid: str, token: str):
         async with httpx.AsyncClient(timeout=60) as c:
             for x in range(0, len(all_ids), 20):
                 batch = all_ids[x:x+20]
-                try:
-                    r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
-                    if r.status_code == 429:
-                        await asyncio.sleep(30)
+                for attempt in range(5):
+                    try:
                         r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
-                    if r.status_code == 200:
-                        for item in r.json():
-                            if item.get("code") == 200:
-                                b = item["body"]
-                                for v in b.get("variations",[]):
-                                    v["_attrs"] = {a["name"]:a["value_name"] for a in v.get("attribute_combinations",[])}
-                                b["_has_variations"] = len(b.get("variations",[])) > 0
-                                b["_variation_count"] = len(b.get("variations",[]))
-                                products.append(b)
-                except Exception:
-                    pass
+                        if r.status_code == 429:
+                            wait = 60 * (attempt + 1)
+                            await asyncio.sleep(wait)
+                            continue
+                        if r.status_code == 200:
+                            for item in r.json():
+                                if item.get("code") == 200:
+                                    b = item["body"]
+                                    for v in b.get("variations",[]):
+                                        v["_attrs"] = {a["name"]:a["value_name"] for a in v.get("attribute_combinations",[])}
+                                    b["_has_variations"] = len(b.get("variations",[])) > 0
+                                    b["_variation_count"] = len(b.get("variations",[]))
+                                    products.append(b)
+                        break
+                    except Exception:
+                        await asyncio.sleep(5)
                 set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
-                await asyncio.sleep(0.3)
+                # Guardar parcial cada 100 productos
+                if len(products) % 100 == 0 and len(products) > 0:
+                    set_cached_products(uid, products)
+                await asyncio.sleep(1.5)
 
         set_cached_products(uid, products)
         set_sync_status(uid, "done", total=len(products), fetched=len(products))
