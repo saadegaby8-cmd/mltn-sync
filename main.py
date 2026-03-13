@@ -1013,7 +1013,7 @@ async def diag_testdup(item_id: str):
                 return {"error": "ML no devolvió el item", "http_status": r.status_code, "response": item}
             SKIP = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
                     "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
-                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID"}  # ya NO skip SIZE_GRID_ID
+                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID"}
             attrs = []
             brand_name = ""
             model_name = ""
@@ -1062,14 +1062,14 @@ async def diag_testdup(item_id: str):
             orig_lt = item.get("listing_type_id","gold_special")
             listing_type = orig_lt if orig_lt in available_lts else (available_lts[0] if available_lts else "gold_special")
             payload = {
-                "title": "Corpiño Reductor Test 1018",  # título simple de prueba
+                "title": "Corpiño Reductor Test 1018",
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
                 "available_quantity": item.get("available_quantity",0),
                 "listing_type_id": listing_type,
                 "condition": item.get("condition","new"),
-                "pictures": [{"source":p["url"]} for p in (item.get("pictures") or [])[:2]],
+                "pictures": [],  # sin fotos para aislar el problema
                 "attributes": attrs,
                 "family_name": family,
             }
