@@ -950,52 +950,31 @@ async def diag_item(item_id: str):
 
 @app.get("/diag/sizechart/{item_id}")
 async def diag_sizechart(item_id: str):
-    """Intentar crear guía de talles en cuenta destino basada en el item origen"""
     if len(ST["accounts"]) < 2:
-        return {"error": "Necesitás 2 cuentas conectadas"}
+        return {"error": "Necesitás 2 cuentas"}
     try:
         from_t = await fresh_token(0)
         to_t = await fresh_token(1)
         async with httpx.AsyncClient(timeout=30) as c:
-            # Obtener item
-            r = await c.get(f"{ML_API}/items/{item_id}",
-                           headers={"Authorization": f"Bearer {from_t}"})
+            r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
             item = r.json()
-            category_id = item.get("category_id","")
-
-            # Ver qué atributos de talle tiene la categoría
-            cat_attrs = await c.get(
-                f"{ML_API}/categories/{category_id}/attributes",
-                headers={"Authorization": f"Bearer {from_t}"}
-            )
-
-            # Obtener guías de talles disponibles para esta categoría en cuenta destino
-            me_r = await c.get(f"{ML_API}/users/me",
-                               headers={"Authorization": f"Bearer {to_t}"})
-            to_uid = me_r.json().get("id")
-
-            existing_charts = await c.get(
-                f"{ML_API}/users/{to_uid}/size_charts",
-                headers={"Authorization": f"Bearer {to_t}"}
-            )
-
-            # Intentar obtener la guía original con token de origen
-            size_attr = next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None)
-            chart_id = size_attr.get("value_name") if size_attr else None
-            orig_chart = None
-            if chart_id:
-                og = await c.get(f"{ML_API}/size_charts/{chart_id}",
-                                headers={"Authorization": f"Bearer {from_t}"})
-                orig_chart = {"status": og.status_code, "body": og.json()}
-
-            return {
-                "category_id": category_id,
-                "size_grid_id": chart_id,
-                "original_chart_attempt": orig_chart,
-                "dest_user_id": to_uid,
-                "existing_charts_in_dest": {"status": existing_charts.status_code, "body": existing_charts.json()},
-                "size_attr_raw": size_attr,
-            }
+            cat_id = item.get("category_id","")
+            size_attr = next((a for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), None)
+            chart_id = size_attr.get("value_name") or size_attr.get("value_id") if size_attr else None
+            to_uid_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
+            to_uid = to_uid_r.json().get("id")
+            results = {}
+            endpoints = [
+                f"/size_charts/{chart_id}",
+                f"/size_charts/search?category_id={cat_id}",
+                f"/users/{to_uid}/size_charts",
+                f"/size_charts?category_id={cat_id}&seller_id={to_uid}",
+                f"/size_charts?seller_id={to_uid}",
+            ]
+            for ep in endpoints:
+                r2 = await c.get(f"{ML_API}{ep}", headers={"Authorization": f"Bearer {to_t}"})
+                results[ep] = {"status": r2.status_code, "body": r2.text[:300]}
+            return {"category_id": cat_id, "chart_id": chart_id, "dest_uid": to_uid, "results": results}
     except Exception as e:
         return {"exception": str(e)}
 
@@ -1067,11 +1046,10 @@ async def diag_testdup(item_id: str):
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
                 "available_quantity": item.get("available_quantity",0),
-                "listing_type_id": listing_type,
+                "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
-                "pictures": [],  # sin fotos para aislar el problema
-                "attributes": attrs,
-                "family_name": family,
+                "pictures": [],
+                "attributes": [],  # sin atributos
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
             resp = r2.json()
