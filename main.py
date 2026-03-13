@@ -1110,6 +1110,22 @@ if fp.exists():
     from fastapi.responses import FileResponse
     import os
 
+    @app.get("/manifest.json")
+    async def serve_manifest():
+        return FileResponse(str(fp / "manifest.json"), media_type="application/manifest+json")
+
+    @app.get("/sw.js")
+    async def serve_sw():
+        return FileResponse(str(fp / "sw.js"), media_type="application/javascript", headers={"Service-Worker-Allowed": "/"})
+
+    @app.get("/icon-192.png")
+    async def serve_icon192():
+        return FileResponse(str(fp / "icon-192.png"), media_type="image/png")
+
+    @app.get("/icon-512.png")
+    async def serve_icon512():
+        return FileResponse(str(fp / "icon-512.png"), media_type="image/png")
+
     @app.get("/")
     async def serve_index():
         return FileResponse(str(fp / "index.html"))
