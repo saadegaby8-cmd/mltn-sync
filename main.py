@@ -339,6 +339,8 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
         s = search.lower()
         products = [p for p in products if s in p.get("title","").lower()]
     total = len(products)
+    if limit >= 9999:
+        return {"products": products, "total": total, "synced": True, "page": 1, "limit": total}
     start = (page-1)*limit
     page_products = products[start:start+limit]
     return {"products": page_products, "total": total, "synced": True, "page": page, "limit": limit}
