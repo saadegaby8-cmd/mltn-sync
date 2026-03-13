@@ -514,6 +514,7 @@ async def duplicate(req: Request, _=Depends(auth)):
     to_idx = b.get("to_account", 1)
     status = b.get("status", "active")
     auto_link = b.get("auto_link", False)
+    agrupar = b.get("agrupar", False)
     try:
         from_t = await fresh_token(from_idx)
         to_t = await fresh_token(to_idx)
@@ -567,8 +568,162 @@ async def duplicate(req: Request, _=Depends(auth)):
             return chart_id  # fallback: usar el mismo ID
 
     results = []
+    item_ids = b.get("item_ids", [])
+
+    # Si agrupar=True, obtener todos los items primero y agrupar por MODEL
+    if agrupar:
+        async with httpx.AsyncClient(timeout=30) as c:
+            # Bajar todos los items
+            all_items = []
+            for iid in item_ids:
+                try:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
+                    item = r.json()
+                    if "error" not in item:
+                        all_items.append(item)
+                    await asyncio.sleep(0.5)
+                except Exception:
+                    pass
+
+            # Agrupar por MODEL
+            grupos = {}
+            for item in all_items:
+                model_attr = next((a for a in (item.get("attributes") or []) if a.get("id") == "MODEL"), None)
+                key = model_attr.get("value_name", item["id"]) if model_attr else item["id"]
+                if key not in grupos:
+                    grupos[key] = []
+                grupos[key].append(item)
+
+            # Procesar cada grupo
+            for model_key, items_grupo in grupos.items():
+                try:
+                    base_item = items_grupo[0]
+
+                    # Armar variaciones combinando COLOR + SIZE de cada item
+                    variations = []
+                    for item in items_grupo:
+                        attrs = {a["id"]: a for a in (item.get("attributes") or [])}
+                        color_id = attrs.get("COLOR", {}).get("value_id")
+                        color_name = attrs.get("COLOR", {}).get("value_name")
+                        size_id = attrs.get("SIZE", {}).get("value_id")
+                        size_name = attrs.get("SIZE", {}).get("value_name")
+                        combinations = []
+                        if color_id or color_name:
+                            c_attr = {"id": "COLOR"}
+                            if color_id: c_attr["value_id"] = color_id
+                            else: c_attr["value_name"] = color_name
+                            combinations.append(c_attr)
+                        if size_id or size_name:
+                            s_attr = {"id": "SIZE"}
+                            if size_id: s_attr["value_id"] = size_id
+                            else: s_attr["value_name"] = size_name
+                            combinations.append(s_attr)
+                        v = {
+                            "price": item.get("price", base_item.get("price", 0)),
+                            "available_quantity": item.get("available_quantity", 0),
+                            "attribute_combinations": combinations,
+                            "picture_ids": [p["id"] for p in (item.get("pictures") or [])[:3] if p.get("id")],
+                        }
+                        variations.append(v)
+
+                    # Limpiar atributos del item base
+                    EXCLUDED_ATTRS = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
+                                      "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
+                                      "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","COLOR","SIZE"}
+                    attrs_clean = []
+                    has_family_name = False
+                    size_chart_map_local = {}
+                    for a in (base_item.get("attributes") or []):
+                        aid = a.get("id","")
+                        if aid in EXCLUDED_ATTRS: continue
+                        if aid == "SIZE_GRID_ID":
+                            chart_id = a.get("value_name") or a.get("value_id")
+                            if chart_id:
+                                new_chart_id = await copy_size_chart(c, str(chart_id))
+                                if new_chart_id:
+                                    attrs_clean.append({"id": "SIZE_GRID_ID", "value_name": str(new_chart_id)})
+                            continue
+                        if aid == "BRAND":
+                            vname = a.get("value_name")
+                            if vname:
+                                attrs_clean.append({"id": "BRAND", "value_name": vname})
+                                model_a = next((x for x in (base_item.get("attributes") or []) if x.get("id")=="MODEL"), None)
+                                model_v = model_a.get("value_name","") if model_a else ""
+                                attrs_clean.append({"id": "family_name", "value_name": f"{vname} {model_v}".strip()})
+                                has_family_name = True
+                            continue
+                        if aid == "MODEL":
+                            vname = a.get("value_name")
+                            if vname: attrs_clean.append({"id": "MODEL", "value_name": vname})
+                            continue
+                        if a.get("value_id"):
+                            attrs_clean.append({"id": aid, "value_id": a["value_id"]})
+                        elif a.get("value_name"):
+                            attrs_clean.append({"id": aid, "value_name": a["value_name"]})
+                    if not has_family_name:
+                        attrs_clean.append({"id": "family_name", "value_name": base_item.get("title","")[:60]})
+
+                    # Título base: quitar la parte de variante al final si tiene " - CÓDIGO Variante"
+                    title = base_item.get("title", "")
+                    if " - " in title:
+                        title = title.rsplit(" - ", 1)[0].strip()
+
+                    payload = {
+                        "title": title,
+                        "category_id": base_item.get("category_id", ""),
+                        "price": base_item.get("price", 0),
+                        "currency_id": base_item.get("currency_id", "ARS"),
+                        "available_quantity": 0,
+                        "listing_type_id": base_item.get("listing_type_id", "gold_special"),
+                        "condition": base_item.get("condition", "new"),
+                        "pictures": [{"source": p["url"]} for p in (base_item.get("pictures") or [])[:12]],
+                        "attributes": attrs_clean,
+                        "variations": variations,
+                    }
+                    if base_item.get("sale_terms"):
+                        payload["sale_terms"] = base_item["sale_terms"]
+
+                    # Intentar con retry 429
+                    r2 = None
+                    for attempt in range(3):
+                        r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
+                        if r2.status_code == 429:
+                            await asyncio.sleep(30 * (attempt + 1))
+                            continue
+                        break
+
+                    ok = r2.status_code in (200, 201)
+                    new_id = None
+                    if ok:
+                        new_id = r2.json().get("id")
+                        msg = f"Agrupado OK ({len(items_grupo)} variantes)"
+                        if status == "paused" and new_id:
+                            await c.put(f"{ML_API}/items/{new_id}",
+                                headers={"Authorization": f"Bearer {to_t}"},
+                                json={"status": "paused"})
+                    elif r2.status_code == 429:
+                        msg = "Rate limit ML (429)"
+                    else:
+                        try:
+                            err = r2.json()
+                            causes = err.get("cause", [])
+                            msg = ", ".join([cx.get("code","") for cx in causes[:3]]) if causes else err.get("message", f"Error {r2.status_code}")
+                        except Exception:
+                            msg = f"Error {r2.status_code}"
+
+                    results.append({"id": base_item["id"], "title": title, "ok": ok, "msg": msg, "new_id": new_id, "variantes": len(items_grupo)})
+                    ST["log"].append({"ts": int(time.time()), "action": "duplicate_group", "product": title, "status": "ok" if ok else "error"})
+                    await asyncio.sleep(3)
+
+                except Exception as e:
+                    results.append({"id": model_key, "title": model_key, "ok": False, "msg": str(e)})
+
+        save_state()
+        return {"results": results}
+
+    # Modo normal: duplicar uno por uno
     async with httpx.AsyncClient(timeout=30) as c:
-        for iid in b.get("item_ids", []):
+        for iid in item_ids:
             try:
                 r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
                 item = r.json()
