@@ -717,7 +717,7 @@ function updateUI(){
     document.getElementById('dup-to').innerHTML=_opts;
     if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
   }
-  renderLog();renderProdTabs();renderPubTabs();renderLinks();renderSyncInfo();
+  renderLog();renderProdTabs(true);renderPubTabs();renderLinks();renderSyncInfo();
 }
 
 function renderLog(){
@@ -799,7 +799,7 @@ function filtrarSinUnir(){
   applyProdF();
 }
 
-function renderProdTabs(){
+function renderProdTabs(preserveProducts=false){
   const wrap=document.getElementById('prod-canales-wrap');
   const resync=document.getElementById('resync-prod-btn');
   if(!appState.ml_accounts.length){
@@ -854,10 +854,18 @@ function renderProdTabs(){
 
   wrap.innerHTML=html;
 
-  // Reasignar load-prod-btn principal al del canal activo
-  const mainBtn=document.getElementById('load-prod-btn-'+prodAccIdx);
-  // El botón único load-prod-btn ya no existe como ID global, usamos los por canal
-}
+  // Si hay productos cargados y venimos de un refresh automático, re-renderizar la tabla
+  if(preserveProducts && prodProds.length>0){
+    const cb=document.getElementById('canal-body-'+prodAccIdx);
+    if(cb){
+      cb.innerHTML=renderCanalTablaHTML(prodAccIdx);
+      cb.style.display='block';
+    }
+    const ar=document.getElementById('canal-arrow-'+prodAccIdx);
+    if(ar)ar.textContent='▾';
+    // Re-renderizar productos sin resetear filtros
+    renderProdT();
+  }
 
 function toggleCanal(i){
   if(i!==prodAccIdx){
