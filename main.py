@@ -1009,6 +1009,8 @@ async def diag_testdup(item_id: str):
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
             item = r.json()
+            if "title" not in item:
+                return {"error": "ML no devolvió el item", "http_status": r.status_code, "response": item}
             SKIP = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
                     "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
                     "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID"}
@@ -1062,6 +1064,8 @@ async def diag_testdup(item_id: str):
             return {"result": "❌ FALLA", "status": r2.status_code, 
                     "causes": resp.get("cause",[]), 
                     "message": resp.get("message"),
+                    "title_sent": clean_title,
+                    "title_length": len(clean_title),
                     "attrs_sent": [a for a in attrs if a.get("id") in ("family_name","BRAND","MODEL")],
                     "full_error": resp}
     except Exception as e:
