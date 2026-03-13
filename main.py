@@ -665,15 +665,20 @@ async def diag_item(item_id: str):
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.get(f"{ML_API}/items/{item_id}",
                            headers={"Authorization": f"Bearer {from_t}"})
-            item = r.json()
+            raw = r.text[:3000]
+            try:
+                item = r.json()
+            except Exception:
+                return {"http_status": r.status_code, "raw_response": raw}
             return {
+                "http_status": r.status_code,
                 "title": item.get("title"),
                 "category_id": item.get("category_id"),
-                "status": item.get("status"),
                 "attributes": item.get("attributes", []),
                 "variations_count": len(item.get("variations", [])),
                 "size_grid_attr": next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None),
-                "raw_error": item.get("error"),
+                "ml_error": item.get("error"),
+                "ml_message": item.get("message"),
             }
     except Exception as e:
         return {"exception": str(e)}
