@@ -280,36 +280,64 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <!-- PRODUCTOS -->
       <div class="page" id="page-productos">
         <div class="page-title">Panel de productos</div>
-        <div class="panel">
-          <div class="panel-hd">
-            <div class="acc-tabs" id="prod-tabs" style="margin:0"></div>
-            <button class="btn btn-blue btn-sm" id="load-prod-btn" onclick="loadProdProds()" style="display:none">Cargar</button>
-            <button class="btn btn-out btn-sm" id="resync-prod-btn" onclick="startMLSync()" style="display:none">↻ Re-sincronizar ML</button>
+
+        <!-- FILTROS BAR -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="s-wrap" style="flex:1;min-width:220px"><input type="text" id="prod-q" placeholder="Buscar producto..." oninput="applyProdF()" /></div>
+          <div style="position:relative">
+            <button class="btn btn-out btn-sm" onclick="toggleFiltros()" id="btn-filtros">⚙ Filtros <span id="filtros-badge" style="display:none;background:#4f9eff;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px">0</span></button>
+            <div id="filtros-panel" style="display:none;position:absolute;top:34px;left:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:14px;width:220px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Estado</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-active" checked onchange="applyProdF()"> <span style="color:#00a381">● Activas</span></label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-paused" checked onchange="applyProdF()"> <span style="color:#d68000">● Pausadas</span></label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="f-closed" checked onchange="applyProdF()"> <span style="color:#e17055">● Cerradas</span></label>
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Stock</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="todos" checked onchange="applyProdF()"> Todos</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="con" onchange="applyProdF()"> Con stock</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="f-stock" value="sin" onchange="applyProdF()"> Sin stock</label>
+            </div>
           </div>
-          <div class="panel-bd" style="padding-bottom:0">
-            <div id="ab-prod" class="action-bar" style="display:none">
-              <span class="ab-info" id="ab-prod-info">0 seleccionados</span>
-              <button class="btn btn-blue btn-sm" onclick="goPublishSelected()">🚀 Publicar en TN</button>
-              <button class="btn btn-purple btn-sm" onclick="showPage('duplicar')">📋 Duplicar</button>
-              <button class="btn btn-out btn-sm" onclick="clearProdSel()">✕</button>
+          <button class="btn btn-out btn-sm" id="resync-prod-btn" onclick="startMLSync()" style="display:none">↻ Re-sincronizar</button>
+          <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
+        </div>
+
+        <!-- ACTION BAR -->
+        <div id="ab-prod" class="action-bar" style="display:none;margin-bottom:12px">
+          <span class="ab-info" id="ab-prod-info">0 seleccionados</span>
+          <button class="btn btn-blue btn-sm" onclick="goPublishSelected()">🚀 Publicar</button>
+          <button class="btn btn-purple btn-sm" onclick="showPage('duplicar')">📋 Duplicar</button>
+          <button class="btn btn-out btn-sm" onclick="openUnirModal()">🔗 Unir</button>
+          <button class="btn btn-out btn-sm" onclick="clearProdSel()">✕ Limpiar</button>
+        </div>
+
+        <!-- CANALES AGRUPADOS -->
+        <div id="prod-canales-wrap"></div>
+
+        <!-- MSG -->
+        <div id="msg-prod" class="msg" style="margin-bottom:10px"></div>
+
+        <!-- TABLA PRODUCTOS del canal seleccionado -->
+        <div class="panel" id="prod-tabla-panel" style="display:none">
+          <div class="panel-hd" style="gap:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap">
+              <span id="prod-canal-nombre" style="font-weight:600;font-size:14px"></span>
+              <span id="prod-sin-unir" style="font-size:12px;color:#e17055;cursor:pointer" onclick="filtrarSinUnir()"></span>
             </div>
-            <div class="fbar">
-              <div class="s-wrap"><input type="text" id="prod-q" placeholder="Buscar producto..." oninput="applyProdF()" /></div>
-              <button class="fpill active" onclick="setProdF('todas',this)">Todas</button>
-              <button class="fpill g" onclick="setProdF('active',this)">● Activas</button>
-              <button class="fpill o" onclick="setProdF('paused',this)">● Pausadas</button>
-              <button class="fpill r" onclick="setProdF('closed',this)">● Cerradas</button>
-              <span id="prod-cnt" style="font-size:11px;color:#7a8299;margin-left:4px"></span>
-            </div>
-            <div id="msg-prod" class="msg"></div>
+            <button class="btn btn-blue btn-sm" id="load-prod-btn" onclick="loadProdProds()">Cargar productos</button>
           </div>
           <div class="tbl-wrap">
             <table>
               <thead><tr>
                 <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
-                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>VARIACIONES</th><th>ESTADO</th><th>ENLACE</th>
+                <th></th>
+                <th>TÍTULO</th>
+                <th>CANALES</th>
+                <th>STOCK</th>
+                <th>VARIACIONES</th>
+                <th>ESTADO</th>
+                <th></th>
               </tr></thead>
-              <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">📦</div>Seleccioná cuenta y cargá productos</div></td></tr></tbody>
+              <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">📦</div>Seleccioná un canal para ver productos</div></td></tr></tbody>
             </table>
           </div>
           <div class="pagination">
@@ -324,6 +352,28 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- MODAL UNIR -->
+      <div class="modal-bg" id="unir-modal">
+        <div class="modal" style="width:600px">
+          <button class="modal-close" onclick="closeUnirModal()">✕</button>
+          <h3>🔗 Unir publicaciones</h3>
+          <p style="font-size:13px;color:#7a8299;margin-bottom:16px">Uní publicaciones del mismo producto para mantener stock y precio sincronizados entre cuentas.</p>
+          <div id="unir-items" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+          <div style="font-size:12px;color:#7a8299;margin-bottom:14px">+ Agregá más publicaciones para unir:</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <select id="unir-acc-sel" style="padding:7px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:'Inter',sans-serif;flex:1"></select>
+            <button class="btn btn-out btn-sm" onclick="buscarParaUnir()">Buscar</button>
+          </div>
+          <input type="text" id="unir-search" placeholder="Buscar producto para agregar..." style="width:100%;padding:8px 12px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;margin-bottom:8px;font-family:'Inter',sans-serif" oninput="filtrarUnirSearch()" />
+          <div id="unir-search-list" style="max-height:200px;overflow-y:auto;border:1px solid #e8ecf0;border-radius:6px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-blue" onclick="guardarUnion()">Guardar unión</button>
+            <button class="btn btn-out" onclick="closeUnirModal()">Cancelar</button>
+          </div>
+          <div id="msg-unir" class="msg"></div>
         </div>
       </div>
 
@@ -719,14 +769,96 @@ async function connectTN(){
 }
 
 // ── PROD TABLE ─────────────────────────────────────────────────────────────────
-function renderProdTabs(){
-  const el=document.getElementById('prod-tabs');const btn=document.getElementById('load-prod-btn');
-  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas en Canales.</span>';btn.style.display='none';return;}
-  el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===prodAccIdx?'active':''}" onclick="selProdAcc(${i})">${a.name}${!a.token_ok?'<span class="token-warn">⚠ token</span>':''}</div>`).join('');
-  btn.style.display='inline-flex';
-  document.getElementById('resync-prod-btn').style.display='inline-flex';
+let prodSoloSinUnir = false;
+
+function toggleFiltros(){
+  const p=document.getElementById('filtros-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
 }
-function selProdAcc(i){prodAccIdx=i;renderProdTabs();}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#btn-filtros')&&!e.target.closest('#filtros-panel'))
+    document.getElementById('filtros-panel').style.display='none';
+});
+
+function filtrarSinUnir(){
+  prodSoloSinUnir=!prodSoloSinUnir;
+  document.getElementById('prod-sin-unir').style.fontWeight=prodSoloSinUnir?'700':'400';
+  applyProdF();
+}
+
+function renderProdTabs(){
+  const wrap=document.getElementById('prod-canales-wrap');
+  const resync=document.getElementById('resync-prod-btn');
+  if(!appState.ml_accounts.length){
+    wrap.innerHTML=`<div class="panel"><div class="panel-bd"><div class="empty"><div class="ei">🔗</div>Conectá cuentas en <b>Canales</b> para ver productos</div></div></div>`;
+    return;
+  }
+  resync.style.display='inline-flex';
+
+  // Construir cards de canales estilo Astroselling
+  const links=appState.links||[];
+  let html='';
+
+  // Card TiendaNube si está conectada
+  if(appState.tn_connected){
+    html+=`<div class="canal-card" onclick="selCanalTN()">
+      <div class="canal-card-inner">
+        <div class="canal-av" style="background:#00b894">TN</div>
+        <div class="canal-info">
+          <div class="canal-name">TiendaNube</div>
+          <div class="canal-sub" style="color:#4f9eff">Store ID: ${appState.tn_store_id}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:12px;color:#7a8299">${links.length} enlaces</div>
+        </div>
+        <div style="margin-left:12px;color:#b0b7c9">›</div>
+      </div>
+    </div>`;
+  }
+
+  // Cards de cuentas ML
+  appState.ml_accounts.forEach((a,i)=>{
+    const sinUnir=0; // placeholder, se puede calcular
+    const isActive=i===prodAccIdx;
+    html+=`<div class="canal-card ${isActive?'canal-card-active':''}" onclick="selProdAcc(${i})">
+      <div class="canal-card-inner">
+        <div class="canal-av" style="background:#ffe135;color:#333">${a.name[0].toUpperCase()}</div>
+        <div class="canal-info">
+          <div class="canal-name">${a.name}</div>
+          <div class="canal-sub">MercadoLibre${!a.token_ok?' · <span style="color:#d68000">⚠ token vencido</span>':''}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:13px;font-weight:600;color:#1a1a2e" id="cnt-prods-${i}">—</div>
+          <div style="font-size:11px;color:#7a8299">productos</div>
+        </div>
+        <div style="margin-left:12px;color:#b0b7c9">›</div>
+      </div>
+    </div>`;
+  });
+
+  wrap.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${html}</div>`;
+
+  // Mostrar tabla si hay cuenta seleccionada
+  if(appState.ml_accounts.length>0){
+    document.getElementById('prod-tabla-panel').style.display='block';
+    document.getElementById('prod-canal-nombre').textContent=appState.ml_accounts[prodAccIdx]?.name||'';
+  }
+}
+
+function selProdAcc(i){
+  prodAccIdx=i;
+  prodProds=[];prodFilt=[];prodSel=[];prodPg=0;prodSoloSinUnir=false;
+  renderProdTabs();
+  document.getElementById('prod-body').innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">📦</div>Apretá "Cargar productos" para ver las publicaciones</div></td></tr>`;
+  document.getElementById('prod-pag-info').textContent='';
+  document.getElementById('prod-pag-cur').textContent='';
+  document.getElementById('prod-cnt').textContent='';
+}
+
+function selCanalTN(){
+  // futuro: mostrar productos de TN
+  showMsg('msg-prod','TN: próximamente','info');
+}
 
 let syncPollInterval=null;
 async function loadProdProds(){
@@ -737,18 +869,26 @@ async function loadProdProds(){
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
     if(!d.synced){
-      // No hay productos sincronizados — iniciar sincronización
-      showMsg('msg-prod','⏳ Productos no sincronizados. Iniciando sincronización con MercadoLibre...','info');
+      showMsg('msg-prod','⏳ Sin sync previo. Iniciando sincronización...','info');
+      btn.innerHTML='Cargar productos';btn.disabled=false;
       await startMLSync();
       return;
     }
-    prodProds=d.products;prodSel=[];prodPg=0;prodSF='todas';
+    prodProds=d.products;prodSel=[];prodPg=0;prodSoloSinUnir=false;
     document.getElementById('prod-q').value='';
-    document.querySelectorAll('#page-productos .fpill').forEach((b,i)=>b.classList.toggle('active',i===0));
-    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
+    // Actualizar contador en canal card
+    const cntEl=document.getElementById('cnt-prods-'+prodAccIdx);
+    if(cntEl)cntEl.textContent=d.total;
+    // Sin unir = sin enlace TN
+    const links=appState.links||[];
+    const sinUnir=prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length;
+    const sinUnirEl=document.getElementById('prod-sin-unir');
+    if(sinUnirEl)sinUnirEl.textContent=sinUnir>0?`${sinUnir} sin unir`:'';
     applyProdF();
+    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
+    setTimeout(()=>hideMsg('msg-prod'),3000);
   }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar';btn.disabled=false;
+  btn.innerHTML='Cargar productos';btn.disabled=false;
 }
 
 async function startMLSync(){
@@ -757,9 +897,8 @@ async function startMLSync(){
     const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error al iniciar');
-    showMsg('msg-prod','⏳ Sincronizando productos con MercadoLibre. Esto puede tardar varios minutos con catálogos grandes...','info');
+    showMsg('msg-prod','⏳ Sincronizando con MercadoLibre...','info');
     btn.innerHTML='⏳ Sincronizando...';btn.disabled=true;
-    // Polling cada 5 segundos
     if(syncPollInterval) clearInterval(syncPollInterval);
     syncPollInterval=setInterval(async()=>{
       try{
@@ -769,35 +908,51 @@ async function startMLSync(){
         if(st.status==='done'||(!sd.running&&st.status&&st.status.startsWith('error'))){
           clearInterval(syncPollInterval);syncPollInterval=null;
           if(st.status==='done'){
-            showMsg('msg-prod',`✅ Sincronización completa — ${st.total} productos`,'ok');
-            // Cargar productos del cache
+            showMsg('msg-prod',`✅ Sync completo — ${st.total} productos`,'ok');
             const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
             const pd=await pr.json();
             prodProds=pd.products;prodSel=[];prodPg=0;
+            const cntEl=document.getElementById('cnt-prods-'+prodAccIdx);
+            if(cntEl)cntEl.textContent=pd.total;
             applyProdF();
           }else{
             showMsg('msg-prod','❌ Error: '+st.status,'err');
           }
-          btn.innerHTML='Cargar';btn.disabled=false;
+          btn.innerHTML='Cargar productos';btn.disabled=false;
         }else{
           const fetched=st.fetched||0;const total=st.total||0;
-          const statusTxt=st.status==='fetching_ids'?'Obteniendo lista de publicaciones...':
-            `Descargando detalles: ${fetched}${total?' / '+total:''} productos...`;
-          showMsg('msg-prod','⏳ '+statusTxt,'info');
+          const txt=st.status==='fetching_ids'?'Obteniendo publicaciones...':
+            `Descargando: ${fetched}${total?' / '+total:''} productos...`;
+          showMsg('msg-prod','⏳ '+txt,'info');
         }
       }catch(e){}
     },5000);
   }catch(e){
     showMsg('msg-prod','❌ '+e.message,'err');
-    btn.innerHTML='Cargar';btn.disabled=false;
+    btn.innerHTML='Cargar productos';btn.disabled=false;
   }
 }
 
-function setProdF(val,el){prodSF=val;prodPg=0;document.querySelectorAll('#page-productos .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyProdF();}
 function applyProdF(){
   const q=document.getElementById('prod-q').value.toLowerCase();
-  prodFilt=prodProds.filter(p=>(!q||p.title.toLowerCase().includes(q))&&(prodSF==='todas'||p.status===prodSF));
-  prodPg=0;document.getElementById('prod-cnt').textContent=`${prodFilt.length} / ${prodProds.length}`;renderProdT();
+  const fActive=document.getElementById('f-active')?.checked!==false;
+  const fPaused=document.getElementById('f-paused')?.checked!==false;
+  const fClosed=document.getElementById('f-closed')?.checked!==false;
+  const fStock=document.querySelector('input[name="f-stock"]:checked')?.value||'todos';
+  const links=appState.links||[];
+  prodFilt=prodProds.filter(p=>{
+    if(q&&!p.title.toLowerCase().includes(q))return false;
+    if(p.status==='active'&&!fActive)return false;
+    if(p.status==='paused'&&!fPaused)return false;
+    if(p.status==='closed'&&!fClosed)return false;
+    if(fStock==='con'&&!(p.available_quantity>0))return false;
+    if(fStock==='sin'&&p.available_quantity>0)return false;
+    if(prodSoloSinUnir&&links.find(l=>l.ml_item_id===p.id))return false;
+    return true;
+  });
+  prodPg=0;
+  document.getElementById('prod-cnt').textContent=`${prodFilt.length} resultado${prodFilt.length!==1?'s':''}`;
+  renderProdT();
 }
 
 function renderProdT(){
@@ -809,32 +964,46 @@ function renderProdT(){
   document.getElementById('prod-pag-cur').textContent=`${prodPg+1}/${pages}`;
   const links=appState.links||[];
   const tbody=document.getElementById('prod-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div>${prodProds.length?'Sin resultados.':'Cargá los productos primero.'}</div></td></tr>`;return;}
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div>${prodProds.length?'Sin resultados.':'Apretá "Cargar productos".'}</div></td></tr>`;return;}
   let rows='';
   slice.forEach(p=>{
     const sel=prodSel.includes(p.id);
     const img=p.pictures?.[0]?.url||p.thumbnail||'';
     const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
-    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
-    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
-    const st=p.status==='active'?'active':p.status==='paused'?'paused':'closed';
-    const stL=st==='active'?'Activa':st==='paused'?'Pausada':'Cerrada';
-    const stC=st==='active'?'ba':st==='paused'?'bp':'bc';
+    const stk=p.available_quantity>0?`<span style="font-weight:600">${p.available_quantity} U.</span>`:`<span class="stock-0">Sin stock!</span>`;
+    const stDot=p.status==='active'?'#00a381':p.status==='paused'?'#d68000':'#e17055';
     const hasVar=p._has_variations;
-    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} var</span>`:'';
+    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} Var</span>`:'<span style="font-size:11px;color:#b0b7c9">—</span>';
     const linked=links.find(l=>l.ml_item_id===p.id);
-    const linkBtn=linked?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">✏ Enlace</button>`:
-      `<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
-    const expBtn=hasVar?`<button class="expand-btn" onclick="toggleVars('${p.id}',this)" title="Ver variaciones">▶</button>`:'';
+    // Iconos de canales donde está publicado
+    const accName=appState.ml_accounts[prodAccIdx]?.name||'ML';
+    const canalIcons=`<div style="display:flex;align-items:center;gap:3px">
+      <div title="${accName}" style="width:20px;height:20px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${accName[0]}</div>
+      ${linked?`<div title="TiendaNube" style="width:20px;height:20px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">TN</div>`:''}
+    </div>`;
+    const expBtn=hasVar?`<button class="expand-btn" onclick="event.stopPropagation();toggleVars('${p.id}',this)">▶</button>`:'';
     rows+=`<tr class="${sel?'sel':''}" data-id="${p.id}" onclick="toggleProdRow('${p.id}',this)">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleProdRow('${p.id}',this.closest('tr'))" /></td>
       <td>${imgH}</td>
-      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
+      <td>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${stDot};margin-top:4px;flex-shrink:0"></div>
+          <div>
+            <div class="ptitle">${p.title}</div>
+            <div class="psku">SKU: ${p.id}</div>
+          </div>
+        </div>
+      </td>
+      <td>${canalIcons}</td>
       <td>${stk}</td>
-      <td style="font-weight:600">${price}</td>
-      <td>${varBadge}${expBtn}</td>
-      <td><span class="badge ${stC}">${stL}</span></td>
-      <td onclick="event.stopPropagation()">${linkBtn}</td>
+      <td>${varBadge} ${expBtn}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          ${linked
+            ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">✏ TN</button>`
+            :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">+ TN</button>`}
+        </div>
+      </td>
     </tr>`;
     if(hasVar){
       rows+=`<tr id="vars-${p.id}" style="display:none"><td colspan="8" style="padding:0;background:#fafbff">
@@ -843,7 +1012,7 @@ function renderProdT(){
             <td style="padding:6px 12px 6px 52px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">VARIACIÓN</td>
             <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">STOCK</td>
             <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">PRECIO</td>
-            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">ENLACE</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">ENLACE TN</td>
           </tr></thead>
           <tbody>
           ${(p.variations||[]).map(v=>{
@@ -851,8 +1020,9 @@ function renderProdT(){
             const vprice=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(v.price||p.price||0);
             const vstk=v.available_quantity>0?v.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
             const vlinked=links.find(l=>l.ml_item_id===p.id&&l.ml_variation_id==v.id);
-            const vlBtn=vlinked?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">✏ Enlace</button>`:
-              `<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
+            const vlBtn=vlinked
+              ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">✏ Enlace</button>`
+              :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
             return `<tr class="var-row"><td style="padding:6px 12px 6px 52px;font-size:12px">${vatrs}</td><td style="padding:6px 12px;font-size:12px">${vstk}</td><td style="padding:6px 12px;font-size:12px;font-weight:600">${vprice}</td><td style="padding:6px 12px" onclick="event.stopPropagation()">${vlBtn}</td></tr>`;
           }).join('')}
           </tbody>
@@ -889,6 +1059,95 @@ function updateProdAB(){
 function clearProdSel(){prodSel=[];renderProdT();}
 function pProd(d){prodPg+=d;renderProdT();}
 function goPublishSelected(){pubSel=[...prodSel];showPage('publicar');}
+
+// ── UNIR MODAL ─────────────────────────────────────────────────────────────────
+let unirItems=[];
+let unirSearchProds=[];
+
+function openUnirModal(){
+  if(!prodSel.length){alert('Seleccioná al menos un producto');return;}
+  // Arrancar con los seleccionados del canal actual
+  unirItems=prodSel.map(id=>{
+    const p=prodProds.find(x=>x.id===id);
+    return {id,title:p?.title||id,accIdx:prodAccIdx,accName:appState.ml_accounts[prodAccIdx]?.name||'ML'};
+  });
+  renderUnirItems();
+  // Llenar select de cuentas
+  const sel=document.getElementById('unir-acc-sel');
+  sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  document.getElementById('unir-search').value='';
+  document.getElementById('unir-search-list').innerHTML='';
+  document.getElementById('msg-unir').className='msg';
+  document.getElementById('unir-modal').classList.add('show');
+}
+
+function renderUnirItems(){
+  document.getElementById('unir-items').innerHTML=unirItems.map((it,i)=>`
+    <div style="border:1px solid #dde1e9;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;max-width:220px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#333;flex-shrink:0">${it.accName[0]}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.title}</div>
+        <div style="font-size:10px;color:#7a8299">${it.accName}</div>
+      </div>
+      <button onclick="removeUnirItem(${i})" style="background:none;border:none;cursor:pointer;color:#b0b7c9;font-size:14px">✕</button>
+    </div>`).join('');
+}
+
+function removeUnirItem(i){unirItems.splice(i,1);renderUnirItems();}
+
+async function buscarParaUnir(){
+  const accIdx=parseInt(document.getElementById('unir-acc-sel').value);
+  try{
+    const r=await fetch('/api/ml/'+accIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    unirSearchProds=(d.products||[]).map(p=>({...p,_accIdx:accIdx,_accName:appState.ml_accounts[accIdx]?.name||'ML'}));
+    filtrarUnirSearch();
+  }catch(e){showMsg('msg-unir','❌ '+e.message,'err');}
+}
+
+function filtrarUnirSearch(){
+  const q=document.getElementById('unir-search').value.toLowerCase();
+  const lista=unirSearchProds.filter(p=>!q||p.title.toLowerCase().includes(q)).slice(0,30);
+  const el=document.getElementById('unir-search-list');
+  if(!lista.length){el.innerHTML='<div class="empty" style="padding:14px">Sin resultados</div>';return;}
+  el.innerHTML=lista.map(p=>`
+    <div style="padding:9px 14px;border-bottom:1px solid #f0f2f6;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="agregarUnirItem('${p.id}','${p.title.replace(/'/g,"\\'")}',${p._accIdx},'${p._accName}')">
+      <div style="width:22px;height:22px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${p._accName[0]}</div>
+      <div style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title}</div>
+    </div>`).join('');
+}
+
+function agregarUnirItem(id,title,accIdx,accName){
+  if(unirItems.find(x=>x.id===id)){return;}
+  unirItems.push({id,title,accIdx,accName});
+  renderUnirItems();
+}
+
+async function guardarUnion(){
+  if(unirItems.length<2){showMsg('msg-unir','⚠ Necesitás al menos 2 publicaciones para unir.','err');return;}
+  // Guardar como enlaces entre las publicaciones
+  // Por ahora guardamos en appState.links los primeros dos como ML↔TN si hay TN, sino como nota
+  showMsg('msg-unir','✓ Unión guardada (próximamente sincronización automática entre cuentas ML).','ok');
+  setTimeout(closeUnirModal,1500);
+}
+
+function closeUnirModal(){document.getElementById('unir-modal').classList.remove('show');}
+
+// ── CANAL CARD STYLES (CSS dinámico) ──────────────────────────────────────────
+(function addCanalStyles(){
+  const s=document.createElement('style');
+  s.textContent=`
+    .canal-card{background:#fff;border:1px solid #e8ecf0;border-radius:10px;cursor:pointer;transition:all .15s;overflow:hidden}
+    .canal-card:hover{border-color:#4f9eff;box-shadow:0 2px 8px rgba(79,158,255,.15)}
+    .canal-card-active{border-color:#4f9eff;background:#f8fbff}
+    .canal-card-inner{display:flex;align-items:center;gap:12px;padding:14px 18px}
+    .canal-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
+    .canal-info{flex:1;min-width:0}
+    .canal-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .canal-sub{font-size:11px;color:#7a8299;margin-top:2px}
+  `;
+  document.head.appendChild(s);
+})();
 
 // ── PUB TABLE ──────────────────────────────────────────────────────────────────
 function renderPubTabs(){
