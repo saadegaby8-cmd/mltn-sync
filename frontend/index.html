@@ -202,28 +202,40 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 .ord-opt{padding:7px 10px;font-size:13px;cursor:pointer;border-radius:5px;color:#1a1a2e;transition:background .1s}
 .ord-opt:hover{background:#f0f4ff;color:#4f9eff}
 .ord-opt.active{background:#eef4ff;color:#4f9eff;font-weight:600}
+/* BOTTOM NAV */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:#1a1a2e;z-index:998;align-items:stretch}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#7a8299;font-size:18px;cursor:pointer;gap:2px;transition:color .2s;padding:4px 0}
+.bn-item span{font-size:9px;font-weight:500;letter-spacing:.3px}
+.bn-item.active{color:#FFE600}
+.bn-item:active{background:rgba(255,255,255,0.05)}
+
 /* MOBILE */
 @media(max-width:768px){
   .sidebar{width:60px;min-width:60px}
-  .sidebar .nav-label,.sidebar .ch-name,.sidebar .nav-sub{display:none}
-  .sidebar .nav-i{justify-content:center;padding:10px 0}
+  .sidebar .nav-label,.sidebar .ch-name,.sidebar .nav-sub,.sidebar .s-title{display:none}
+  .sidebar .nav-i{justify-content:center;padding:10px 0;font-size:18px}
   .sidebar .nav-ch{justify-content:center}
   .topbar{padding:10px 12px}
   .main{padding:12px}
-  .prod-grid{grid-template-columns:1fr}
-  .pcard{padding:10px}
   .modal-box{width:95vw;max-width:95vw;margin:10px}
   .modal-content{padding:16px}
-  .pub-grid{grid-template-columns:1fr}
   table{font-size:12px}
   .btn{padding:7px 12px;font-size:12px}
   h2{font-size:16px}
-  .stat-cards{grid-template-columns:1fr 1fr}
 }
 @media(max-width:480px){
-  .sidebar{display:none}
-  .main{padding:8px}
-  .stat-cards{grid-template-columns:1fr}
+  .sidebar{display:none!important}
+  .bottom-nav{display:flex!important}
+  .main{padding:10px;padding-bottom:70px}
+  .stat-cards{grid-template-columns:1fr 1fr}
+  .prod-grid{grid-template-columns:1fr}
+  .pub-grid{grid-template-columns:1fr}
+  .app-wrap{flex-direction:column}
+  .topbar{padding:8px 12px}
+  /* Fix cards cortadas */
+  .stat-cards{gap:8px}
+  .stat-card{min-width:0}
+  .cards-row{grid-template-columns:1fr 1fr;gap:8px}
 }
 </style>
 </head>
@@ -276,6 +288,26 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <button class="btn-logout" onclick="doLogout()">Salir</button>
     </div>
   </nav>
+
+  <!-- BOTTOM NAV MOBILE -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <div class="bn-item active" onclick="showPage('inicio');setBN(this)">🏠<span>Inicio</span></div>
+    <div class="bn-item" onclick="showPage('productos');setBN(this)">📦<span>Productos</span></div>
+    <div class="bn-item" onclick="showPage('publicar');setBN(this)">🚀<span>Publicar</span></div>
+    <div class="bn-item" onclick="showPage('duplicar');setBN(this)">📋<span>Duplicar</span></div>
+    <div class="bn-item" onclick="showPage('sincronizar');setBN(this)">🔄<span>Sync</span></div>
+    <div class="bn-item" onclick="showMobileMenu()">☰<span>Más</span></div>
+  </nav>
+
+  <!-- MOBILE MENU DRAWER -->
+  <div id="mobile-drawer" style="display:none;position:fixed;bottom:60px;left:0;right:0;background:#fff;border-top:1px solid #e8ecf0;padding:12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn" style="font-size:13px" onclick="showPage('cuentas');closeDrawer()">🔗 Canales</button>
+      <button class="btn" style="font-size:13px" onclick="showPage('enlaces');closeDrawer()">🔗 Enlaces</button>
+      <button class="btn" style="font-size:13px" onclick="showPage('log');closeDrawer()">📋 Historial</button>
+      <button class="btn btn-danger" style="font-size:13px" onclick="doLogout()">🚪 Salir</button>
+    </div>
+  </div>
 
   <div style="flex:1;display:flex;flex-direction:column">
     <div class="topbar"><button id="btn-install" style="display:none;background:#FFE600;color:#1a1a2e;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:10px">📲 Instalar app</button><div class="topbar-av" id="top-av">A</div></div>
@@ -1817,6 +1849,11 @@ async function doSync(){
 
 loadState();
 setInterval(loadState,30000);
+
+function setBN(el){document.querySelectorAll('.bn-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
+function showMobileMenu(){const d=document.getElementById('mobile-drawer');d.style.display=d.style.display==='none'?'block':'none';}
+function closeDrawer(){document.getElementById('mobile-drawer').style.display='none';}
+document.addEventListener('click',e=>{const d=document.getElementById('mobile-drawer');if(d&&!d.contains(e.target)&&!e.target.closest('.bn-item'))d.style.display='none';});
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
