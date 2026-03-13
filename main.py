@@ -1021,8 +1021,9 @@ async def diag_testdup(item_id: str):
                 if a.get("value_id"): attrs.append({"id":aid,"value_id":a["value_id"]})
                 elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
             # family_name SIEMPRE requerido por ML
+            # Sacar family_name de attributes — va como campo raíz del payload
+            attrs = [a for a in attrs if a.get("id") != "family_name"]
             family = model_name or brand_name or item.get("title","")[:60]
-            attrs.append({"id":"family_name","value_name":family})
             payload = {
                 "title": item["title"],
                 "category_id": item.get("category_id",""),
@@ -1033,6 +1034,7 @@ async def diag_testdup(item_id: str):
                 "condition": item.get("condition","new"),
                 "pictures": [{"source":p["url"]} for p in (item.get("pictures") or [])[:2]],
                 "attributes": attrs,
+                "family_name": family,
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
             resp = r2.json()
