@@ -512,13 +512,60 @@ async def duplicate(req: Request, _=Depends(auth)):
     b = await req.json()
     from_idx = b.get("from_account", 0)
     to_idx = b.get("to_account", 1)
-    status = b.get("status", "active")  # "active" o "paused"
+    status = b.get("status", "active")
     auto_link = b.get("auto_link", False)
     try:
         from_t = await fresh_token(from_idx)
         to_t = await fresh_token(to_idx)
     except Exception as e:
         raise HTTPException(400, f"Error de token: {str(e)}")
+
+    # Cache de guías de talles ya copiadas en esta sesión: {chart_id_origen: chart_id_destino}
+    size_chart_map = {}
+
+    async def copy_size_chart(c, chart_id: str) -> str | None:
+        """Copia una guía de talles de cuenta origen a destino. Devuelve el nuevo ID."""
+        if chart_id in size_chart_map:
+            return size_chart_map[chart_id]
+        try:
+            # Obtener la guía original
+            r = await c.get(f"{ML_API}/size_charts/{chart_id}",
+                           headers={"Authorization": f"Bearer {from_t}"})
+            if r.status_code != 200:
+                return None
+            chart = r.json()
+
+            # Obtener el user_id de la cuenta destino
+            me_r = await c.get(f"{ML_API}/users/me",
+                               headers={"Authorization": f"Bearer {to_t}"})
+            to_uid = me_r.json().get("id")
+
+            # Armar payload para crear la guía en destino
+            payload = {
+                "site_id": chart.get("site_id", "MLA"),
+                "name": chart.get("name", "Guía de talles"),
+                "category_id": chart.get("category_id"),
+                "domain_id": chart.get("domain_id"),
+                "attributes": chart.get("attributes", []),
+                "rows": chart.get("rows", []),
+            }
+            # Remover claves None
+            payload = {k: v for k, v in payload.items() if v is not None}
+
+            r2 = await c.post(f"{ML_API}/size_charts",
+                             headers={"Authorization": f"Bearer {to_t}"},
+                             json=payload)
+            if r2.status_code in (200, 201):
+                new_chart_id = r2.json().get("id")
+                size_chart_map[chart_id] = new_chart_id
+                return new_chart_id
+            else:
+                # Si falla la creación, intentar reutilizar la misma (si es pública/compartida)
+                size_chart_map[chart_id] = chart_id
+                return chart_id
+        except Exception:
+            return chart_id  # fallback: usar el mismo ID
+
     results = []
     async with httpx.AsyncClient(timeout=30) as c:
         for iid in b.get("item_ids", []):
@@ -541,14 +588,17 @@ async def duplicate(req: Request, _=Depends(auth)):
                         vc["picture_ids"] = v["picture_ids"]
                     variations_clean.append(vc)
 
-                # Limpiar atributos — solo los que tienen value_name o value_id (los calculados se excluyen)
+                # Limpiar atributos y copiar guía de talles si existe
                 EXCLUDED_ATTRS = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN","BRAND","MODEL"}
                 attrs_clean = []
                 for a in (item.get("attributes") or []):
                     aid = a.get("id","")
-                    # Siempre incluir SIZE_GRID_ID (guía de talles) si existe
-                    if aid == "SIZE_GRID_ID" and a.get("value_id"):
-                        attrs_clean.append({"id": aid, "value_id": a["value_id"]})
+                    if aid == "SIZE_GRID_ID":
+                        orig_chart_id = a.get("value_id") or a.get("value_name")
+                        if orig_chart_id:
+                            new_chart_id = await copy_size_chart(c, str(orig_chart_id))
+                            if new_chart_id:
+                                attrs_clean.append({"id": "SIZE_GRID_ID", "value_id": str(new_chart_id)})
                         continue
                     if aid in EXCLUDED_ATTRS:
                         continue
