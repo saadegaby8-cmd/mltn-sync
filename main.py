@@ -510,26 +510,61 @@ async def publish(req: Request, _=Depends(auth)):
 @app.post("/api/duplicate")
 async def duplicate(req: Request, _=Depends(auth)):
     b = await req.json()
-    from_t = await fresh_token(b.get("from_account",0))
-    to_t = await fresh_token(b.get("to_account",1))
+    from_idx = b.get("from_account", 0)
+    to_idx = b.get("to_account", 1)
+    try:
+        from_t = await fresh_token(from_idx)
+        to_t = await fresh_token(to_idx)
+    except Exception as e:
+        raise HTTPException(400, f"Error de token: {str(e)}")
     results = []
     async with httpx.AsyncClient(timeout=30) as c:
-        for iid in b.get("item_ids",[]):
-            r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization":f"Bearer {from_t}"})
-            item = r.json()
-            payload = {"title":item["title"],"category_id":item.get("category_id",""),
-                       "price":item.get("price",0),"currency_id":item.get("currency_id","ARS"),
-                       "available_quantity":item.get("available_quantity",0),
-                       "listing_type_id":item.get("listing_type_id","gold_special"),
-                       "condition":item.get("condition","new"),
-                       "pictures":[{"source":p["url"]} for p in (item.get("pictures") or [])[:12]],
-                       "attributes":item.get("attributes",[])}
-            if item.get("variations"):
-                payload["variations"] = item["variations"]
-            r2 = await c.post(f"{ML_API}/items", headers={"Authorization":f"Bearer {to_t}"}, json=payload)
-            ok = r2.status_code in (200,201)
-            results.append({"id":iid,"title":item.get("title",""),"ok":ok})
-            await asyncio.sleep(0.5)
+        for iid in b.get("item_ids", []):
+            try:
+                r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
+                item = r.json()
+                if "error" in item:
+                    results.append({"id": iid, "title": iid, "ok": False, "msg": item.get("message", "Error ML")})
+                    continue
+
+                # Limpiar variaciones — solo campos permitidos al crear
+                variations_clean = []
+                for v in (item.get("variations") or []):
+                    vc = {
+                        "attribute_combinations": v.get("attribute_combinations", []),
+                        "price": v.get("price", item.get("price", 0)),
+                        "available_quantity": v.get("available_quantity", 0),
+                    }
+                    if v.get("picture_ids"):
+                        vc["picture_ids"] = v["picture_ids"]
+                    variations_clean.append(vc)
+
+                payload = {
+                    "title": item["title"],
+                    "category_id": item.get("category_id", ""),
+                    "price": item.get("price", 0),
+                    "currency_id": item.get("currency_id", "ARS"),
+                    "available_quantity": item.get("available_quantity", 0) if not variations_clean else 0,
+                    "listing_type_id": item.get("listing_type_id", "gold_special"),
+                    "condition": item.get("condition", "new"),
+                    "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
+                }
+                if variations_clean:
+                    payload["variations"] = variations_clean
+                # Solo agregar atributos no calculados
+                attrs_clean = [a for a in (item.get("attributes") or []) if not a.get("value_struct") and a.get("value_name")]
+                if attrs_clean:
+                    payload["attributes"] = attrs_clean
+
+                r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
+                ok = r2.status_code in (200, 201)
+                msg = "Duplicado OK" if ok else r2.json().get("message", f"Error {r2.status_code}")
+                results.append({"id": iid, "title": item.get("title", iid), "ok": ok, "msg": msg})
+                ST["log"].append({"ts": int(time.time()), "action": "duplicate", "product": item.get("title", ""), "status": "ok" if ok else "error"})
+                await asyncio.sleep(1)
+            except Exception as e:
+                results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
+    save_state()
     return {"results": results}
 
 @app.get("/diag")
