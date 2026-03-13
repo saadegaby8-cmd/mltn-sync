@@ -1013,7 +1013,7 @@ async def diag_testdup(item_id: str):
                 return {"error": "ML no devolvió el item", "http_status": r.status_code, "response": item}
             SKIP = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
                     "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
-                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID"}
+                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID"}  # ya NO skip SIZE_GRID_ID
             attrs = []
             brand_name = ""
             model_name = ""
@@ -1028,6 +1028,10 @@ async def diag_testdup(item_id: str):
                 if aid in ("BRAND","MODEL"):
                     vn = a.get("value_name")
                     if vn: attrs.append({"id":aid,"value_name":vn})
+                    continue
+                if aid == "SIZE_GRID_ID":
+                    vn = a.get("value_name") or a.get("value_id")
+                    if vn: attrs.append({"id":"SIZE_GRID_ID","value_name":str(vn)})
                     continue
                 if a.get("value_id"): attrs.append({"id":aid,"value_id":a["value_id"]})
                 elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
