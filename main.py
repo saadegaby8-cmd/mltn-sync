@@ -541,6 +541,22 @@ async def duplicate(req: Request, _=Depends(auth)):
                         vc["picture_ids"] = v["picture_ids"]
                     variations_clean.append(vc)
 
+                # Limpiar atributos — solo los que tienen value_name o value_id (los calculados se excluyen)
+                EXCLUDED_ATTRS = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN","BRAND","MODEL"}
+                attrs_clean = []
+                for a in (item.get("attributes") or []):
+                    aid = a.get("id","")
+                    # Siempre incluir SIZE_GRID_ID (guía de talles) si existe
+                    if aid == "SIZE_GRID_ID" and a.get("value_id"):
+                        attrs_clean.append({"id": aid, "value_id": a["value_id"]})
+                        continue
+                    if aid in EXCLUDED_ATTRS:
+                        continue
+                    if a.get("value_id"):
+                        attrs_clean.append({"id": aid, "value_id": a["value_id"]})
+                    elif a.get("value_name"):
+                        attrs_clean.append({"id": aid, "value_name": a["value_name"]})
+
                 payload = {
                     "title": item["title"],
                     "category_id": item.get("category_id", ""),
@@ -550,10 +566,13 @@ async def duplicate(req: Request, _=Depends(auth)):
                     "listing_type_id": item.get("listing_type_id", "gold_special"),
                     "condition": item.get("condition", "new"),
                     "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                    "attributes": item.get("attributes", []),
+                    "attributes": attrs_clean,
                 }
                 if variations_clean:
                     payload["variations"] = variations_clean
+                # Copiar sale_terms si existen (cuotas, etc)
+                if item.get("sale_terms"):
+                    payload["sale_terms"] = item["sale_terms"]
 
                 r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
                 ok = r2.status_code in (200, 201)
