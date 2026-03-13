@@ -1092,4 +1092,22 @@ async def diag():
 
 fp = Path("frontend")
 if fp.exists():
-    app.mount("/", StaticFiles(directory=str(fp), html=True), name="static")
+    from fastapi import Response
+    from fastapi.responses import FileResponse
+    import os
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(str(fp / "index.html"))
+
+    @app.get("/{full_path:path}")
+    async def serve_static(full_path: str):
+        # No interceptar rutas de API ni diag
+        if full_path.startswith("api/") or full_path.startswith("diag"):
+            from fastapi import HTTPException
+            raise HTTPException(404)
+        file_path = fp / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+        # Fallback a index.html para SPA
+        return FileResponse(str(fp / "index.html"))
