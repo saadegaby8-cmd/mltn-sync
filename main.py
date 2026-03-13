@@ -1049,7 +1049,13 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
-                "attributes": [],  # sin atributos
+                "attributes": [
+                    {"id":"BRAND","value_name": brand_name},
+                    {"id":"MODEL","value_name": model_name},
+                    {"id":"family_name","value_name": family},
+                    {"id":"COLOR","value_name":"Surtido"},
+                    {"id":"SIZE","value_id":"100"},
+                ],
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
             resp = r2.json()
