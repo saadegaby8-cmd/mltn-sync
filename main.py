@@ -1033,18 +1033,22 @@ async def diag_testdup(item_id: str):
                 elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
             # family_name SIEMPRE requerido por ML
             # Título base: cortar todo lo que viene DESPUÉS del número de modelo en el título
-            raw_title = item["title"]
+            raw_title = item.get("title","")
             if model_name and model_name in raw_title:
-                # Encontrar donde termina el modelo en el título y cortar ahí
                 idx = raw_title.index(model_name) + len(model_name)
                 clean_title = raw_title[:idx].strip()
             elif " - " in raw_title:
                 clean_title = raw_title.rsplit(" - ", 1)[0].strip()
             else:
                 clean_title = raw_title.strip()
+            # Test: título simplificado sin caracteres especiales
+            import unicodedata
+            def strip_accents(s):
+                return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+            test_title = strip_accents(clean_title)
             family = model_name or brand_name or clean_title[:60]
             payload = {
-                "title": clean_title,
+                "title": test_title + " 2",  # test: agregar sufijo para evitar título duplicado
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
@@ -1064,8 +1068,9 @@ async def diag_testdup(item_id: str):
             return {"result": "❌ FALLA", "status": r2.status_code, 
                     "causes": resp.get("cause",[]), 
                     "message": resp.get("message"),
-                    "title_sent": clean_title,
-                    "title_length": len(clean_title),
+                    "title_sent": test_title,
+                    "title_original": clean_title,
+                    "title_length": len(test_title),
                     "attrs_sent": [a for a in attrs if a.get("id") in ("family_name","BRAND","MODEL")],
                     "full_error": resp}
     except Exception as e:
