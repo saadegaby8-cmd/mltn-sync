@@ -1005,7 +1005,7 @@ async def diag_testdup(item_id: str):
         return {"error": "Necesitás 2 cuentas"}
     try:
         from_t = await fresh_token(0)
-        to_t = await fresh_token(1)
+        to_t = await fresh_token(2) if len(ST["accounts"]) > 2 else await fresh_token(1)
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
             item = r.json()
@@ -1048,12 +1048,12 @@ async def diag_testdup(item_id: str):
             test_title = strip_accents(clean_title)
             family = model_name or brand_name or clean_title[:60]
             payload = {
-                "title": test_title + " 2",  # test: agregar sufijo para evitar título duplicado
+                "title": test_title,
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
                 "available_quantity": item.get("available_quantity",0),
-                "listing_type_id": item.get("listing_type_id","gold_special"),
+                "listing_type_id": "gold_pro",
                 "condition": item.get("condition","new"),
                 "pictures": [{"source":p["url"]} for p in (item.get("pictures") or [])[:2]],
                 "attributes": attrs,
