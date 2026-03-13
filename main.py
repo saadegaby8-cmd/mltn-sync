@@ -650,33 +650,45 @@ async def duplicate(req: Request, _=Depends(auth)):
                 if item.get("sale_terms"):
                     payload["sale_terms"] = item["sale_terms"]
 
-                r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
+                # Intentar con retry en 429
+                r2 = None
+                for attempt in range(3):
+                    r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
+                    if r2.status_code == 429:
+                        wait = 30 * (attempt + 1)
+                        await asyncio.sleep(wait)
+                        continue
+                    break
+
                 ok = r2.status_code in (200, 201)
 
                 new_id = None
                 if ok:
                     new_id = r2.json().get("id")
                     msg = "Duplicado OK"
-                    # Pausar si se pidió
                     if status == "paused" and new_id:
                         await c.put(f"{ML_API}/items/{new_id}",
                             headers={"Authorization": f"Bearer {to_t}"},
                             json={"status": "paused"})
-                    # Auto-link: crear enlace origen → destino
                     if auto_link and new_id:
                         link = {"ml_item_id": iid, "ml_acc_idx": from_idx,
                                 "tn_product_id": new_id, "tn_acc_idx": to_idx,
                                 "auto_linked": True}
                         if "links" not in ST: ST["links"] = []
                         ST["links"].append(link)
+                elif r2.status_code == 429:
+                    msg = "Rate limit ML (429) — esperá unos minutos y volvé a intentar"
                 else:
-                    err = r2.json()
-                    causes = err.get("cause", [])
-                    msg = ", ".join([c2.get("code","") for c2 in causes[:3]]) if causes else err.get("message", f"Error {r2.status_code}")
+                    try:
+                        err = r2.json()
+                        causes = err.get("cause", [])
+                        msg = ", ".join([c2.get("code","") for c2 in causes[:3]]) if causes else err.get("message", f"Error {r2.status_code}")
+                    except Exception:
+                        msg = f"Error {r2.status_code}"
 
                 results.append({"id": iid, "title": item.get("title", iid), "ok": ok, "msg": msg, "new_id": new_id})
                 ST["log"].append({"ts": int(time.time()), "action": "duplicate", "product": item.get("title", ""), "status": "ok" if ok else "error"})
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)  # 3 segundos entre cada item para no disparar 429
             except Exception as e:
                 results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
     save_state()
