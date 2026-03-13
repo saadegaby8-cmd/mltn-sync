@@ -506,10 +506,15 @@ async def publish(req: Request, _=Depends(auth)):
             for model_key, items_grupo in grupos.items():
                 try:
                     base = items_grupo[0]
-                    # Título base sin la variante al final
-                    title = base.get("title","")
-                    if " - " in title:
-                        title = title.rsplit(" - ", 1)[0].strip()
+                    # Título base: cortar después del número de modelo
+                    _t = base.get("title","")
+                    _m = next((a.get("value_name","") for a in (base.get("attributes") or []) if a.get("id")=="MODEL"), "")
+                    if _m and _m in _t:
+                        title = _t[:_t.index(_m)+len(_m)].strip()
+                    elif " - " in _t:
+                        title = _t.rsplit(" - ", 1)[0].strip()
+                    else:
+                        title = _t
                     desc = base.get("_desc", title)
 
                     # Armar variantes TN: una por item, con COLOR y SIZE como values
@@ -730,10 +735,14 @@ async def duplicate(req: Request, _=Depends(auth)):
                     family2 = f"{brand_val} {model_val2}".strip() or base_item.get("title","")[:60]
                     attrs_clean.append({"id": "family_name", "value_name": family2})
 
-                    # Título base: quitar la parte de variante al final si tiene " - CÓDIGO Variante"
-                    title = base_item.get("title", "")
-                    if " - " in title:
-                        title = title.rsplit(" - ", 1)[0].strip()
+                    # Título base: cortar después del número de modelo
+                    _t = base_item.get("title", "")
+                    if model_val2 and model_val2 in _t:
+                        title = _t[:_t.index(model_val2)+len(model_val2)].strip()
+                    elif " - " in _t:
+                        title = _t.rsplit(" - ", 1)[0].strip()
+                    else:
+                        title = _t
 
                     payload = {
                         "title": title,
@@ -1021,11 +1030,19 @@ async def diag_testdup(item_id: str):
                 if a.get("value_id"): attrs.append({"id":aid,"value_id":a["value_id"]})
                 elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
             # family_name SIEMPRE requerido por ML
-            # Sacar family_name de attributes — va como campo raíz del payload
-            attrs = [a for a in attrs if a.get("id") != "family_name"]
-            family = model_name or brand_name or item.get("title","")[:60]
+            # Título base: cortar todo lo que viene DESPUÉS del número de modelo en el título
+            raw_title = item["title"]
+            if model_name and model_name in raw_title:
+                # Encontrar donde termina el modelo en el título y cortar ahí
+                idx = raw_title.index(model_name) + len(model_name)
+                clean_title = raw_title[:idx].strip()
+            elif " - " in raw_title:
+                clean_title = raw_title.rsplit(" - ", 1)[0].strip()
+            else:
+                clean_title = raw_title.strip()
+            family = model_name or brand_name or clean_title[:60]
             payload = {
-                "title": item["title"],
+                "title": clean_title,
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
