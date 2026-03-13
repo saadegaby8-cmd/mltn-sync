@@ -975,8 +975,56 @@ async def diag_item(item_id: str):
     except Exception as e:
         return {"exception": str(e)}
 
-@app.get("/diag")
-async def diag():
+@app.get("/diag/sizechart/{item_id}")
+async def diag_sizechart(item_id: str):
+    """Intentar crear guía de talles en cuenta destino basada en el item origen"""
+    if len(ST["accounts"]) < 2:
+        return {"error": "Necesitás 2 cuentas conectadas"}
+    try:
+        from_t = await fresh_token(0)
+        to_t = await fresh_token(1)
+        async with httpx.AsyncClient(timeout=30) as c:
+            # Obtener item
+            r = await c.get(f"{ML_API}/items/{item_id}",
+                           headers={"Authorization": f"Bearer {from_t}"})
+            item = r.json()
+            category_id = item.get("category_id","")
+
+            # Ver qué atributos de talle tiene la categoría
+            cat_attrs = await c.get(
+                f"{ML_API}/categories/{category_id}/attributes",
+                headers={"Authorization": f"Bearer {from_t}"}
+            )
+
+            # Obtener guías de talles disponibles para esta categoría en cuenta destino
+            me_r = await c.get(f"{ML_API}/users/me",
+                               headers={"Authorization": f"Bearer {to_t}"})
+            to_uid = me_r.json().get("id")
+
+            existing_charts = await c.get(
+                f"{ML_API}/users/{to_uid}/size_charts",
+                headers={"Authorization": f"Bearer {to_t}"}
+            )
+
+            # Intentar obtener la guía original con token de origen
+            size_attr = next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None)
+            chart_id = size_attr.get("value_name") if size_attr else None
+            orig_chart = None
+            if chart_id:
+                og = await c.get(f"{ML_API}/size_charts/{chart_id}",
+                                headers={"Authorization": f"Bearer {from_t}"})
+                orig_chart = {"status": og.status_code, "body": og.json()}
+
+            return {
+                "category_id": category_id,
+                "size_grid_id": chart_id,
+                "original_chart_attempt": orig_chart,
+                "dest_user_id": to_uid,
+                "existing_charts_in_dest": {"status": existing_charts.status_code, "body": existing_charts.json()},
+                "size_attr_raw": size_attr,
+            }
+    except Exception as e:
+        return {"exception": str(e)}
     r = get_redis()
     redis_ok = False
     try:
