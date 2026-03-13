@@ -239,6 +239,7 @@ async def do_sync_products(i: int, uid: str, token: str):
                     if not ids:
                         break
                     all_ids.extend(ids)
+                    all_ids = list(dict.fromkeys(all_ids))  # deduplicar manteniendo orden
                     set_sync_status(uid, "fetching_ids", total=len(all_ids), fetched=0)
                     scroll_id = d.get("scroll_id")
                     if not scroll_id:
