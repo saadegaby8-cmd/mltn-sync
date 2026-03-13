@@ -1021,7 +1021,7 @@ async def diag_testdup(item_id: str):
                 if a.get("value_id"): attrs.append({"id":aid,"value_id":a["value_id"]})
                 elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
             # family_name SIEMPRE requerido por ML
-            family = f"{brand_name} {model_name}".strip() or item.get("title","")[:60]
+            family = model_name or brand_name or item.get("title","")[:60]
             attrs.append({"id":"family_name","value_name":family})
             payload = {
                 "title": item["title"],
@@ -1043,6 +1043,7 @@ async def diag_testdup(item_id: str):
             return {"result": "❌ FALLA", "status": r2.status_code, 
                     "causes": resp.get("cause",[]), 
                     "message": resp.get("message"),
+                    "attrs_sent": [a for a in attrs if a.get("id") in ("family_name","BRAND","MODEL")],
                     "full_error": resp}
     except Exception as e:
         return {"exception": str(e)}
