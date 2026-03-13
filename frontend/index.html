@@ -284,6 +284,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-hd">
             <div class="acc-tabs" id="prod-tabs" style="margin:0"></div>
             <button class="btn btn-blue btn-sm" id="load-prod-btn" onclick="loadProdProds()" style="display:none">Cargar</button>
+            <button class="btn btn-out btn-sm" id="resync-prod-btn" onclick="startMLSync()" style="display:none">↻ Re-sincronizar ML</button>
           </div>
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-prod" class="action-bar" style="display:none">
@@ -723,6 +724,7 @@ function renderProdTabs(){
   if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas en Canales.</span>';btn.style.display='none';return;}
   el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===prodAccIdx?'active':''}" onclick="selProdAcc(${i})">${a.name}${!a.token_ok?'<span class="token-warn">⚠ token</span>':''}</div>`).join('');
   btn.style.display='inline-flex';
+  document.getElementById('resync-prod-btn').style.display='inline-flex';
 }
 function selProdAcc(i){prodAccIdx=i;renderProdTabs();}
 
