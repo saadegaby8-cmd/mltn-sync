@@ -658,61 +658,27 @@ async def duplicate(req: Request, _=Depends(auth)):
 
 @app.get("/diag/item/{item_id}")
 async def diag_item(item_id: str):
-    """Ver qué devuelve ML para un item específico y qué error da al intentar duplicar"""
     if not ST["accounts"]:
         return {"error": "no accounts"}
-    from_t = await fresh_token(0)
-    to_t = await fresh_token(1) if len(ST["accounts"]) > 1 else from_t
-    async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
-        item = r.json()
-        if "error" in item:
-            return {"error": item}
-        # Armar payload igual que duplicate
-        variations_clean = []
-        for v in (item.get("variations") or []):
-            vc = {
-                "attribute_combinations": v.get("attribute_combinations", []),
-                "price": v.get("price", item.get("price", 0)),
-                "available_quantity": v.get("available_quantity", 0),
+    try:
+        from_t = await fresh_token(0)
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.get(f"{ML_API}/items/{item_id}",
+                           headers={"Authorization": f"Bearer {from_t}"})
+            item = r.json()
+            return {
+                "title": item.get("title"),
+                "category_id": item.get("category_id"),
+                "status": item.get("status"),
+                "attributes": item.get("attributes", []),
+                "variations_count": len(item.get("variations", [])),
+                "size_grid_attr": next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None),
+                "raw_error": item.get("error"),
             }
-            if v.get("picture_ids"):
-                vc["picture_ids"] = v["picture_ids"]
-            variations_clean.append(vc)
-        EXCLUDED_ATTRS = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN","BRAND","MODEL"}
-        attrs_clean = []
-        for a in (item.get("attributes") or []):
-            aid = a.get("id","")
-            if aid == "SIZE_GRID_ID" and a.get("value_id"):
-                attrs_clean.append({"id": aid, "value_id": a["value_id"]})
-                continue
-            if aid in EXCLUDED_ATTRS:
-                continue
-            if a.get("value_id"):
-                attrs_clean.append({"id": aid, "value_id": a["value_id"]})
-            elif a.get("value_name"):
-                attrs_clean.append({"id": aid, "value_name": a["value_name"]})
-        payload = {
-            "title": item["title"],
-            "category_id": item.get("category_id", ""),
-            "price": item.get("price", 0),
-            "currency_id": item.get("currency_id", "ARS"),
-            "available_quantity": 0,
-            "listing_type_id": item.get("listing_type_id", "gold_special"),
-            "condition": item.get("condition", "new"),
-            "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:2]],
-            "attributes": attrs_clean,
-            "variations": variations_clean,
-        }
-        # Solo mostrar el error, NO crear
-        r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
-        return {
-            "status": r2.status_code,
-            "ml_error": r2.json(),
-            "payload_sent": payload,
-            "original_attrs": item.get("attributes", []),
-        }
+    except Exception as e:
+        return {"exception": str(e)}
 
+@app.get("/diag")
 async def diag():
     r = get_redis()
     redis_ok = False
