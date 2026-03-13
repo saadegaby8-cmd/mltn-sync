@@ -512,6 +512,8 @@ async def duplicate(req: Request, _=Depends(auth)):
     b = await req.json()
     from_idx = b.get("from_account", 0)
     to_idx = b.get("to_account", 1)
+    status = b.get("status", "active")  # "active" o "paused"
+    auto_link = b.get("auto_link", False)
     try:
         from_t = await fresh_token(from_idx)
         to_t = await fresh_token(to_idx)
@@ -527,7 +529,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                     results.append({"id": iid, "title": iid, "ok": False, "msg": item.get("message", "Error ML")})
                     continue
 
-                # Limpiar variaciones — solo campos permitidos al crear
+                # Limpiar variaciones
                 variations_clean = []
                 for v in (item.get("variations") or []):
                     vc = {
@@ -555,18 +557,29 @@ async def duplicate(req: Request, _=Depends(auth)):
 
                 r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
                 ok = r2.status_code in (200, 201)
+
+                new_id = None
                 if ok:
+                    new_id = r2.json().get("id")
                     msg = "Duplicado OK"
+                    # Pausar si se pidió
+                    if status == "paused" and new_id:
+                        await c.put(f"{ML_API}/items/{new_id}",
+                            headers={"Authorization": f"Bearer {to_t}"},
+                            json={"status": "paused"})
+                    # Auto-link: crear enlace origen → destino
+                    if auto_link and new_id:
+                        link = {"ml_item_id": iid, "ml_acc_idx": from_idx,
+                                "tn_product_id": new_id, "tn_acc_idx": to_idx,
+                                "auto_linked": True}
+                        if "links" not in ST: ST["links"] = []
+                        ST["links"].append(link)
                 else:
                     err = r2.json()
-                    # Obtener campos faltantes específicos
                     causes = err.get("cause", [])
-                    if causes:
-                        missing = ", ".join([c2.get("code","") for c2 in causes[:3]])
-                        msg = f"Faltan: {missing}"
-                    else:
-                        msg = err.get("message", f"Error {r2.status_code}")
-                results.append({"id": iid, "title": item.get("title", iid), "ok": ok, "msg": msg})
+                    msg = ", ".join([c2.get("code","") for c2 in causes[:3]]) if causes else err.get("message", f"Error {r2.status_code}")
+
+                results.append({"id": iid, "title": item.get("title", iid), "ok": ok, "msg": msg, "new_id": new_id})
                 ST["log"].append({"ts": int(time.time()), "action": "duplicate", "product": item.get("title", ""), "status": "ok" if ok else "error"})
                 await asyncio.sleep(1)
             except Exception as e:
