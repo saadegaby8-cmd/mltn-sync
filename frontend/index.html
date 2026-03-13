@@ -192,6 +192,9 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 .acc-tab:hover{border-color:#4f9eff;color:#4f9eff}
 .acc-tab.active{border-color:#4f9eff;color:#4f9eff;background:#eef4ff;font-weight:600}
 .token-warn{font-size:11px;color:#d68000;background:#fff4e0;padding:3px 8px;border-radius:4px;margin-left:6px}
+.ord-opt{padding:7px 10px;font-size:13px;cursor:pointer;border-radius:5px;color:#1a1a2e;transition:background .1s}
+.ord-opt:hover{background:#f0f4ff;color:#4f9eff}
+.ord-opt.active{background:#eef4ff;color:#4f9eff;font-weight:600}
 </style>
 </head>
 <body>
@@ -284,8 +287,10 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
         <!-- FILTROS BAR -->
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
           <div class="s-wrap" style="flex:1;min-width:220px"><input type="text" id="prod-q" placeholder="Buscar producto..." oninput="applyProdF()" /></div>
+
+          <!-- FILTROS -->
           <div style="position:relative">
-            <button class="btn btn-out btn-sm" onclick="toggleFiltros()" id="btn-filtros">⚙ Filtros <span id="filtros-badge" style="display:none;background:#4f9eff;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px">0</span></button>
+            <button class="btn btn-out btn-sm" onclick="toggleFiltros()" id="btn-filtros">⚙ Filtros <span id="filtros-badge" style="display:none;background:#4f9eff;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px"></span></button>
             <div id="filtros-panel" style="display:none;position:absolute;top:34px;left:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:14px;width:220px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
               <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Estado</div>
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-active" checked onchange="applyProdF()"> <span style="color:#00a381">● Activas</span></label>
@@ -294,9 +299,32 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
               <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Stock</div>
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="todos" checked onchange="applyProdF()"> Todos</label>
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="con" onchange="applyProdF()"> Con stock</label>
-              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="f-stock" value="sin" onchange="applyProdF()"> Sin stock</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="radio" name="f-stock" value="sin" onchange="applyProdF()"> Sin stock</label>
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Cuotas</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-cuotas" value="todos" checked onchange="applyProdF()"> Todos</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-cuotas" value="con" onchange="applyProdF()"> Con cuotas</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="f-cuotas" value="sin" onchange="applyProdF()"> Sin cuotas</label>
             </div>
           </div>
+
+          <!-- ORDENAR -->
+          <div style="position:relative">
+            <button class="btn btn-out btn-sm" onclick="toggleOrdenar()" id="btn-ordenar">↕ Ordenar <span id="ordenar-label" style="color:#4f9eff;font-size:11px"></span></button>
+            <div id="ordenar-panel" style="display:none;position:absolute;top:34px;right:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:8px;width:210px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;padding:6px 8px 4px">Ordenar por</div>
+              <div class="ord-opt" onclick="setOrden('default')" data-ord="default">Sin orden</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('fecha_desc')" data-ord="fecha_desc">📅 Más nuevos primero</div>
+              <div class="ord-opt" onclick="setOrden('fecha_asc')" data-ord="fecha_asc">📅 Más viejos primero</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('stock_desc')" data-ord="stock_desc">📦 Mayor stock primero</div>
+              <div class="ord-opt" onclick="setOrden('stock_asc')" data-ord="stock_asc">📦 Menor stock primero</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('precio_desc')" data-ord="precio_desc">💰 Mayor precio primero</div>
+              <div class="ord-opt" onclick="setOrden('precio_asc')" data-ord="precio_asc">💰 Menor precio primero</div>
+            </div>
+          </div>
+
           <button class="btn btn-out btn-sm" id="resync-prod-btn" onclick="startMLSync()" style="display:none">↻ Re-sincronizar</button>
           <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
         </div>
@@ -315,44 +343,6 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
         <!-- MSG -->
         <div id="msg-prod" class="msg" style="margin-bottom:10px"></div>
-
-        <!-- TABLA PRODUCTOS del canal seleccionado -->
-        <div class="panel" id="prod-tabla-panel" style="display:none">
-          <div class="panel-hd" style="gap:8px">
-            <div style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap">
-              <span id="prod-canal-nombre" style="font-weight:600;font-size:14px"></span>
-              <span id="prod-sin-unir" style="font-size:12px;color:#e17055;cursor:pointer" onclick="filtrarSinUnir()"></span>
-            </div>
-            <button class="btn btn-blue btn-sm" id="load-prod-btn" onclick="loadProdProds()">Cargar productos</button>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
-                <th></th>
-                <th>TÍTULO</th>
-                <th>CANALES</th>
-                <th>STOCK</th>
-                <th>VARIACIONES</th>
-                <th>ESTADO</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">📦</div>Seleccioná un canal para ver productos</div></td></tr></tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <span id="prod-pag-info"></span>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:12px;color:#7a8299">Listar</span>
-              <select class="per-sel" id="prod-pp" onchange="renderProdT()"><option>10</option><option>25</option><option>50</option></select>
-              <div class="pag-btns">
-                <button class="pb" onclick="pProd(-1)">‹</button>
-                <span id="prod-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
-                <button class="pb" onclick="pProd(1)">›</button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- MODAL UNIR -->
@@ -771,13 +761,36 @@ async function connectTN(){
 // ── PROD TABLE ─────────────────────────────────────────────────────────────────
 let prodSoloSinUnir = false;
 
+let prodOrden='default';
+
+function toggleOrdenar(){
+  const p=document.getElementById('ordenar-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('filtros-panel').style.display='none';
+}
+function setOrden(val){
+  prodOrden=val;
+  document.querySelectorAll('.ord-opt').forEach(el=>el.classList.toggle('active',el.dataset.ord===val));
+  const labels={
+    'default':'','fecha_desc':'Más nuevos','fecha_asc':'Más viejos',
+    'stock_desc':'Mayor stock','stock_asc':'Menor stock',
+    'precio_desc':'Mayor precio','precio_asc':'Menor precio'
+  };
+  document.getElementById('ordenar-label').textContent=labels[val]?'· '+labels[val]:'';
+  document.getElementById('ordenar-panel').style.display='none';
+  applyProdF();
+}
+
 function toggleFiltros(){
   const p=document.getElementById('filtros-panel');
   p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('ordenar-panel').style.display='none';
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('#btn-filtros')&&!e.target.closest('#filtros-panel'))
     document.getElementById('filtros-panel').style.display='none';
+  if(!e.target.closest('#btn-ordenar')&&!e.target.closest('#ordenar-panel'))
+    document.getElementById('ordenar-panel').style.display='none';
 });
 
 function filtrarSinUnir(){
@@ -795,91 +808,151 @@ function renderProdTabs(){
   }
   resync.style.display='inline-flex';
 
-  // Construir cards de canales estilo Astroselling
   const links=appState.links||[];
   let html='';
 
-  // Card TiendaNube si está conectada
-  if(appState.tn_connected){
-    html+=`<div class="canal-card" onclick="selCanalTN()">
-      <div class="canal-card-inner">
-        <div class="canal-av" style="background:#00b894">TN</div>
-        <div class="canal-info">
-          <div class="canal-name">TiendaNube</div>
-          <div class="canal-sub" style="color:#4f9eff">Store ID: ${appState.tn_store_id}</div>
-        </div>
-        <div style="margin-left:auto;text-align:right">
-          <div style="font-size:12px;color:#7a8299">${links.length} enlaces</div>
-        </div>
-        <div style="margin-left:12px;color:#b0b7c9">›</div>
-      </div>
-    </div>`;
-  }
-
-  // Cards de cuentas ML
   appState.ml_accounts.forEach((a,i)=>{
-    const sinUnir=0; // placeholder, se puede calcular
-    const isActive=i===prodAccIdx;
-    html+=`<div class="canal-card ${isActive?'canal-card-active':''}" onclick="selProdAcc(${i})">
-      <div class="canal-card-inner">
-        <div class="canal-av" style="background:#ffe135;color:#333">${a.name[0].toUpperCase()}</div>
-        <div class="canal-info">
-          <div class="canal-name">${a.name}</div>
-          <div class="canal-sub">MercadoLibre${!a.token_ok?' · <span style="color:#d68000">⚠ token vencido</span>':''}</div>
+    const isOpen=i===prodAccIdx&&prodProds.length>0;
+    const prodCount=i===prodAccIdx&&prodProds.length>0?prodProds.length:null;
+    const sinUnirCount=i===prodAccIdx&&prodProds.length>0?prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length:null;
+
+    html+=`<div class="panel" style="margin-bottom:10px;overflow:visible">
+      <!-- CANAL HEADER -->
+      <div class="canal-header" onclick="toggleCanal(${i})" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none">
+        <div class="canal-av" style="background:#ffe135;color:#333;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">${a.name[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${a.name}${!a.token_ok?' <span style="color:#d68000;font-size:11px">⚠ token vencido</span>':''}</div>
+          <div style="font-size:11px;color:#4f9eff;margin-top:1px">
+            ${prodCount!==null?`${prodCount} productos`:'MercadoLibre'}
+            ${sinUnirCount>0?` · <span style="color:#e17055;cursor:pointer" onclick="event.stopPropagation();selProdAcc(${i});filtrarSinUnir()">${sinUnirCount} sin unir</span>`:''}
+          </div>
         </div>
-        <div style="margin-left:auto;text-align:right">
-          <div style="font-size:13px;font-weight:600;color:#1a1a2e" id="cnt-prods-${i}">—</div>
-          <div style="font-size:11px;color:#7a8299">productos</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();selProdAcc(${i});loadProdProds()" id="load-prod-btn-${i}">
+            ${i===prodAccIdx&&prodProds.length>0?'↻ Recargar':'Cargar'}
+          </button>
+          <span style="color:#b0b7c9;font-size:16px;transition:transform .2s" id="canal-arrow-${i}">${isOpen?'▾':'▸'}</span>
         </div>
-        <div style="margin-left:12px;color:#b0b7c9">›</div>
+      </div>
+
+      <!-- TABLA DESPLEGABLE -->
+      <div id="canal-body-${i}" style="display:${isOpen?'block':'none'};border-top:1px solid #e8ecf0">
+        ${i===prodAccIdx&&prodProds.length>0?renderCanalTablaHTML(i):'<div class="empty" style="padding:24px"><div class="ei">📦</div>Apretá "Cargar" para ver productos</div>'}
       </div>
     </div>`;
   });
 
-  wrap.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${html}</div>`;
-
-  // Mostrar tabla si hay cuenta seleccionada
-  if(appState.ml_accounts.length>0){
-    document.getElementById('prod-tabla-panel').style.display='block';
-    document.getElementById('prod-canal-nombre').textContent=appState.ml_accounts[prodAccIdx]?.name||'';
+  // TiendaNube al final si conectada
+  if(appState.tn_connected){
+    html+=`<div class="panel" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 18px">
+        <div style="width:36px;height:36px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">TN</div>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">TiendaNube</div><div style="font-size:11px;color:#7a8299">Store ID: ${appState.tn_store_id} · ${links.length} enlaces</div></div>
+      </div>
+    </div>`;
   }
+
+  wrap.innerHTML=html;
+
+  // Reasignar load-prod-btn principal al del canal activo
+  const mainBtn=document.getElementById('load-prod-btn-'+prodAccIdx);
+  // El botón único load-prod-btn ya no existe como ID global, usamos los por canal
+}
+
+function toggleCanal(i){
+  if(i!==prodAccIdx){
+    selProdAcc(i);
+    return;
+  }
+  const body=document.getElementById('canal-body-'+i);
+  const arrow=document.getElementById('canal-arrow-'+i);
+  if(body.style.display==='none'){
+    body.style.display='block';
+    arrow.textContent='▾';
+  } else {
+    body.style.display='none';
+    arrow.textContent='▸';
+  }
+}
+
+function renderCanalTablaHTML(i){
+  return `<div style="padding:10px 18px 6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid #f0f2f6">
+    <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span id="prod-sin-unir" style="font-size:12px;color:#e17055;cursor:pointer" onclick="filtrarSinUnir()"></span>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
+        <th></th>
+        <th>TÍTULO</th>
+        <th>CANALES</th>
+        <th>STOCK</th>
+        <th>VARIACIONES</th>
+        <th>ESTADO</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">⏳</div>Cargando...</div></td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination" style="padding:10px 18px">
+    <span id="prod-pag-info"></span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:#7a8299">Listar</span>
+      <select class="per-sel" id="prod-pp" onchange="renderProdT()"><option>10</option><option>25</option><option>50</option></select>
+      <div class="pag-btns">
+        <button class="pb" onclick="pProd(-1)">‹</button>
+        <span id="prod-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+        <button class="pb" onclick="pProd(1)">›</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function selProdAcc(i){
   prodAccIdx=i;
   prodProds=[];prodFilt=[];prodSel=[];prodPg=0;prodSoloSinUnir=false;
   renderProdTabs();
-  document.getElementById('prod-body').innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">📦</div>Apretá "Cargar productos" para ver las publicaciones</div></td></tr>`;
-  document.getElementById('prod-pag-info').textContent='';
-  document.getElementById('prod-pag-cur').textContent='';
-  document.getElementById('prod-cnt').textContent='';
-}
-
-function selCanalTN(){
-  // futuro: mostrar productos de TN
-  showMsg('msg-prod','TN: próximamente','info');
 }
 
 let syncPollInterval=null;
 async function loadProdProds(){
-  const btn=document.getElementById('load-prod-btn');
-  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-prod');
+  // Buscar el botón del canal activo
+  const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
+  if(btn){btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;}
+  hideMsg('msg-prod');
+
+  // Asegurar que el cuerpo del canal esté abierto con la tabla
+  const canalBody=document.getElementById('canal-body-'+prodAccIdx);
+  const arrow=document.getElementById('canal-arrow-'+prodAccIdx);
+  if(canalBody){
+    canalBody.innerHTML=renderCanalTablaHTML(prodAccIdx);
+    canalBody.style.display='block';
+    if(arrow)arrow.textContent='▾';
+  }
+
   try{
     const r=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
     if(!d.synced){
       showMsg('msg-prod','⏳ Sin sync previo. Iniciando sincronización...','info');
-      btn.innerHTML='Cargar productos';btn.disabled=false;
+      if(btn){btn.innerHTML='Cargar';btn.disabled=false;}
       await startMLSync();
       return;
     }
     prodProds=d.products;prodSel=[];prodPg=0;prodSoloSinUnir=false;
     document.getElementById('prod-q').value='';
-    // Actualizar contador en canal card
-    const cntEl=document.getElementById('cnt-prods-'+prodAccIdx);
-    if(cntEl)cntEl.textContent=d.total;
-    // Sin unir = sin enlace TN
+    // Actualizar subtext del canal
+    renderProdTabs();
+    // Volver a abrir el canal body con la tabla
+    const cb=document.getElementById('canal-body-'+prodAccIdx);
+    if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
+    const ar=document.getElementById('canal-arrow-'+prodAccIdx);
+    if(ar)ar.textContent='▾';
+    // Sin unir
     const links=appState.links||[];
     const sinUnir=prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length;
     const sinUnirEl=document.getElementById('prod-sin-unir');
@@ -888,17 +961,18 @@ async function loadProdProds(){
     showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
     setTimeout(()=>hideMsg('msg-prod'),3000);
   }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar productos';btn.disabled=false;
+  const btn2=document.getElementById('load-prod-btn-'+prodAccIdx);
+  if(btn2){btn2.innerHTML='↻ Recargar';btn2.disabled=false;}
 }
 
 async function startMLSync(){
-  const btn=document.getElementById('load-prod-btn');
+  const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
   try{
     const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error al iniciar');
     showMsg('msg-prod','⏳ Sincronizando con MercadoLibre...','info');
-    btn.innerHTML='⏳ Sincronizando...';btn.disabled=true;
+    if(btn){btn.innerHTML='⏳ Sync...';btn.disabled=true;}
     if(syncPollInterval) clearInterval(syncPollInterval);
     syncPollInterval=setInterval(async()=>{
       try{
@@ -912,13 +986,15 @@ async function startMLSync(){
             const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
             const pd=await pr.json();
             prodProds=pd.products;prodSel=[];prodPg=0;
-            const cntEl=document.getElementById('cnt-prods-'+prodAccIdx);
-            if(cntEl)cntEl.textContent=pd.total;
+            renderProdTabs();
+            const cb=document.getElementById('canal-body-'+prodAccIdx);
+            if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
             applyProdF();
           }else{
             showMsg('msg-prod','❌ Error: '+st.status,'err');
           }
-          btn.innerHTML='Cargar productos';btn.disabled=false;
+          const b=document.getElementById('load-prod-btn-'+prodAccIdx);
+          if(b){b.innerHTML='↻ Recargar';b.disabled=false;}
         }else{
           const fetched=st.fetched||0;const total=st.total||0;
           const txt=st.status==='fetching_ids'?'Obteniendo publicaciones...':
@@ -929,7 +1005,8 @@ async function startMLSync(){
     },5000);
   }catch(e){
     showMsg('msg-prod','❌ '+e.message,'err');
-    btn.innerHTML='Cargar productos';btn.disabled=false;
+    const b=document.getElementById('load-prod-btn-'+prodAccIdx);
+    if(b){b.innerHTML='Cargar';b.disabled=false;}
   }
 }
 
@@ -939,6 +1016,7 @@ function applyProdF(){
   const fPaused=document.getElementById('f-paused')?.checked!==false;
   const fClosed=document.getElementById('f-closed')?.checked!==false;
   const fStock=document.querySelector('input[name="f-stock"]:checked')?.value||'todos';
+  const fCuotas=document.querySelector('input[name="f-cuotas"]:checked')?.value||'todos';
   const links=appState.links||[];
   prodFilt=prodProds.filter(p=>{
     if(q&&!p.title.toLowerCase().includes(q))return false;
@@ -947,11 +1025,21 @@ function applyProdF(){
     if(p.status==='closed'&&!fClosed)return false;
     if(fStock==='con'&&!(p.available_quantity>0))return false;
     if(fStock==='sin'&&p.available_quantity>0)return false;
+    if(fCuotas==='con'&&!p.accepts_mercadopago)return false;
+    if(fCuotas==='sin'&&p.accepts_mercadopago)return false;
     if(prodSoloSinUnir&&links.find(l=>l.ml_item_id===p.id))return false;
     return true;
   });
+  // Ordenar
+  if(prodOrden==='fecha_desc') prodFilt.sort((a,b)=>new Date(b.date_created||0)-new Date(a.date_created||0));
+  else if(prodOrden==='fecha_asc') prodFilt.sort((a,b)=>new Date(a.date_created||0)-new Date(b.date_created||0));
+  else if(prodOrden==='stock_desc') prodFilt.sort((a,b)=>(b.available_quantity||0)-(a.available_quantity||0));
+  else if(prodOrden==='stock_asc') prodFilt.sort((a,b)=>(a.available_quantity||0)-(b.available_quantity||0));
+  else if(prodOrden==='precio_desc') prodFilt.sort((a,b)=>(b.price||0)-(a.price||0));
+  else if(prodOrden==='precio_asc') prodFilt.sort((a,b)=>(a.price||0)-(b.price||0));
   prodPg=0;
-  document.getElementById('prod-cnt').textContent=`${prodFilt.length} resultado${prodFilt.length!==1?'s':''}`;
+  const cntEl=document.getElementById('prod-cnt');
+  if(cntEl)cntEl.textContent=`${prodFilt.length} resultado${prodFilt.length!==1?'s':''}`;
   renderProdT();
 }
 
@@ -989,8 +1077,8 @@ function renderProdT(){
         <div style="display:flex;align-items:flex-start;gap:6px">
           <div style="width:8px;height:8px;border-radius:50%;background:${stDot};margin-top:4px;flex-shrink:0"></div>
           <div>
-            <div class="ptitle">${p.title}</div>
-            <div class="psku">SKU: ${p.id}</div>
+            <div class="ptitle" title="${p.title}">${p.title}</div>
+            <div class="psku">ID: ${p.id}</div>
           </div>
         </div>
       </td>
@@ -1036,8 +1124,17 @@ function renderProdT(){
 
 function toggleVars(id,btn){
   const row=document.getElementById('vars-'+id);
-  if(row.style.display==='none'||!row.style.display){row.style.display='';btn.textContent='▼';}
-  else{row.style.display='none';btn.textContent='▶';}
+  if(!row)return;
+  if(row.style.display==='none'||!row.style.display){
+    row.style.display='';
+    btn.textContent='▼';
+  } else {
+    row.style.display='none';
+    btn.textContent='▶';
+    // scroll back to parent row
+    const parentRow=document.querySelector(`tr[data-id="${id}"]`);
+    if(parentRow)parentRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 
 function toggleProdRow(id,tr){
