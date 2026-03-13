@@ -523,7 +523,7 @@ async def duplicate(req: Request, _=Depends(auth)):
     # Cache de guías de talles ya copiadas en esta sesión: {chart_id_origen: chart_id_destino}
     size_chart_map = {}
 
-    async def copy_size_chart(c, chart_id: str) -> str | None:
+    async def copy_size_chart(c, chart_id: str):
         """Copia una guía de talles de cuenta origen a destino. Devuelve el nuevo ID."""
         if chart_id in size_chart_map:
             return size_chart_map[chart_id]
