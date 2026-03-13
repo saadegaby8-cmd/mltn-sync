@@ -465,7 +465,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-dup" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-dup-info">0 seleccionados</span>
-              <button class="btn btn-purple btn-sm" onclick="doDuplicate()">📋 Duplicar a cuenta destino</button>
+              <button class="btn btn-purple btn-sm" onclick="openDupConfirm()">📋 Duplicar a cuenta destino</button>
               <button class="btn btn-out btn-sm" onclick="clearDupSel()">✕</button>
             </div>
           </div>
@@ -495,6 +495,60 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd">
             <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="dup-pf"></div></div><div class="prog-txt" id="dup-pt"></div></div>
             <div class="res-list" id="dup-res"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR DUPLICAR -->
+      <div class="modal-bg" id="dup-confirm-modal">
+        <div class="modal" style="width:480px">
+          <button class="modal-close" onclick="closeDupConfirm()">✕</button>
+          <h3>📋 Confirmar duplicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 20px">Vas a duplicar <b id="dup-confirm-count">0</b> producto(s) a <b id="dup-confirm-dest"></b>.</p>
+
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Estado en cuenta destino</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-active">
+                <input type="radio" name="dup-estado" value="active" checked onchange="updateDupEstadoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#00a381">● Activa</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Visible en ML inmediatamente</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-paused">
+                <input type="radio" name="dup-estado" value="paused" onchange="updateDupEstadoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#d68000">● Pausada</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">No visible hasta que la actives</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Sincronización de stock y precio</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-sync-si">
+                <input type="radio" name="dup-sync" value="si" onchange="updateDupSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🔗 Sí, sincronizar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Enlaza origen↔destino automáticamente</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-sync-no">
+                <input type="radio" name="dup-sync" value="no" checked onchange="updateDupSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">Solo duplicar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Sin enlace ni sync automático</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-purple" onclick="confirmDuplicate()" style="flex:1">📋 Duplicar ahora</button>
+            <button class="btn btn-out" onclick="closeDupConfirm()">Cancelar</button>
           </div>
         </div>
       </div>
@@ -1345,6 +1399,7 @@ function togglePubTarget(){
   document.getElementById('pub-ml-dest-wrap').style.display=target==='ml'?'block':'none';
   const btn=document.getElementById('btn-do-publish');
   btn.textContent=target==='ml'?'📋 Publicar en cuenta ML':'🚀 Publicar en Tienda Nube';
+  if(target==='ml')renderPubMLDest();
 }
 function renderPubMLDest(){
   const sel=document.getElementById('pub-ml-dest');
@@ -1353,11 +1408,12 @@ function renderPubMLDest(){
 }
 async function doPublish(){
   const target=document.getElementById('pub-target').value;
+  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
   if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
   document.getElementById('pub-prog-panel').style.display='block';
   document.getElementById('pub-res').innerHTML='';
   document.getElementById('pub-pf').style.width='0%';
-  document.getElementById('pub-pt').textContent='Publicando...';
+  document.getElementById('pub-pt').textContent=`Publicando ${pubSel.length} producto(s) en ${target==='ml'?'otra cuenta ML':'Tienda Nube'}...`;
   hideMsg('msg-pub-res');
   try{
     const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target};
@@ -1449,22 +1505,53 @@ function updateDupAB(){
 function clearDupSel(){dupSel=[];renderDupT();}
 function pDup(d){dupPg+=d;renderDupT();}
 
-async function doDuplicate(){
+function openDupConfirm(){
+  const from=parseInt(document.getElementById('dup-from').value);
+  const to=parseInt(document.getElementById('dup-to').value);
+  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
+  if(!dupSel.length){showMsg('msg-dup','⚠ Seleccioná al menos un producto.','err');return;}
+  const destName=appState.ml_accounts[to]?.name||'cuenta destino';
+  document.getElementById('dup-confirm-count').textContent=dupSel.length;
+  document.getElementById('dup-confirm-dest').textContent=destName;
+  updateDupEstadoUI();updateDupSyncUI();
+  document.getElementById('dup-confirm-modal').classList.add('show');
+}
+function closeDupConfirm(){document.getElementById('dup-confirm-modal').classList.remove('show');}
+function updateDupEstadoUI(){
+  const val=document.querySelector('input[name="dup-estado"]:checked')?.value;
+  document.getElementById('lbl-estado-active').style.borderColor=val==='active'?'#00a381':'#e8ecf0';
+  document.getElementById('lbl-estado-paused').style.borderColor=val==='paused'?'#d68000':'#e8ecf0';
+}
+function updateDupSyncUI(){
+  const val=document.querySelector('input[name="dup-sync"]:checked')?.value;
+  document.getElementById('lbl-sync-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-sync-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+async function confirmDuplicate(){
+  const estado=document.querySelector('input[name="dup-estado"]:checked')?.value||'active';
+  const sync=document.querySelector('input[name="dup-sync"]:checked')?.value==='si';
+  closeDupConfirm();
+  await doDuplicate(estado,sync);
+}
+async function doDuplicate(estado='active', sync=false){
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
   if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
   document.getElementById('dup-prog-panel').style.display='block';
   document.getElementById('dup-res').innerHTML='';
   document.getElementById('dup-pf').style.width='0%';
-  document.getElementById('dup-pt').textContent='Duplicando...';
+  document.getElementById('dup-pt').textContent=`Duplicando ${dupSel.length} producto(s)...`;
   try{
-    const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({item_ids:dupSel,from_account:from,to_account:to})});
+    const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
+      item_ids:dupSel,from_account:from,to_account:to,
+      status:estado,auto_link:sync
+    })});
     const d=await r.json();const results=d.results||[];
     document.getElementById('dup-pf').style.width='100%';
     const ok=results.filter(r=>r.ok).length;
-    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.`;
+    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados automáticamente':''}`;
     const list=document.getElementById('dup-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;list.appendChild(item);});
     await loadState();
   }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
 }
