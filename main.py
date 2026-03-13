@@ -1078,7 +1078,10 @@ async def diag_testdup(item_id: str):
                 new_id = resp.get("id")
                 await c.delete(f"{ML_API}/items/{new_id}", headers={"Authorization": f"Bearer {to_t}"})
                 return {"result": "✅ FUNCIONA sin SIZE_GRID_ID", "new_id": new_id}
-            return {"result": "❌ FALLA", "status": r2.status_code, "error": resp}
+            return {"result": "❌ FALLA", "status": r2.status_code, 
+                    "causes": resp.get("cause",[]), 
+                    "message": resp.get("message"),
+                    "full_error": resp}
     except Exception as e:
         return {"exception": str(e)}
 
