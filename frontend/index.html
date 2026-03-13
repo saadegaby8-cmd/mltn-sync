@@ -227,15 +227,16 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
   .sidebar{display:none!important}
   .bottom-nav{display:flex!important}
   .main{padding:10px;padding-bottom:70px}
-  .stat-cards{grid-template-columns:1fr 1fr}
+  .app-wrap{flex-direction:row} /* evitar que el main se apile */
+  .topbar{padding:8px 12px}
+  /* Cards en columna unica para que no se corten */
+  .cards-row{grid-template-columns:1fr!important;gap:8px}
+  /* Dentro de cada card, usar layout horizontal */
+  .dash-card{padding:14px 16px}
+  /* Avatares en fila */
+  #d-ch-icons{flex-direction:row!important;flex-wrap:wrap!important}
   .prod-grid{grid-template-columns:1fr}
   .pub-grid{grid-template-columns:1fr}
-  .app-wrap{flex-direction:column}
-  .topbar{padding:8px 12px}
-  /* Fix cards cortadas */
-  .stat-cards{gap:8px}
-  .stat-card{min-width:0}
-  .cards-row{grid-template-columns:1fr 1fr;gap:8px}
 }
 </style>
 </head>
@@ -321,9 +322,11 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
         <div class="cards-row">
           <div class="dash-card">
             <div class="dc-label">Canales conectados</div>
-            <div style="display:flex;align-items:baseline;gap:6px"><div class="dc-val" id="d-canales">0</div><div style="font-size:12px;color:#7a8299">de 4</div></div>
-            <div class="prog-bar"><div class="prog-fill" id="d-can-bar" style="width:0%"></div></div>
-            <div id="d-ch-icons" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap"></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="display:flex;align-items:baseline;gap:6px"><div class="dc-val" id="d-canales">0</div><div style="font-size:12px;color:#7a8299">de 4</div></div>
+              <div id="d-ch-icons" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+            </div>
+            <div class="prog-bar" style="margin-top:8px"><div class="prog-fill" id="d-can-bar" style="width:0%"></div></div>
           </div>
           <div class="dash-card">
             <div class="dc-label">Tienda Nube</div>
