@@ -1005,7 +1005,7 @@ async def diag_testdup(item_id: str):
         return {"error": "Necesitás 2 cuentas"}
     try:
         from_t = await fresh_token(0)
-        to_t = await fresh_token(2) if len(ST["accounts"]) > 2 else await fresh_token(1)
+        to_t = await fresh_token(1)
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
             item = r.json()
@@ -1083,16 +1083,25 @@ async def diag():
     try:
         if r: r.ping(); redis_ok = True
     except: pass
-    result = {"redis": redis_ok, "accounts": len(ST["accounts"])}
-    if ST["accounts"]:
-        acc = ST["accounts"][0]
+    result = {"redis": redis_ok, "accounts": len(ST["accounts"]), "accounts_detail": []}
+    for i, acc in enumerate(ST["accounts"]):
         token = acc.get("token","")
-        result["token_preview"] = token[:20]+"..." if token else "EMPTY"
-        result["token_expired"] = time.time() > acc.get("expiry",0)
-        async with httpx.AsyncClient(timeout=10) as c:
-            r2 = await c.get(f"{ML_API}/users/me", headers={"Authorization":f"Bearer {token}"})
-            result["ml_status"] = r2.status_code
-            result["ml_body"] = r2.text[:300]
+        expired = time.time() > acc.get("expiry",0)
+        detail = {
+            "index": i,
+            "name": acc.get("name",""),
+            "token_preview": token[:20]+"..." if token else "EMPTY",
+            "token_expired": expired,
+        }
+        if not expired and token:
+            try:
+                async with httpx.AsyncClient(timeout=10) as c:
+                    r2 = await c.get(f"{ML_API}/users/me", headers={"Authorization":f"Bearer {token}"})
+                    detail["ml_status"] = r2.status_code
+                    detail["ml_uid"] = r2.json().get("id") if r2.status_code==200 else r2.text[:100]
+            except Exception as e:
+                detail["ml_error"] = str(e)
+        result["accounts_detail"].append(detail)
     return result
 
 fp = Path("frontend")
