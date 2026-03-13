@@ -588,24 +588,50 @@ async def duplicate(req: Request, _=Depends(auth)):
                         vc["picture_ids"] = v["picture_ids"]
                     variations_clean.append(vc)
 
-                # Limpiar atributos y copiar guía de talles si existe
-                EXCLUDED_ATTRS = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN","BRAND","MODEL"}
+                # Atributos a excluir (calculados o que ML no acepta al crear)
+                EXCLUDED_ATTRS = {
+                    "SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
+                    "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
+                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID"
+                }
                 attrs_clean = []
+                has_family_name = False
                 for a in (item.get("attributes") or []):
                     aid = a.get("id","")
-                    if aid == "SIZE_GRID_ID":
-                        orig_chart_id = a.get("value_id") or a.get("value_name")
-                        if orig_chart_id:
-                            new_chart_id = await copy_size_chart(c, str(orig_chart_id))
-                            if new_chart_id:
-                                attrs_clean.append({"id": "SIZE_GRID_ID", "value_id": str(new_chart_id)})
-                        continue
                     if aid in EXCLUDED_ATTRS:
                         continue
+                    # SIZE_GRID_ID: ML lo guarda con value_name (no value_id)
+                    if aid == "SIZE_GRID_ID":
+                        chart_id = a.get("value_name") or a.get("value_id")
+                        if chart_id:
+                            new_chart_id = await copy_size_chart(c, str(chart_id))
+                            if new_chart_id:
+                                attrs_clean.append({"id": "SIZE_GRID_ID", "value_name": str(new_chart_id)})
+                        continue
+                    if aid == "BRAND":
+                        vname = a.get("value_name")
+                        if vname:
+                            attrs_clean.append({"id": "BRAND", "value_name": vname})
+                            # family_name = marca + modelo
+                            model_attr = next((x for x in (item.get("attributes") or []) if x.get("id")=="MODEL"), None)
+                            model_val = model_attr.get("value_name","") if model_attr else ""
+                            family = f"{vname} {model_val}".strip()
+                            attrs_clean.append({"id": "family_name", "value_name": family})
+                            has_family_name = True
+                        continue
+                    if aid == "MODEL":
+                        vname = a.get("value_name")
+                        if vname:
+                            attrs_clean.append({"id": "MODEL", "value_name": vname})
+                        continue
+                    # Resto de atributos
                     if a.get("value_id"):
                         attrs_clean.append({"id": aid, "value_id": a["value_id"]})
                     elif a.get("value_name"):
                         attrs_clean.append({"id": aid, "value_name": a["value_name"]})
+                # Si no había BRAND, igual agregar family_name vacío para no fallar
+                if not has_family_name:
+                    attrs_clean.append({"id": "family_name", "value_name": item.get("title","")[:60]})
 
                 payload = {
                     "title": item["title"],
