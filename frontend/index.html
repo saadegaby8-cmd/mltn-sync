@@ -1269,7 +1269,7 @@ async function loadPubProds(){
   const btn=document.getElementById('load-pub-btn');
   btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-pub');
   try{
-    const r=await fetch('/api/ml/'+pubAccIdx+'/products',{headers:hdr()});
+    const r=await fetch('/api/ml/'+pubAccIdx+'/products?limit=9999',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error. Token vencido — reconectá la cuenta.');
     pubProds=d.products;
