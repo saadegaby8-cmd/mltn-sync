@@ -548,17 +548,24 @@ async def duplicate(req: Request, _=Depends(auth)):
                     "listing_type_id": item.get("listing_type_id", "gold_special"),
                     "condition": item.get("condition", "new"),
                     "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
+                    "attributes": item.get("attributes", []),
                 }
                 if variations_clean:
                     payload["variations"] = variations_clean
-                # Solo agregar atributos no calculados
-                attrs_clean = [a for a in (item.get("attributes") or []) if not a.get("value_struct") and a.get("value_name")]
-                if attrs_clean:
-                    payload["attributes"] = attrs_clean
 
                 r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
                 ok = r2.status_code in (200, 201)
-                msg = "Duplicado OK" if ok else r2.json().get("message", f"Error {r2.status_code}")
+                if ok:
+                    msg = "Duplicado OK"
+                else:
+                    err = r2.json()
+                    # Obtener campos faltantes específicos
+                    causes = err.get("cause", [])
+                    if causes:
+                        missing = ", ".join([c2.get("code","") for c2 in causes[:3]])
+                        msg = f"Faltan: {missing}"
+                    else:
+                        msg = err.get("message", f"Error {r2.status_code}")
                 results.append({"id": iid, "title": item.get("title", iid), "ok": ok, "msg": msg})
                 ST["log"].append({"ts": int(time.time()), "action": "duplicate", "product": item.get("title", ""), "status": "ok" if ok else "error"})
                 await asyncio.sleep(1)
