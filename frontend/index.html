@@ -2,7 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ML×TN Sync">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>ML × TN Sync</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -195,6 +202,29 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 .ord-opt{padding:7px 10px;font-size:13px;cursor:pointer;border-radius:5px;color:#1a1a2e;transition:background .1s}
 .ord-opt:hover{background:#f0f4ff;color:#4f9eff}
 .ord-opt.active{background:#eef4ff;color:#4f9eff;font-weight:600}
+/* MOBILE */
+@media(max-width:768px){
+  .sidebar{width:60px;min-width:60px}
+  .sidebar .nav-label,.sidebar .ch-name,.sidebar .nav-sub{display:none}
+  .sidebar .nav-i{justify-content:center;padding:10px 0}
+  .sidebar .nav-ch{justify-content:center}
+  .topbar{padding:10px 12px}
+  .main{padding:12px}
+  .prod-grid{grid-template-columns:1fr}
+  .pcard{padding:10px}
+  .modal-box{width:95vw;max-width:95vw;margin:10px}
+  .modal-content{padding:16px}
+  .pub-grid{grid-template-columns:1fr}
+  table{font-size:12px}
+  .btn{padding:7px 12px;font-size:12px}
+  h2{font-size:16px}
+  .stat-cards{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .sidebar{display:none}
+  .main{padding:8px}
+  .stat-cards{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -248,7 +278,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
   </nav>
 
   <div style="flex:1;display:flex;flex-direction:column">
-    <div class="topbar"><div class="topbar-av" id="top-av">A</div></div>
+    <div class="topbar"><button id="btn-install" style="display:none;background:#FFE600;color:#1a1a2e;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:10px">📲 Instalar app</button><div class="topbar-av" id="top-av">A</div></div>
     <main class="main">
       <div class="alert" id="app-alert"></div>
 
@@ -408,7 +438,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-pub" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="doPublish()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
+              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
               <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
             </div>
           </div>
@@ -495,6 +525,42 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd">
             <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="dup-pf"></div></div><div class="prog-txt" id="dup-pt"></div></div>
             <div class="res-list" id="dup-res"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR PUBLICAR -->
+      <div class="modal-bg" id="pub-confirm-modal">
+        <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
+          <button class="modal-close" onclick="closePubConfirm()">✕</button>
+          <h3>🚀 Confirmar publicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a publicar <b id="pub-confirm-count">0</b> producto(s) en <b id="pub-confirm-dest"></b>.</p>
+
+          <!-- AGRUPAR VARIANTES — solo para TN -->
+          <div id="pub-grupo-wrap" style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+            <div id="pub-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
+                <input type="radio" name="pub-grupo" value="si" onchange="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
+                <input type="radio" name="pub-grupo" value="no" checked onchange="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Publicar ahora</button>
+            <button class="btn btn-out" onclick="closePubConfirm()">Cancelar</button>
           </div>
         </div>
       </div>
@@ -1428,7 +1494,49 @@ function renderPubMLDest(){
   sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
   if(appState.ml_accounts.length>1)sel.selectedIndex=1;
 }
-async function doPublish(){
+function openPubConfirm(){
+  const target=document.getElementById('pub-target').value;
+  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados.','err');return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  const destTxt=target==='ml'?(appState.ml_accounts[parseInt(document.getElementById('pub-ml-dest').value)]?.name||'ML'):'Tienda Nube';
+  document.getElementById('pub-confirm-count').textContent=pubSel.length;
+  document.getElementById('pub-confirm-dest').textContent=destTxt;
+  // Agrupar solo aplica a TN o ML destino (no x variante)
+  const grupoWrap=document.getElementById('pub-grupo-wrap');
+  grupoWrap.style.display='block';
+  // Detectar grupos usando pubProds
+  const selProds=pubProds.filter(p=>pubSel.includes(p.id));
+  const grupos={};
+  selProds.forEach(p=>{
+    const modelAttr=(p.attributes||[]).find(a=>a.id==='MODEL');
+    const key=modelAttr?.value_name||p.id;
+    if(!grupos[key])grupos[key]=[];
+    grupos[key].push(p);
+  });
+  const nGrupos=Object.keys(grupos).length;
+  const preview=document.getElementById('pub-grupos-preview');
+  if(nGrupos<pubSel.length){
+    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
+  updatePubGrupoUI();
+  document.getElementById('pub-confirm-modal').classList.add('show');
+}
+function closePubConfirm(){document.getElementById('pub-confirm-modal').classList.remove('show');}
+function updatePubGrupoUI(){
+  const val=document.querySelector('input[name="pub-grupo"]:checked')?.value;
+  document.getElementById('lbl-pub-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-pub-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+async function confirmPublish(){
+  const agrupar=document.querySelector('input[name="pub-grupo"]:checked')?.value==='si';
+  closePubConfirm();
+  await doPublish(agrupar);
+}
+async function doPublish(agrupar=false){
   const target=document.getElementById('pub-target').value;
   if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
   if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
@@ -1438,7 +1546,7 @@ async function doPublish(){
   document.getElementById('pub-pt').textContent=`Publicando ${pubSel.length} producto(s) en ${target==='ml'?'otra cuenta ML':'Tienda Nube'}...`;
   hideMsg('msg-pub-res');
   try{
-    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target};
+    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar};
     if(target==='ml')payload.target_ml_index=parseInt(document.getElementById('pub-ml-dest').value);
     const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify(payload)});
     const d=await r.json();const results=d.results||[];
@@ -1709,6 +1817,23 @@ async function doSync(){
 
 loadState();
 setInterval(loadState,30000);
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// PWA Install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Mostrar botón instalar si existe
+  const btn = document.getElementById('btn-install');
+  if (btn) { btn.style.display = 'inline-flex'; btn.onclick = () => { deferredPrompt.prompt(); deferredPrompt = null; btn.style.display='none'; }; }
+});
 </script>
 </body>
 </html>
