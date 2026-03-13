@@ -253,6 +253,9 @@ async def do_sync_products(i: int, uid: str, token: str):
             SYNC_RUNNING.pop(uid, None)
             return
 
+        # Esperar antes de empezar a bajar detalles
+        await asyncio.sleep(10)
+
         # Obtener detalles en batches de 20
         set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=0)
 
@@ -288,7 +291,7 @@ async def do_sync_products(i: int, uid: str, token: str):
                 set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
                 if len(products) % 100 == 0 and len(products) > 0:
                     set_cached_products(uid, products)
-                await asyncio.sleep(2.5)
+                await asyncio.sleep(5)
 
         set_cached_products(uid, products)
         set_sync_status(uid, "done", total=len(products), fetched=len(products))
