@@ -1041,19 +1041,29 @@ async def diag_testdup(item_id: str):
                 clean_title = raw_title.rsplit(" - ", 1)[0].strip()
             else:
                 clean_title = raw_title.strip()
-            # Test: título simplificado sin caracteres especiales
+            # ML acepta máximo 60 chars pero a veces falla con exactamente 60, usar 59
+            clean_title = clean_title[:59].strip()
             import unicodedata
             def strip_accents(s):
                 return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
             test_title = strip_accents(clean_title)
-            family = model_name or brand_name or clean_title[:60]
+            family = model_name or brand_name or clean_title
+            # Detectar listing types disponibles para la cuenta destino
+            to_uid_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
+            to_uid = to_uid_r.json().get("id")
+            lt_r = await c.get(f"{ML_API}/users/{to_uid}/available_listing_types?category_id={item.get('category_id','')}", 
+                               headers={"Authorization": f"Bearer {to_t}"})
+            available_lts = [x.get("id") for x in (lt_r.json() if isinstance(lt_r.json(), list) else [])]
+            # Usar el mismo listing type del item original si está disponible, si no el mejor disponible
+            orig_lt = item.get("listing_type_id","gold_special")
+            listing_type = orig_lt if orig_lt in available_lts else (available_lts[0] if available_lts else "gold_special")
             payload = {
-                "title": test_title,
+                "title": clean_title,
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
                 "available_quantity": item.get("available_quantity",0),
-                "listing_type_id": "gold_pro",
+                "listing_type_id": listing_type,
                 "condition": item.get("condition","new"),
                 "pictures": [{"source":p["url"]} for p in (item.get("pictures") or [])[:2]],
                 "attributes": attrs,
@@ -1068,10 +1078,11 @@ async def diag_testdup(item_id: str):
             return {"result": "❌ FALLA", "status": r2.status_code, 
                     "causes": resp.get("cause",[]), 
                     "message": resp.get("message"),
-                    "title_sent": test_title,
-                    "title_original": clean_title,
-                    "title_length": len(test_title),
-                    "attrs_sent": [a for a in attrs if a.get("id") in ("family_name","BRAND","MODEL")],
+                    "title_sent": clean_title,
+                    "title_length": len(clean_title),
+                    "listing_type_used": listing_type,
+                    "available_listing_types": available_lts,
+                    "payload_sent": payload,
                     "full_error": resp}
     except Exception as e:
         return {"exception": str(e)}
