@@ -467,43 +467,126 @@ async def publish(req: Request, _=Depends(auth)):
         save_state()
         return {"results": results}
 
-    # Publicar en TiendaNube (comportamiento original)
+    # Publicar en TiendaNube
     if not ST["tn"].get("store_id"):
         raise HTTPException(400, "TN no conectada.")
     token = await fresh_token(idx)
     ml_hdrs = {"Authorization": f"Bearer {token}"}
     tn = ST["tn"]
     tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
+    agrupar = b.get("agrupar", False)
     results = []
-    for iid in item_ids:
-        try:
-            async with httpx.AsyncClient(timeout=20) as c:
-                r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
-                item = r.json()
-                dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
-                desc = dr.json().get("plain_text", item.get("title",""))
-                variations = item.get("variations",[])
-                if variations:
-                    variants = [{"price":str(v.get("price",item.get("price",0))),
-                                 "stock_management":True,"stock":v.get("available_quantity",0),
-                                 "values":[{"es":a["value_name"]} for a in v.get("attribute_combinations",[])]}
-                                for v in variations]
-                else:
-                    variants = [{"price":str(item.get("price",0)),"stock_management":True,
-                                 "stock":item.get("available_quantity",0)}]
-                payload = {"name":{"es":item["title"]},"description":{"es":desc},
-                           "published":True,"variants":variants,
-                           "images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:5]]}
-                pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
-                                  headers=tn_hdrs, json=payload)
-                ok = pr.status_code in (200,201)
-                results.append({"id":iid,"title":item.get("title",""),"ok":ok,
-                                 "msg":"Publicado" if ok else pr.json().get("description","Error")})
-                ST["log"].append({"ts":int(time.time()),"action":"publish","product":item.get("title",""),
-                                  "status":"ok" if ok else "error"})
-            await asyncio.sleep(0.3)
-        except Exception as e:
-            results.append({"id":iid,"ok":False,"msg":str(e)})
+
+    async with httpx.AsyncClient(timeout=20) as c:
+
+        if agrupar:
+            # Bajar todos los items primero
+            all_items = []
+            for iid in item_ids:
+                try:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
+                    item = r.json()
+                    dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
+                    item["_desc"] = dr.json().get("plain_text", item.get("title",""))
+                    if "error" not in item:
+                        all_items.append(item)
+                    await asyncio.sleep(0.3)
+                except Exception:
+                    pass
+
+            # Agrupar por MODEL
+            grupos = {}
+            for item in all_items:
+                model_attr = next((a for a in (item.get("attributes") or []) if a.get("id") == "MODEL"), None)
+                key = model_attr.get("value_name", item["id"]) if model_attr else item["id"]
+                if key not in grupos:
+                    grupos[key] = []
+                grupos[key].append(item)
+
+            for model_key, items_grupo in grupos.items():
+                try:
+                    base = items_grupo[0]
+                    # Título base sin la variante al final
+                    title = base.get("title","")
+                    if " - " in title:
+                        title = title.rsplit(" - ", 1)[0].strip()
+                    desc = base.get("_desc", title)
+
+                    # Armar variantes TN: una por item, con COLOR y SIZE como values
+                    variants = []
+                    for item in items_grupo:
+                        attrs = {a["id"]: a for a in (item.get("attributes") or [])}
+                        color = attrs.get("COLOR",{}).get("value_name","")
+                        size = attrs.get("SIZE",{}).get("value_name") or attrs.get("SIZE",{}).get("value_id","")
+                        values = []
+                        if color: values.append({"es": color})
+                        if size: values.append({"es": size})
+                        v = {
+                            "price": str(item.get("price", base.get("price",0))),
+                            "stock_management": True,
+                            "stock": item.get("available_quantity", 0),
+                        }
+                        if values: v["values"] = values
+                        variants.append(v)
+
+                    # Imágenes de todos los items del grupo
+                    pics = []
+                    seen = set()
+                    for item in items_grupo:
+                        for p in (item.get("pictures") or [])[:2]:
+                            url = p.get("url","")
+                            if url and url not in seen:
+                                pics.append({"src": url})
+                                seen.add(url)
+                        if len(pics) >= 10: break
+
+                    payload = {
+                        "name": {"es": title},
+                        "description": {"es": desc},
+                        "published": True,
+                        "variants": variants,
+                        "images": pics[:10],
+                    }
+                    pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                                      headers=tn_hdrs, json=payload)
+                    ok = pr.status_code in (200,201)
+                    msg = f"Publicado con {len(variants)} variantes" if ok else pr.json().get("description","Error")
+                    results.append({"id": base["id"], "title": title, "ok": ok, "msg": msg})
+                    ST["log"].append({"ts":int(time.time()),"action":"publish_tn_group","product":title,"status":"ok" if ok else "error"})
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    results.append({"id": model_key, "title": model_key, "ok": False, "msg": str(e)})
+
+        else:
+            # Publicar uno por uno (comportamiento original)
+            for iid in item_ids:
+                try:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
+                    item = r.json()
+                    dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
+                    desc = dr.json().get("plain_text", item.get("title",""))
+                    variations = item.get("variations",[])
+                    if variations:
+                        variants = [{"price":str(v.get("price",item.get("price",0))),
+                                     "stock_management":True,"stock":v.get("available_quantity",0),
+                                     "values":[{"es":a["value_name"]} for a in v.get("attribute_combinations",[])]}
+                                    for v in variations]
+                    else:
+                        variants = [{"price":str(item.get("price",0)),"stock_management":True,
+                                     "stock":item.get("available_quantity",0)}]
+                    payload = {"name":{"es":item["title"]},"description":{"es":desc},
+                               "published":True,"variants":variants,
+                               "images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:5]]}
+                    pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                                      headers=tn_hdrs, json=payload)
+                    ok = pr.status_code in (200,201)
+                    results.append({"id":iid,"title":item.get("title",""),"ok":ok,
+                                     "msg":"Publicado" if ok else pr.json().get("description","Error")})
+                    ST["log"].append({"ts":int(time.time()),"action":"publish","product":item.get("title",""),
+                                      "status":"ok" if ok else "error"})
+                    await asyncio.sleep(0.3)
+                except Exception as e:
+                    results.append({"id":iid,"ok":False,"msg":str(e)})
     save_state()
     return {"results": results}
 
@@ -863,15 +946,31 @@ async def diag_item(item_id: str):
                 item = r.json()
             except Exception:
                 return {"http_status": r.status_code, "raw_response": raw}
+
+            # Obtener guía de talles si existe
+            size_grid = None
+            size_grid_error = None
+            size_attr = next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None)
+            if size_attr:
+                chart_id = size_attr.get("value_name") or size_attr.get("value_id")
+                if chart_id:
+                    sg = await c.get(f"{ML_API}/size_charts/{chart_id}",
+                                    headers={"Authorization": f"Bearer {from_t}"})
+                    try:
+                        size_grid = sg.json()
+                        size_grid_error = None if sg.status_code == 200 else f"HTTP {sg.status_code}"
+                    except Exception:
+                        size_grid_error = sg.text[:200]
+
             return {
                 "http_status": r.status_code,
                 "title": item.get("title"),
                 "category_id": item.get("category_id"),
-                "attributes": item.get("attributes", []),
                 "variations_count": len(item.get("variations", [])),
-                "size_grid_attr": next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None),
+                "size_grid_attr": size_attr,
+                "size_grid_response": size_grid,
+                "size_grid_error": size_grid_error,
                 "ml_error": item.get("error"),
-                "ml_message": item.get("message"),
             }
     except Exception as e:
         return {"exception": str(e)}
