@@ -501,10 +501,32 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
       <!-- MODAL CONFIRMAR DUPLICAR -->
       <div class="modal-bg" id="dup-confirm-modal">
-        <div class="modal" style="width:480px">
+        <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
           <button class="modal-close" onclick="closeDupConfirm()">✕</button>
           <h3>📋 Confirmar duplicación</h3>
-          <p style="font-size:13px;color:#7a8299;margin:10px 0 20px">Vas a duplicar <b id="dup-confirm-count">0</b> producto(s) a <b id="dup-confirm-dest"></b>.</p>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a duplicar <b id="dup-confirm-count">0</b> producto(s) a <b id="dup-confirm-dest"></b>.</p>
+
+          <!-- AGRUPAR VARIANTES -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+            <div id="dup-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-si">
+                <input type="radio" name="dup-grupo" value="si" onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes juntas</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-no">
+                <input type="radio" name="dup-grupo" value="no" checked onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                </div>
+              </label>
+            </div>
+          </div>
 
           <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
             <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Estado en cuenta destino</div>
@@ -513,7 +535,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
                 <input type="radio" name="dup-estado" value="active" checked onchange="updateDupEstadoUI()">
                 <div>
                   <div style="font-weight:600;font-size:13px;color:#00a381">● Activa</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Visible en ML inmediatamente</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Visible inmediatamente</div>
                 </div>
               </label>
               <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-paused">
@@ -1505,6 +1527,23 @@ function updateDupAB(){
 function clearDupSel(){dupSel=[];renderDupT();}
 function pDup(d){dupPg+=d;renderDupT();}
 
+function updateDupGrupoUI(){
+  const val=document.querySelector('input[name="dup-grupo"]:checked')?.value;
+  document.getElementById('lbl-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+function detectarGrupos(ids){
+  // Buscar en dupProds los items seleccionados y agrupar por MODEL
+  const selProds=dupProds.filter(p=>ids.includes(p.id));
+  const grupos={};
+  selProds.forEach(p=>{
+    const modelAttr=(p.attributes||[]).find(a=>a.id==='MODEL');
+    const key=modelAttr?.value_name||p.id; // fallback al id si no tiene MODEL
+    if(!grupos[key])grupos[key]=[];
+    grupos[key].push(p);
+  });
+  return grupos;
+}
 function openDupConfirm(){
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
@@ -1513,7 +1552,18 @@ function openDupConfirm(){
   const destName=appState.ml_accounts[to]?.name||'cuenta destino';
   document.getElementById('dup-confirm-count').textContent=dupSel.length;
   document.getElementById('dup-confirm-dest').textContent=destName;
-  updateDupEstadoUI();updateDupSyncUI();
+  // Detectar grupos
+  const grupos=detectarGrupos(dupSel);
+  const nGrupos=Object.keys(grupos).length;
+  const preview=document.getElementById('dup-grupos-preview');
+  if(nGrupos<dupSel.length){
+    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
+  updateDupEstadoUI();updateDupSyncUI();updateDupGrupoUI();
   document.getElementById('dup-confirm-modal').classList.add('show');
 }
 function closeDupConfirm(){document.getElementById('dup-confirm-modal').classList.remove('show');}
@@ -1530,26 +1580,28 @@ function updateDupSyncUI(){
 async function confirmDuplicate(){
   const estado=document.querySelector('input[name="dup-estado"]:checked')?.value||'active';
   const sync=document.querySelector('input[name="dup-sync"]:checked')?.value==='si';
+  const agrupar=document.querySelector('input[name="dup-grupo"]:checked')?.value==='si';
   closeDupConfirm();
-  await doDuplicate(estado,sync);
+  await doDuplicate(estado,sync,agrupar);
 }
-async function doDuplicate(estado='active', sync=false){
+async function doDuplicate(estado='active', sync=false, agrupar=false){
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
   if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
   document.getElementById('dup-prog-panel').style.display='block';
   document.getElementById('dup-res').innerHTML='';
   document.getElementById('dup-pf').style.width='0%';
-  document.getElementById('dup-pt').textContent=`Duplicando ${dupSel.length} producto(s)...`;
+  const modoTxt=agrupar?'Agrupando variantes y duplicando...':'Duplicando '+dupSel.length+' producto(s)...';
+  document.getElementById('dup-pt').textContent=modoTxt;
   try{
     const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
       item_ids:dupSel,from_account:from,to_account:to,
-      status:estado,auto_link:sync
+      status:estado,auto_link:sync,agrupar:agrupar
     })});
     const d=await r.json();const results=d.results||[];
     document.getElementById('dup-pf').style.width='100%';
     const ok=results.filter(r=>r.ok).length;
-    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados automáticamente':''}`;
+    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados':''}`;
     const list=document.getElementById('dup-res');
     results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;list.appendChild(item);});
     await loadState();
