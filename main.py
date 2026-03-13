@@ -1025,6 +1025,65 @@ async def diag_sizechart(item_id: str):
             }
     except Exception as e:
         return {"exception": str(e)}
+
+@app.get("/diag/testdup/{item_id}")
+async def diag_testdup(item_id: str):
+    if len(ST["accounts"]) < 2:
+        return {"error": "Necesitás 2 cuentas"}
+    try:
+        from_t = await fresh_token(0)
+        to_t = await fresh_token(1)
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
+            item = r.json()
+            SKIP = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
+                    "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
+                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID"}
+            attrs = []
+            has_family = False
+            for a in (item.get("attributes") or []):
+                aid = a.get("id","")
+                if aid in SKIP: continue
+                if aid == "BRAND":
+                    vn = a.get("value_name")
+                    if vn:
+                        attrs.append({"id":"BRAND","value_name":vn})
+                        m = next((x for x in (item.get("attributes") or []) if x.get("id")=="MODEL"),None)
+                        mv = m.get("value_name","") if m else ""
+                        attrs.append({"id":"family_name","value_name":f"{vn} {mv}".strip()})
+                        has_family = True
+                    continue
+                if aid == "MODEL":
+                    vn = a.get("value_name")
+                    if vn: attrs.append({"id":"MODEL","value_name":vn})
+                    continue
+                if a.get("value_id"): attrs.append({"id":aid,"value_id":a["value_id"]})
+                elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
+            if not has_family:
+                attrs.append({"id":"family_name","value_name":item.get("title","")[:60]})
+            payload = {
+                "title": item["title"],
+                "category_id": item.get("category_id",""),
+                "price": item.get("price",0),
+                "currency_id": item.get("currency_id","ARS"),
+                "available_quantity": item.get("available_quantity",0),
+                "listing_type_id": item.get("listing_type_id","gold_special"),
+                "condition": item.get("condition","new"),
+                "pictures": [{"source":p["url"]} for p in (item.get("pictures") or [])[:2]],
+                "attributes": attrs,
+            }
+            r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
+            resp = r2.json()
+            if r2.status_code in (200,201):
+                new_id = resp.get("id")
+                await c.delete(f"{ML_API}/items/{new_id}", headers={"Authorization": f"Bearer {to_t}"})
+                return {"result": "✅ FUNCIONA sin SIZE_GRID_ID", "new_id": new_id}
+            return {"result": "❌ FALLA", "status": r2.status_code, "error": resp}
+    except Exception as e:
+        return {"exception": str(e)}
+
+@app.get("/diag")
+async def diag():
     r = get_redis()
     redis_ok = False
     try:
