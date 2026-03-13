@@ -255,10 +255,17 @@ async def do_sync_products(i: int, uid: str, token: str):
 
         # Obtener detalles en batches de 20
         set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=0)
-        products = []
+
+        # Cargar productos ya descargados para poder retomar
+        existing = get_cached_products(uid) or []
+        existing_ids = {p["id"] for p in existing}
+        products = list(existing)
+        pending_ids = [id for id in all_ids if id not in existing_ids]
+        set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
+
         async with httpx.AsyncClient(timeout=60) as c:
-            for x in range(0, len(all_ids), 20):
-                batch = all_ids[x:x+20]
+            for x in range(0, len(pending_ids), 20):
+                batch = pending_ids[x:x+20]
                 for attempt in range(5):
                     try:
                         r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
@@ -279,9 +286,9 @@ async def do_sync_products(i: int, uid: str, token: str):
                     except Exception:
                         await asyncio.sleep(5)
                 set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
-                if len(products) % 200 == 0 and len(products) > 0:
+                if len(products) % 100 == 0 and len(products) > 0:
                     set_cached_products(uid, products)
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(2.5)
 
         set_cached_products(uid, products)
         set_sync_status(uid, "done", total=len(products), fetched=len(products))
