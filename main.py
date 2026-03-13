@@ -220,12 +220,11 @@ async def do_sync_products(i: int, uid: str, token: str):
     set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
-        # ML limita a 1000 con paginacion normal
-        # Usar scroll scan que no tiene ese limite
+        # Usar scroll scan solo para items activos con stock
         async with httpx.AsyncClient(timeout=60) as c:
             scroll_id = None
             for _ in range(1000):
-                url = f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100"
+                url = f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100&status=active"
                 if scroll_id:
                     url += f"&scroll_id={scroll_id}"
                 try:
