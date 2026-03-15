@@ -926,7 +926,7 @@ function updateUI(){
   // icons
   document.getElementById('d-ch-icons').innerHTML=appState.ml_accounts.map(a=>`<div title="${a.name}" style="width:30px;height:30px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">${a.name[0].toUpperCase()}</div>`).join('');
   // sidebar channels
-  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showCanal(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
+  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showPage('productos');filterByAcc(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
   // ML cards
   const cards=document.getElementById('ml-cards');
   if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
@@ -1020,6 +1020,16 @@ function filtrarSinUnir(){
   prodSoloSinUnir=!prodSoloSinUnir;
   document.getElementById('prod-sin-unir').style.fontWeight=prodSoloSinUnir?'700':'400';
   applyProdF();
+}
+
+function filterByAcc(idx) {
+  prodAccIdx = idx;
+  renderProdTabs();
+  // Expandir la cuenta seleccionada automáticamente
+  setTimeout(() => {
+    const btn = document.querySelector(`[onclick*="loadProdAcc(${idx})"]`);
+    if (btn) btn.click();
+  }, 100);
 }
 
 function renderProdTabs(preserveProducts=false){
