@@ -1099,7 +1099,7 @@ async def diag_testdup(item_id: str):
                     # Reemplazar chart_id en el row_id
                     new_row = orig.replace("2504917", "2556917")
                     payload["attributes"][i] = {"id":"SIZE_GRID_ROW_ID","value_name":new_row}
-            r2 = await c.post(f"{ML_API}/items", headers={{"Authorization": f"Bearer {to_t}"}}, json=payload)
+            r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
             resp = r2.json()
             if r2.status_code in (200,201):
                 new_id = resp.get("id")
