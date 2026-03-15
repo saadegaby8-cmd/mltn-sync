@@ -1063,7 +1063,7 @@ async def diag_testdup(item_id: str):
             orig_lt = item.get("listing_type_id","gold_special")
             listing_type = orig_lt if orig_lt in available_lts else (available_lts[0] if available_lts else "gold_special")
             payload = {
-                "title": "Corpiño Reductor Test 1018",
+                "title": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
@@ -1071,6 +1071,7 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
+                "family_name": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
                 "attributes": [
                     {"id":"BRAND","value_name":"Maxima"},
                     {"id":"MODEL","value_name":"1018"},
