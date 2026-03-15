@@ -1275,6 +1275,29 @@ async def diag_chart_rows(chart_id: str, acc: int = 2):
     except Exception as e:
         return {"exception": str(e)}
 
+@app.get("/diag/add_row/{chart_id}/{size_val}")
+async def diag_add_row(chart_id: str, size_val: str, acc: int = 0):
+    """Probar agregar un talle a una guía de talles"""
+    try:
+        t = await fresh_token(acc)
+        async with httpx.AsyncClient(timeout=20) as c:
+            # Intentar agregar el row
+            r = await c.post(
+                f"{ML_API}/catalog/charts/{chart_id}/rows",
+                headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
+                json={"attributes": [{"id": "SIZE", "values": [{"name": size_val}]}]}
+            )
+            return {
+                "chart_id": chart_id,
+                "size_val": size_val,
+                "acc": acc,
+                "status": r.status_code,
+                "response": r.json() if r.content else {}
+            }
+    except Exception as e:
+        return {"exception": str(e)}
+
+
 @app.get("/diag/sizecharts_cat/{category_id}")
 async def diag_sizecharts_cat(category_id: str, brand: str = "", gender_id: str = ""):
     """Buscar guía de talles por marca como hace Astroselling"""
