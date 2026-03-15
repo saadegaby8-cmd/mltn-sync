@@ -284,26 +284,6 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
     </div>
   </nav>
 
-  <!-- BOTTOM NAV MOBILE -->
-  <nav class="bottom-nav" id="bottom-nav">
-    <div class="bn-item active" onclick="showPage('inicio');setBN(this)">🏠<span>Inicio</span></div>
-    <div class="bn-item" onclick="showPage('productos');setBN(this)">📦<span>Productos</span></div>
-    <div class="bn-item" onclick="showPage('publicar');setBN(this)">🚀<span>Publicar</span></div>
-    <div class="bn-item" onclick="showPage('duplicar');setBN(this)">📋<span>Duplicar</span></div>
-    <div class="bn-item" onclick="showPage('sincronizar');setBN(this)">🔄<span>Sync</span></div>
-    <div class="bn-item" onclick="showMobileMenu()">☰<span>Más</span></div>
-  </nav>
-
-  <!-- MOBILE MENU DRAWER -->
-  <div id="mobile-drawer" style="display:none;position:fixed;bottom:60px;left:0;right:0;background:#fff;border-top:1px solid #e8ecf0;padding:12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn" style="font-size:13px" onclick="showPage('cuentas');closeDrawer()">🔗 Canales</button>
-      <button class="btn" style="font-size:13px" onclick="showPage('enlaces');closeDrawer()">🔗 Enlaces</button>
-      <button class="btn" style="font-size:13px" onclick="showPage('log');closeDrawer()">📋 Historial</button>
-      <button class="btn btn-danger" style="font-size:13px" onclick="doLogout()">🚪 Salir</button>
-    </div>
-  </div>
-
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
     <div class="topbar"><button id="btn-install" style="display:none;background:#FFE600;color:#1a1a2e;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:10px">📲 Instalar app</button><div class="topbar-av" id="top-av">A</div></div>
     <main class="main">
@@ -2036,5 +2016,25 @@ window.addEventListener('beforeinstallprompt', e => {
   if (btn) { btn.style.display = 'inline-flex'; btn.onclick = () => { deferredPrompt.prompt(); deferredPrompt = null; btn.style.display='none'; }; }
 });
 </script>
+<!-- BOTTOM NAV MOBILE -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="bn-item active" onclick="showPage('inicio');setBN(this)">🏠<span>Inicio</span></div>
+  <div class="bn-item" onclick="showPage('productos');setBN(this)">📦<span>Productos</span></div>
+  <div class="bn-item" onclick="showPage('publicar');setBN(this)">🚀<span>Publicar</span></div>
+  <div class="bn-item" onclick="showPage('duplicar');setBN(this)">📋<span>Duplicar</span></div>
+  <div class="bn-item" onclick="showPage('sincronizar');setBN(this)">🔄<span>Sync</span></div>
+  <div class="bn-item" onclick="showMobileMenu()">☰<span>Más</span></div>
+</nav>
+
+<!-- MOBILE MENU DRAWER -->
+<div id="mobile-drawer" style="display:none;position:fixed;bottom:60px;left:0;right:0;background:#fff;border-top:1px solid #e8ecf0;padding:12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button class="btn" style="font-size:13px" onclick="showPage('cuentas');closeDrawer()">🔗 Canales</button>
+    <button class="btn" style="font-size:13px" onclick="showPage('enlaces');closeDrawer()">🔗 Enlaces</button>
+    <button class="btn" style="font-size:13px" onclick="showPage('log');closeDrawer()">📋 Historial</button>
+    <button class="btn btn-danger" style="font-size:13px" onclick="doLogout()">🚪 Salir</button>
+  </div>
+</div>
+
 </body>
 </html>
