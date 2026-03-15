@@ -655,6 +655,41 @@ async def duplicate(req: Request, _=Depends(auth)):
         except Exception:
             return chart_id  # fallback: usar el mismo ID
 
+    # Detectar si cuenta destino es user_product_seller y preparar carga de guías
+    dest_is_up = False
+    dest_charts_cache = {}  # chart_id -> {chart_id, rows: {size_name: row_id}}
+
+    async def get_dest_user_info():
+        nonlocal dest_is_up
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
+            tags = r.json().get("tags", [])
+            dest_is_up = "user_product_seller" in tags
+
+    async def load_dest_chart(chart_id: str):
+        if chart_id in dest_charts_cache:
+            return dest_charts_cache[chart_id]
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.get(f"{ML_API}/catalog/charts/{chart_id}",
+                               headers={"Authorization": f"Bearer {to_t}"})
+                if r.status_code == 200:
+                    chart = r.json()
+                    row_map = {}
+                    for row in (chart.get("rows") or []):
+                        rid = row.get("id","")
+                        size_val = next((v.get("name","") for a in row.get("attributes",[])
+                                        if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                        if size_val and rid:
+                            row_map[size_val] = rid
+                    dest_charts_cache[chart_id] = {"chart_id": chart_id, "rows": row_map}
+                    return dest_charts_cache[chart_id]
+        except Exception:
+            pass
+        return None
+
+    await get_dest_user_info()
+
     results = []
     item_ids = b.get("item_ids", [])
 
@@ -828,6 +863,10 @@ async def duplicate(req: Request, _=Depends(auth)):
                 # Extraer BRAND y MODEL primero
                 brand_val = next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="BRAND"), "")
                 model_val = next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="MODEL"), "")
+                size_val = next((a.get("value_name") or str(a.get("value_id","")) for a in (item.get("attributes") or []) if a.get("id")=="SIZE"), "")
+                orig_chart_id = next((a.get("value_name") or a.get("value_id","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), None)
+                orig_row_id = next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ROW_ID"), None)
+
                 attrs_clean = []
                 for a in (item.get("attributes") or []):
                     aid = a.get("id","")
@@ -836,30 +875,77 @@ async def duplicate(req: Request, _=Depends(auth)):
                         vn = a.get("value_name")
                         if vn: attrs_clean.append({"id":aid,"value_name":vn})
                         continue
+                    if aid == "SIZE":
+                        if dest_is_up:
+                            # UP: SIZE como value_name
+                            if size_val: attrs_clean.append({"id":"SIZE","value_name":size_val})
+                        else:
+                            if a.get("value_id"): attrs_clean.append({"id":"SIZE","value_id":a["value_id"]})
+                            elif a.get("value_name"): attrs_clean.append({"id":"SIZE","value_name":a["value_name"]})
+                        continue
                     if a.get("value_id"):
                         attrs_clean.append({"id": aid, "value_id": a["value_id"]})
                     elif a.get("value_name"):
                         attrs_clean.append({"id": aid, "value_name": a["value_name"]})
-                # family_name siempre requerido
-                family = f"{brand_val} {model_val}".strip() or item.get("title","")[:60]
-                attrs_clean.append({"id": "family_name", "value_name": family})
 
-                payload = {
-                    "title": item["title"],
-                    "category_id": item.get("category_id", ""),
-                    "price": item.get("price", 0),
-                    "currency_id": item.get("currency_id", "ARS"),
-                    "available_quantity": item.get("available_quantity", 0) if not variations_clean else 0,
-                    "listing_type_id": item.get("listing_type_id", "gold_special"),
-                    "condition": item.get("condition", "new"),
-                    "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                    "attributes": attrs_clean,
-                }
-                if variations_clean:
-                    payload["variations"] = variations_clean
-                # Copiar sale_terms si existen (cuotas, etc)
-                if item.get("sale_terms"):
-                    payload["sale_terms"] = item["sale_terms"]
+                # Agregar SIZE_GRID_ID y SIZE_GRID_ROW_ID
+                if orig_chart_id:
+                    # Para UP: buscar guía en cuenta destino por su ID
+                    if dest_is_up:
+                        dest_chart = await load_dest_chart(str(orig_chart_id))
+                        if dest_chart:
+                            attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(dest_chart["chart_id"])})
+                            row_id = dest_chart["rows"].get(size_val)
+                            if row_id:
+                                attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":row_id})
+                        elif orig_row_id:
+                            attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
+                            attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":orig_row_id})
+                    else:
+                        attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
+                        if orig_row_id:
+                            attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":orig_row_id})
+
+                # family_name
+                family = f"{brand_val} {model_val}".strip() or item.get("title","")[:60]
+
+                # Título base: cortar después del modelo
+                raw_title = item.get("title","")
+                if model_val and model_val in raw_title:
+                    base_title = raw_title[:raw_title.index(model_val)+len(model_val)].strip()
+                elif " - " in raw_title:
+                    base_title = raw_title.rsplit(" - ", 1)[0].strip()
+                else:
+                    base_title = raw_title.strip()
+
+                if dest_is_up:
+                    payload = {
+                        "family_name": base_title[:60],
+                        "category_id": item.get("category_id", ""),
+                        "price": item.get("price", 0),
+                        "currency_id": item.get("currency_id", "ARS"),
+                        "available_quantity": item.get("available_quantity", 0),
+                        "listing_type_id": item.get("listing_type_id", "gold_special"),
+                        "condition": item.get("condition", "new"),
+                        "pictures": [{"source": p["url"].replace("http://","https://")} for p in (item.get("pictures") or [])[:12]],
+                        "attributes": attrs_clean,
+                    }
+                else:
+                    payload = {
+                        "title": base_title[:60],
+                        "category_id": item.get("category_id", ""),
+                        "price": item.get("price", 0),
+                        "currency_id": item.get("currency_id", "ARS"),
+                        "available_quantity": item.get("available_quantity", 0) if not variations_clean else 0,
+                        "listing_type_id": item.get("listing_type_id", "gold_special"),
+                        "condition": item.get("condition", "new"),
+                        "pictures": [{"source": p["url"].replace("http://","https://")} for p in (item.get("pictures") or [])[:12]],
+                        "attributes": attrs_clean,
+                    }
+                    if variations_clean:
+                        payload["variations"] = variations_clean
+                    if item.get("sale_terms"):
+                        payload["sale_terms"] = item["sale_terms"]
 
                 # Intentar con retry en 429
                 r2 = None
