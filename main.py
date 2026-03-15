@@ -1062,6 +1062,9 @@ async def diag_testdup(item_id: str):
             # Usar el mismo listing type del item original si está disponible, si no el mejor disponible
             orig_lt = item.get("listing_type_id","gold_special")
             listing_type = orig_lt if orig_lt in available_lts else (available_lts[0] if available_lts else "gold_special")
+            # Verificar si cuenta destino tiene user_product_seller tag
+            me_r2 = await c.get(f"{ML_API}/users/{to_uid}", headers={"Authorization": f"Bearer {to_t}"})
+            dest_tags = me_r2.json().get("tags", [])
             payload = {
                 "title": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
                 "category_id": item.get("category_id",""),
@@ -1071,7 +1074,6 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
-                "family_name": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
                 "attributes": [
                     {"id":"BRAND","value_name":"Maxima"},
                     {"id":"MODEL","value_name":"1018"},
@@ -1094,6 +1096,7 @@ async def diag_testdup(item_id: str):
                     "title_length": len(clean_title),
                     "listing_type_used": listing_type,
                     "available_listing_types": available_lts,
+                    "dest_tags": dest_tags,
                     "payload_sent": payload,
                     "full_error": resp}
     except Exception as e:
