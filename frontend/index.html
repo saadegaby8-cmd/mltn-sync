@@ -317,6 +317,47 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       </div>
 
       <!-- CANAL -->
+      <div class="page" id="page-canal">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div id="canal-av" style="width:36px;height:36px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">S</div>
+            <div>
+              <div id="canal-name" style="font-size:16px;font-weight:700"></div>
+              <div id="canal-stats" style="font-size:12px;color:#7a8299"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="canal-q" placeholder="Buscar..." oninput="filterCanalItems()" style="padding:7px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;width:180px">
+            <select id="canal-estado" onchange="filterCanalItems()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px">
+              <option value="">Todos los estados</option>
+              <option value="active">Activas</option>
+              <option value="paused">Pausadas</option>
+              <option value="closed">Cerradas</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel" style="padding:0;overflow:hidden">
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f8f9fb;border-bottom:2px solid #e8ecf0">
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Publicación</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299">Precio</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Cuotas y envío</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299">Stock</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:600;color:#7a8299">Calidad</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="canal-body">
+                <tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Seleccioná una cuenta</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="canal-pagination" style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e8ecf0;font-size:13px;color:#7a8299"></div>
+        </div>
+      </div>
+
       <!-- PRODUCTOS -->
       <div class="page" id="page-productos">
         <div class="page-title">Panel de productos</div>
