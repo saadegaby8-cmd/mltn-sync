@@ -981,12 +981,11 @@ function filtrarSinUnir(){
 
 function filterByAcc(idx) {
   prodAccIdx = idx;
+  prodProds = [];
+  prodFilt = [];
   renderProdTabs();
-  // Expandir la cuenta seleccionada automáticamente
-  setTimeout(() => {
-    const btn = document.querySelector(`[onclick*="loadProdAcc(${idx})"]`);
-    if (btn) btn.click();
-  }, 100);
+  // Cargar productos de la cuenta seleccionada
+  setTimeout(() => loadProdAcc(idx), 150);
 }
 
 function renderProdTabs(preserveProducts=false){
