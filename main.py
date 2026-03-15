@@ -1110,7 +1110,7 @@ async def diag_testdup(item_id: str):
                 "available_quantity": item.get("available_quantity",0),
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
-                "pictures": [],
+                "pictures": [{"source": p["url"].replace("http://","https://")} for p in (item.get("pictures") or [])[:6]],
                 "attributes": up_attrs,
             }
             # Mapa correcto SIZE → ROW_ID para guía 2556917 de SHAMPOOSHIR
