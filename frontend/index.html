@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1770,9 +1770,46 @@ async function doDuplicate(estado='active', sync=false, agrupar=false){
     const ok=results.filter(r=>r.ok).length;
     document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados':''}`;
     const list=document.getElementById('dup-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;list.appendChild(item);});
+    results.forEach(r=>{
+      const item=document.createElement('div');
+      item.className='ri '+(r.ok?'ok':'fail');
+      let extra = '';
+      if(!r.ok && r.ml_talles_url){
+        extra = `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+          <a href="${r.ml_talles_url}" target="_blank" class="btn btn-out btn-sm">🔗 Ir a ML Talles</a>
+          ${r.error_type==='missing_chart' ? `<button class="btn btn-blue btn-sm" onclick="crearGuiaAuto('${r.orig_chart_id}','${r.domain_id}','${r.brand}',${b.to_account})">⚡ Crear guía automáticamente</button>` : ''}
+          ${r.error_type==='missing_size' ? `<button class="btn btn-blue btn-sm" onclick="agregarTalle('${r.chart_id}','${r.missing_size}',${b.to_account})">⚡ Agregar talle automáticamente</button>` : ''}
+        </div>`;
+      }
+      item.innerHTML=`<div style="flex:1"><span>${r.ok?'✅':'❌'}</span> <span class="rt">${r.title||r.id}</span><br><span class="rm">${r.msg||''}</span>${extra}</div>`;
+      list.appendChild(item);
+    });
     await loadState();
   }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
+}
+
+async function crearGuiaAuto(origChartId, domainId, brand, toAccount){
+  const btn = event.target;
+  btn.disabled=true; btn.textContent='Creando...';
+  try{
+    const r = await fetch('/api/duplicate/create_chart',{method:'POST',headers:hdr(),
+      body:JSON.stringify({orig_chart_id:origChartId, domain_id:domainId, brand, to_account:toAccount})});
+    const d = await r.json();
+    if(d.ok) btn.closest('.ri').innerHTML=`<span>✅</span> <span class="rt">Guía creada — volvé a duplicar</span>`;
+    else btn.closest('.ri').innerHTML=`<span>❌</span> <span class="rt">${d.msg}</span>`;
+  }catch(e){btn.textContent='Error'; btn.disabled=false;}
+}
+
+async function agregarTalle(chartId, sizeVal, toAccount){
+  const btn = event.target;
+  btn.disabled=true; btn.textContent='Agregando...';
+  try{
+    const r = await fetch('/api/duplicate/add_size',{method:'POST',headers:hdr(),
+      body:JSON.stringify({chart_id:chartId, size_val:sizeVal, to_account:toAccount})});
+    const d = await r.json();
+    if(d.ok) btn.closest('.ri').innerHTML=`<span>✅</span> <span class="rt">Talle '${sizeVal}' agregado — volvé a duplicar</span>`;
+    else btn.closest('.ri').innerHTML=`<span>❌</span> <span class="rt">${d.msg}</span>`;
+  }catch(e){btn.textContent='Error'; btn.disabled=false;}
 }
 
 // ── LINK MODAL ─────────────────────────────────────────────────────────────────
