@@ -1076,11 +1076,20 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":row_id})
                             else:
                                 results.append({"id": iid, "title": item.get("title", iid), "ok": False,
-                                    "msg": f"⚠️ El talle '{size_val}' no existe en la guía de talles de la cuenta destino. Revisá la guía en mercadolibre.com.ar/moda/talles/"})
+                                    "msg": f"⚠️ El talle '{size_val}' no existe en la guía de talles de la cuenta destino.",
+                                    "error_type": "missing_size",
+                                    "missing_size": size_val,
+                                    "chart_id": dest_chart["chart_id"],
+                                    "ml_talles_url": "https://www.mercadolibre.com.ar/moda/talles/"})
                                 continue
                         else:
                             results.append({"id": iid, "title": item.get("title", iid), "ok": False,
-                                "msg": f"⚠️ No se encontró guía de talles para la marca '{brand_val}' en la cuenta destino y no se pudo copiar automáticamente. Creá una en mercadolibre.com.ar/moda/talles/"})
+                                "msg": f"⚠️ No hay guía de talles para '{brand_val}' en la cuenta destino.",
+                                "error_type": "missing_chart",
+                                "domain_id": cat_domain,
+                                "brand": brand_val,
+                                "orig_chart_id": str(orig_chart_id),
+                                "ml_talles_url": "https://www.mercadolibre.com.ar/moda/talles/"})
                             continue
                     else:
                         attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
@@ -1296,6 +1305,96 @@ async def diag_add_row(chart_id: str, size_val: str, acc: int = 0):
             }
     except Exception as e:
         return {"exception": str(e)}
+
+
+@app.post("/api/duplicate/create_chart")
+async def dup_create_chart(request: Request):
+    """Crear guía de talles en cuenta destino copiando desde cuenta origen"""
+    b = await request.json()
+    orig_chart_id = b.get("orig_chart_id","")
+    domain_id = b.get("domain_id","")
+    brand = b.get("brand","")
+    to_account = int(b.get("to_account", 1))
+    try:
+        from_t = await fresh_token(0)  # cuenta principal
+        to_t = await fresh_token(to_account)
+        async with httpx.AsyncClient(timeout=30) as c:
+            # Leer guía original
+            r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
+                           headers={"Authorization": f"Bearer {from_t}"})
+            if r.status_code != 200:
+                return {"ok": False, "msg": f"No se pudo leer la guía origen: {r.status_code}"}
+            orig = r.json()
+            # Crear en destino
+            new_chart = {
+                "names": orig.get("names", {"MLA": "Guía de talles"}),
+                "domain_id": orig.get("domain_id") or domain_id,
+                "site_id": "MLA",
+                "main_attribute": {"attributes": [{"site_id": "MLA", "id": orig.get("main_attribute_id", "SIZE")}]},
+                "attributes": orig.get("attributes", []),
+                "rows": [{"attributes": r2.get("attributes",[])} for r2 in (orig.get("rows") or [])]
+            }
+            if orig.get("measure_type"):
+                new_chart["measure_type"] = orig["measure_type"]
+            r2 = await c.post(f"{ML_API}/catalog/charts",
+                             headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                             json=new_chart)
+            if r2.status_code in (200, 201):
+                new_id = r2.json().get("id","")
+                return {"ok": True, "msg": f"Guía creada con ID {new_id}", "chart_id": new_id}
+            return {"ok": False, "msg": f"Error al crear guía: {r2.status_code} — {r2.text[:200]}"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)}
+
+@app.post("/api/duplicate/add_size")
+async def dup_add_size(request: Request):
+    """Agregar talle faltante a guía de talles en cuenta destino"""
+    b = await request.json()
+    chart_id = b.get("chart_id","")
+    size_val = b.get("size_val","")
+    to_account = int(b.get("to_account", 1))
+    try:
+        to_t = await fresh_token(to_account)
+        # Leer guía completa para obtener atributos requeridos de otros rows
+        async with httpx.AsyncClient(timeout=20) as c:
+            gr = await c.get(f"{ML_API}/catalog/charts/{chart_id}",
+                            headers={"Authorization": f"Bearer {to_t}"})
+            if gr.status_code != 200:
+                return {"ok": False, "msg": f"No se pudo leer la guía: {gr.status_code}"}
+            chart_data = gr.json()
+            # Copiar estructura de atributos del último row existente y cambiar SIZE
+            existing_rows = chart_data.get("rows", [])
+            if not existing_rows:
+                return {"ok": False, "msg": "La guía no tiene rows existentes para copiar estructura"}
+            # Usar el último row como template
+            template = existing_rows[-1].get("attributes", [])
+            new_attrs = []
+            for a in template:
+                if a.get("id") == "SIZE":
+                    new_attrs.append({"id": "SIZE", "values": [{"name": size_val}]})
+                elif a.get("id") == "FILTRABLE_SIZE":
+                    # Mantener las equivalencias del template
+                    new_attrs.append({"id": "FILTRABLE_SIZE", "values": a.get("values", [])})
+                else:
+                    # Incrementar levemente las medidas para evitar duplicados
+                    vals = a.get("values", [])
+                    new_vals = []
+                    for v in vals:
+                        if v.get("struct"):
+                            new_num = v["struct"]["number"] + 5
+                            new_vals.append({"name": f"{new_num} {v['struct']['unit']}", "struct": {"number": new_num, "unit": v["struct"]["unit"]}})
+                        else:
+                            new_vals.append(v)
+                    new_attrs.append({"id": a["id"], "values": new_vals})
+            add_r = await c.post(f"{ML_API}/catalog/charts/{chart_id}/rows",
+                                headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                                json={"attributes": new_attrs})
+            if add_r.status_code in (200, 201):
+                new_row_id = add_r.json().get("id","")
+                return {"ok": True, "msg": f"Talle '{size_val}' agregado", "row_id": new_row_id}
+            return {"ok": False, "msg": f"Error: {add_r.status_code} — {add_r.text[:300]}"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)}
 
 
 @app.get("/diag/create_pijama_chart")
