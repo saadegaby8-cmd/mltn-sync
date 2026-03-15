@@ -1083,8 +1083,7 @@ async def diag_testdup(item_id: str):
             for a in (item.get("attributes") or []):
                 aid = a.get("id","")
                 if aid in ("SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
-                           "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE",
-                           "SIZE"):  # SIZE no es válido para user_product_seller
+                           "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE"):
                     continue
                 if aid == "SIZE":
                     # Para user_product_seller SIZE va como value_name
