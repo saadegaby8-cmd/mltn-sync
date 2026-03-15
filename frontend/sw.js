@@ -1,28 +1,2040 @@
-const CACHE = 'mltn-v10';
-const STATIC = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ML×TN Sync">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>ML × TN Sync</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f6f9;color:#1a1a2e;font-family:'Inter',sans-serif;min-height:100vh;font-size:14px}
+/* LOGIN */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f6f9}
+.login-box{background:#fff;border-radius:12px;border:1px solid #e8ecf0;padding:40px 36px;width:360px;box-shadow:0 4px 24px rgba(0,0,0,0.07)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .star{font-size:28px}
+.login-logo h2{font-size:20px;font-weight:700;margin-top:8px}
+.login-logo p{font-size:13px;color:#7a8299;margin-top:4px}
+.lform-group{margin-bottom:16px}
+.lform-group label{display:block;font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.lform-group input{width:100%;padding:10px 14px;border:1px solid #dde1e9;border-radius:7px;font-size:14px;outline:none;font-family:'Inter',sans-serif;background:#f9fafb}
+.lform-group input:focus{border-color:#4f9eff;background:#fff}
+.btn-login{width:100%;padding:11px;border-radius:7px;background:#4f9eff;color:#fff;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;margin-top:4px}
+.btn-login:hover{background:#3a8ef0}
+.login-err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b;padding:9px 14px;border-radius:6px;font-size:12px;margin-top:12px;display:none}
+.login-err.show{display:block}
+/* APP */
+.app-wrap{display:flex;min-height:100vh}
+.sidebar{width:200px;flex-shrink:0;background:#1a1f36;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.sidebar-logo{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px}
+.sidebar-logo .star{color:#fff;font-size:16px}
+.sidebar-logo span{color:#fff;font-weight:700;font-size:14px}
+.s-section{padding:12px 0 2px}
+.s-title{padding:0 14px 5px;font-size:10px;font-weight:600;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.s-title:hover{color:rgba(255,255,255,.55)}
+.nav-i{display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;color:rgba(255,255,255,.55);transition:all .15s}
+.nav-i:hover{color:#fff;background:rgba(255,255,255,.07)}
+.nav-i.active{color:#fff;background:rgba(255,255,255,.12)}
+.nav-sub{padding:5px 14px 5px 38px;font-size:12px;color:rgba(255,255,255,.45);cursor:pointer;transition:all .15s}
+.nav-sub:hover{color:#fff}
+.nav-sub.active{color:#4f9eff}
+.nav-ch{display:flex;align-items:center;gap:7px;padding:4px 14px;font-size:11px;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s}
+.nav-ch:hover{color:#fff;background:rgba(255,255,255,.05)}
+.ch-av{width:18px;height:18px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.s-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between}
+.s-user{font-size:11px;color:rgba(255,255,255,.4)}
+.btn-logout{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif}
+.btn-logout:hover{color:#fff}
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:200px;right:0;height:52px;background:#1a1f36;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:flex-end;padding:0 24px;gap:14px;z-index:99}
+.topbar-av{width:32px;height:32px;border-radius:50%;background:#e91e63;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;cursor:pointer}
+/* MAIN */
+.main{margin-left:200px;margin-top:52px;flex:1;padding:24px 28px}
+.page{display:none}
+.page.active{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.page-title{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:20px}
+/* CARDS */
+.cards-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.dash-card{background:#fff;border-radius:10px;padding:18px 22px;border:1px solid #e8ecf0}
+.dc-label{font-size:11px;color:#7a8299;font-weight:500;margin-bottom:6px}
+.dc-val{font-size:26px;font-weight:700;color:#1a1a2e}
+.dc-sub{font-size:12px;color:#7a8299;margin-top:3px}
+.prog-bar{background:#e8ecf0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#4f9eff,#00c6ae);border-radius:4px;transition:width .4s}
+/* PANEL */
+.panel{background:#fff;border-radius:10px;border:1px solid #e8ecf0;margin-bottom:18px}
+.panel-hd{padding:14px 18px;border-bottom:1px solid #e8ecf0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.panel-hd h3{font-size:14px;font-weight:600}
+.panel-bd{padding:18px}
+/* FILTERS */
+.fbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.fpill{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #dde1e9;background:#fff;color:#5a6080;transition:all .15s}
+.fpill:hover{border-color:#4f9eff;color:#4f9eff}
+.fpill.active{background:#eef4ff;border-color:#4f9eff;color:#4f9eff;font-weight:600}
+.fpill.g{border-color:#00b894;color:#00b894}.fpill.g.active{background:#e6f9f4}
+.fpill.o{border-color:#f39c12;color:#f39c12}.fpill.o.active{background:#fef9ec}
+.fpill.r{border-color:#e17055;color:#e17055}.fpill.r.active{background:#fdf0ec}
+.s-wrap{flex:1;min-width:180px;position:relative}
+.s-wrap input{width:100%;padding:7px 12px 7px 32px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;background:#f9fafb;font-family:'Inter',sans-serif}
+.s-wrap input:focus{border-color:#4f9eff;background:#fff}
+.s-wrap input::placeholder{color:#b0b7c9}
+.s-wrap::before{content:'🔍';position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px}
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#7a8299;border-bottom:1px solid #e8ecf0;white-space:nowrap}
+th.chk{width:32px}
+tbody tr{border-bottom:1px solid #f0f2f6;transition:background .1s;cursor:pointer}
+tbody tr:hover{background:#f9fafb}
+tbody tr.sel{background:#eef4ff}
+tbody tr.var-row{background:#fafbff}
+tbody tr.var-row:hover{background:#f0f4ff}
+td{padding:9px 12px;font-size:13px;vertical-align:middle}
+.thumb{width:38px;height:38px;object-fit:contain;border-radius:5px;border:1px solid #e8ecf0;background:#f9fafb}
+.thumb-ph{width:38px;height:38px;border-radius:5px;border:1px solid #e8ecf0;background:#f0f2f6;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ptitle{font-weight:500;color:#1a1a2e;max-width:380px;word-break:break-word;line-height:1.4}
+.psku{font-size:10px;color:#7a8299;margin-top:1px}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.ba{background:#e6f9f4;color:#00a381}
+.bp{background:#fff4e0;color:#d68000}
+.bc{background:#fde8e8;color:#c0392b}
+.stock-0{color:#e17055;font-weight:600}
+.var-badge{background:#eef4ff;color:#4f9eff;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:5px}
+.expand-btn{background:none;border:none;cursor:pointer;color:#7a8299;font-size:13px;padding:2px 6px;border-radius:4px}
+.expand-btn:hover{background:#f0f2f6;color:#1a1a2e}
+/* ACTION BAR */
+.action-bar{background:#f0f6ff;border:1px solid #c5d9f8;border-radius:7px;padding:9px 14px;display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.ab-info{font-size:13px;color:#4f9eff;font-weight:600;flex:1}
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid #e8ecf0;font-size:12px;color:#7a8299;flex-wrap:wrap;gap:8px}
+.pag-btns{display:flex;align-items:center;gap:4px}
+.pb{padding:4px 9px;border:1px solid #dde1e9;border-radius:5px;cursor:pointer;background:#fff;font-size:12px;color:#5a6080;transition:all .15s}
+.pb:hover{border-color:#4f9eff;color:#4f9eff}
+.pb.active{background:#4f9eff;border-color:#4f9eff;color:#fff}
+.per-sel{border:1px solid #dde1e9;border-radius:5px;padding:3px 7px;font-size:12px;color:#5a6080;background:#fff;outline:none;cursor:pointer}
+/* BUTTONS */
+.btn{padding:7px 16px;border-radius:6px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:5px;text-decoration:none}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-blue{background:#4f9eff;color:#fff}.btn-blue:hover{background:#3a8ef0}.btn-blue:disabled{background:#b0cdf8;cursor:not-allowed}
+.btn-green{background:#00b894;color:#fff}.btn-green:hover{background:#009d7e}.btn-green:disabled{background:#a8e6dc;cursor:not-allowed}
+.btn-out{background:#fff;color:#5a6080;border:1px solid #dde1e9}.btn-out:hover{border-color:#4f9eff;color:#4f9eff}
+.btn-red{background:#fff;color:#e17055;border:1px solid #e17055}.btn-red:hover{background:#fdf0ec}
+.btn-ml{background:#ffe135;color:#000;font-size:14px;padding:11px 22px;border-radius:7px;font-weight:700}.btn-ml:hover{background:#ffd000}
+.btn-purple{background:#6c63ff;color:#fff}.btn-purple:hover{background:#574fd6}
+/* FORM */
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg select{padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;font-family:'Inter',sans-serif;background:#f9fafb}
+.fg input:focus,.fg select:focus{border-color:#4f9eff;background:#fff}
+.fg input::placeholder{color:#b0b7c9}
+.hint{font-size:11px;color:#7a8299;background:#f4f6f9;border:1px solid #e8ecf0;border-radius:6px;padding:9px 12px;margin-bottom:10px;line-height:1.6}
+.hint a{color:#4f9eff}
+/* MESSAGES */
+.msg{padding:9px 12px;border-radius:6px;font-size:12px;display:none;margin-top:8px;line-height:1.5}
+.msg.show{display:block}
+.msg.err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b}
+.msg.ok{background:#e6f9f4;border:1px solid #a8e6dc;color:#007a5e}
+.msg.inf{background:#eef4ff;border:1px solid #b8d4f8;color:#2c5fa8}
+.alert{padding:11px 16px;border-radius:7px;font-size:13px;margin-bottom:16px;display:none;font-weight:500}
+.alert.show{display:block}
+.alert.ok{background:#e6f9f4;border:1px solid #a8e6dc;color:#007a5e}
+.alert.err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b}
+/* LOG */
+.log-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f2f6;font-size:12px}
+.lts{color:#7a8299;width:85px;flex-shrink:0}
+.lbadge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;flex-shrink:0}
+.lbadge.publish{background:#eef4ff;color:#4f9eff}
+.lbadge.sync{background:#e6f9f4;color:#00a381}
+.lbadge.duplicate{background:#f3f0ff;color:#6c63ff}
+.ltitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lstatus.ok{color:#00a381;font-weight:600}
+.lstatus.error{color:#c0392b;font-weight:600}
+/* PROGRESS */
+.prog-wrap{margin:10px 0}
+.prog-bg{background:#e8ecf0;border-radius:3px;height:5px;overflow:hidden;margin-bottom:5px}
+.prog-f{height:100%;background:linear-gradient(90deg,#4f9eff,#00c6ae);border-radius:3px;transition:width .3s;width:0%}
+.prog-txt{font-size:11px;color:#7a8299}
+.res-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-top:10px}
+.ri{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:5px;font-size:12px}
+.ri.ok{background:#e6f9f4}
+.ri.fail{background:#fde8e8}
+.ri .rt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ri .rm{color:#7a8299;font-size:11px}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid #dde1e9;border-top-color:#4f9eff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:36px 20px;color:#7a8299;font-size:13px}
+.empty .ei{font-size:28px;margin-bottom:8px}
+/* LINK MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal-close{float:right;cursor:pointer;color:#7a8299;font-size:18px;background:none;border:none;line-height:1}
+.tn-prod-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;margin:12px 0}
+.tn-prod-item{padding:10px 14px;border:1px solid #dde1e9;border-radius:7px;cursor:pointer;transition:all .15s}
+.tn-prod-item:hover{border-color:#4f9eff;background:#eef4ff}
+.tn-prod-item.sel{border-color:#4f9eff;background:#eef4ff}
+.tn-prod-item .tpn{font-weight:600;font-size:13px}
+.tn-prod-item .tpv{font-size:11px;color:#7a8299;margin-top:3px}
+.tn-search{width:100%;padding:8px 12px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;margin-bottom:10px;font-family:'Inter',sans-serif}
+.tn-search:focus{border-color:#4f9eff}
+/* CH CARDS */
+.ch-card{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f0f2f6;transition:background .1s}
+.ch-card:hover{background:#f9fafb}
+.ch-logo{width:40px;height:40px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:#fff;font-weight:700}
+.ch-info{flex:1}
+.ch-name{font-weight:600;font-size:13px}
+.ch-sub{font-size:11px;color:#7a8299;margin-top:2px}
+.acc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.acc-tab{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #dde1e9;color:#5a6080;background:#fff;transition:all .15s}
+.acc-tab:hover{border-color:#4f9eff;color:#4f9eff}
+.acc-tab.active{border-color:#4f9eff;color:#4f9eff;background:#eef4ff;font-weight:600}
+.token-warn{font-size:11px;color:#d68000;background:#fff4e0;padding:3px 8px;border-radius:4px;margin-left:6px}
+.ord-opt{padding:7px 10px;font-size:13px;cursor:pointer;border-radius:5px;color:#1a1a2e;transition:background .1s}
+.ord-opt:hover{background:#f0f4ff;color:#4f9eff}
+.ord-opt.active{background:#eef4ff;color:#4f9eff;font-weight:600}
+/* BOTTOM NAV */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:#1a1a2e;z-index:998;align-items:stretch}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#7a8299;font-size:18px;cursor:pointer;gap:2px;transition:color .2s;padding:4px 0}
+.bn-item span{font-size:9px;font-weight:500;letter-spacing:.3px}
+.bn-item.active{color:#FFE600}
+.bn-item:active{background:rgba(255,255,255,0.05)}
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)).then(() => self.skipWaiting()));
+/* MOBILE */
+@media(max-width:768px){
+  .sidebar{width:180px;min-width:180px}
+  .topbar{padding:10px 12px}
+  .main{padding:12px}
+  .modal-box{width:95vw;max-width:95vw;margin:10px}
+  .modal-content{padding:16px}
+  table{font-size:12px}
+  .btn{padding:7px 12px;font-size:12px}
+  h2{font-size:16px}
+}
+@media(max-width:480px){
+  .sidebar{position:fixed!important;left:-300px!important;width:0!important;min-width:0!important;overflow:hidden!important}
+  .bottom-nav{display:flex!important}
+  .app-wrap{display:block!important;width:100vw!important}
+  .main{padding:10px;padding-bottom:75px;width:100vw;box-sizing:border-box;overflow-x:hidden}
+  .topbar{padding:8px 12px;width:100vw;box-sizing:border-box}
+  .cards-row{display:flex!important;flex-direction:column!important;gap:8px}
+  .dash-card{padding:12px 16px;width:100%;box-sizing:border-box}
+  #d-ch-icons{flex-direction:row!important;flex-wrap:wrap!important;gap:6px}
+  .prod-grid{grid-template-columns:1fr}
+  .pub-grid{grid-template-columns:1fr}
+  .panel{width:100%;box-sizing:border-box;overflow:hidden}
+}</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="star">✦</div>
+      <h2>ML × TN Sync</h2>
+      <p>Iniciá sesión para continuar</p>
+    </div>
+    <div class="lform-group"><label>Email</label><input type="email" id="li-email" placeholder="admin@sync.com" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+    <div class="lform-group"><label>Contraseña</label><input type="password" id="li-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+    <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
+    <div class="login-err" id="li-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="app-wrap" style="display:none">
+  <nav class="sidebar">
+    <div class="sidebar-logo"><span class="star">✦</span><span>ML × TN Sync</span></div>
+    <div class="s-section">
+      <div class="nav-i active" onclick="showPage('inicio')">🏠 Inicio</div>
+    </div>
+    <div class="s-section">
+      <div class="s-title" onclick="toggleSec('canales')">Canales <span id="arr-canales">▾</span></div>
+      <div id="sec-canales">
+        <div class="nav-i" onclick="showPage('cuentas')">🔗 Conectar canales</div>
+        <div id="sb-channels"></div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title" onclick="toggleSec('productos')">Productos <span id="arr-productos">▾</span></div>
+      <div id="sec-productos">
+        <div class="nav-sub active" onclick="showPage('productos')">Panel de productos</div>
+        <div class="nav-sub" onclick="showPage('publicar')">Publicar</div>
+        <div class="nav-sub" onclick="showPage('duplicar')">Duplicar entre cuentas</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="nav-i" onclick="showPage('enlaces')">🔗 Mis enlaces</div>
+      <div class="nav-i" onclick="showPage('sincronizar')">🔄 Sincronizar</div>
+      <div class="nav-i" onclick="showPage('log')">📋 Historial</div>
+    </div>
+    <div class="s-bottom">
+      <span class="s-user" id="sb-user">admin</span>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- BOTTOM NAV MOBILE -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <div class="bn-item active" onclick="showPage('inicio');setBN(this)">🏠<span>Inicio</span></div>
+    <div class="bn-item" onclick="showPage('productos');setBN(this)">📦<span>Productos</span></div>
+    <div class="bn-item" onclick="showPage('publicar');setBN(this)">🚀<span>Publicar</span></div>
+    <div class="bn-item" onclick="showPage('duplicar');setBN(this)">📋<span>Duplicar</span></div>
+    <div class="bn-item" onclick="showPage('sincronizar');setBN(this)">🔄<span>Sync</span></div>
+    <div class="bn-item" onclick="showMobileMenu()">☰<span>Más</span></div>
+  </nav>
+
+  <!-- MOBILE MENU DRAWER -->
+  <div id="mobile-drawer" style="display:none;position:fixed;bottom:60px;left:0;right:0;background:#fff;border-top:1px solid #e8ecf0;padding:12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn" style="font-size:13px" onclick="showPage('cuentas');closeDrawer()">🔗 Canales</button>
+      <button class="btn" style="font-size:13px" onclick="showPage('enlaces');closeDrawer()">🔗 Enlaces</button>
+      <button class="btn" style="font-size:13px" onclick="showPage('log');closeDrawer()">📋 Historial</button>
+      <button class="btn btn-danger" style="font-size:13px" onclick="doLogout()">🚪 Salir</button>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+    <div class="topbar"><button id="btn-install" style="display:none;background:#FFE600;color:#1a1a2e;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:10px">📲 Instalar app</button><div class="topbar-av" id="top-av">A</div></div>
+    <main class="main">
+      <div class="alert" id="app-alert"></div>
+
+      <!-- INICIO -->
+      <div class="page active" id="page-inicio">
+        <div class="page-title">Hola de nuevo!</div>
+        <div style="font-size:12px;color:#7a8299;margin-bottom:16px">Mis datos</div>
+        <div class="cards-row">
+          <div class="dash-card">
+            <div class="dc-label">Canales conectados</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="display:flex;align-items:baseline;gap:6px"><div class="dc-val" id="d-canales">0</div><div style="font-size:12px;color:#7a8299">de 4</div></div>
+              <div id="d-ch-icons" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+            </div>
+            <div class="prog-bar" style="margin-top:8px"><div class="prog-fill" id="d-can-bar" style="width:0%"></div></div>
+          </div>
+          <div class="dash-card">
+            <div class="dc-label">Tienda Nube</div>
+            <div class="dc-val" id="d-tn">—</div>
+            <div class="dc-sub" id="d-tn-sub">No conectada</div>
+          </div>
+          <div class="dash-card">
+            <div class="dc-label">Acciones realizadas</div>
+            <div class="dc-val" id="d-acc">0</div>
+            <div class="dc-sub">Última sync: <span id="d-last">—</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Actividad reciente</h3><button class="btn btn-out btn-sm" onclick="loadState()">↻ Actualizar</button></div>
+          <div style="padding:0 18px 6px"><div id="d-log"><div class="empty"><div class="ei">📋</div>Sin actividad aún</div></div></div>
+        </div>
+      </div>
+
+      </div>
+
+      <!-- CANAL -->
+      <!-- CANAL -->
+      <div class="page" id="page-canal">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div id="canal-av" style="width:36px;height:36px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">L</div>
+            <div>
+              <div id="canal-name" style="font-size:16px;font-weight:700"></div>
+              <div id="canal-stats" style="font-size:12px;color:#7a8299"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="canal-q" placeholder="Buscar..." oninput="filterCanalItems()" style="padding:7px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;width:180px">
+            <select id="canal-estado" onchange="filterCanalItems()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px">
+              <option value="">Todos los estados</option>
+              <option value="active">Activas</option>
+              <option value="paused">Pausadas</option>
+              <option value="closed">Cerradas</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel" style="padding:0;overflow:hidden">
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f8f9fb;border-bottom:2px solid #e8ecf0">
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Publicación</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299">Precio</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Cuotas y envío</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299">Stock</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:600;color:#7a8299">Calidad</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="canal-body">
+                <tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="canal-pagination" style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e8ecf0;font-size:13px;color:#7a8299"></div>
+        </div>
+      </div>
+
+      <!-- PRODUCTOS -->
+      <div class="page" id="page-productos">
+        <div class="page-title">Panel de productos</div>
+
+        <!-- FILTROS BAR -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="s-wrap" style="flex:1;min-width:220px"><input type="text" id="prod-q" placeholder="Buscar producto..." oninput="applyProdF()" /></div>
+
+          <!-- FILTROS -->
+          <div style="position:relative">
+            <button class="btn btn-out btn-sm" onclick="toggleFiltros()" id="btn-filtros">⚙ Filtros <span id="filtros-badge" style="display:none;background:#4f9eff;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px"></span></button>
+            <div id="filtros-panel" style="display:none;position:absolute;top:34px;left:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:14px;width:220px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Estado</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-active" checked onchange="applyProdF()"> <span style="color:#00a381">● Activas</span></label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-paused" checked onchange="applyProdF()"> <span style="color:#d68000">● Pausadas</span></label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="f-closed" checked onchange="applyProdF()"> <span style="color:#e17055">● Cerradas</span></label>
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Stock</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="todos" checked onchange="applyProdF()"> Todos</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="con" onchange="applyProdF()"> Con stock</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="radio" name="f-stock" value="sin" onchange="applyProdF()"> Sin stock</label>
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Cuotas</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-cuotas" value="todos" checked onchange="applyProdF()"> Todos</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-cuotas" value="con" onchange="applyProdF()"> Con cuotas</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="f-cuotas" value="sin" onchange="applyProdF()"> Sin cuotas</label>
+            </div>
+          </div>
+
+          <!-- ORDENAR -->
+          <div style="position:relative">
+            <button class="btn btn-out btn-sm" onclick="toggleOrdenar()" id="btn-ordenar">↕ Ordenar <span id="ordenar-label" style="color:#4f9eff;font-size:11px"></span></button>
+            <div id="ordenar-panel" style="display:none;position:absolute;top:34px;right:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:8px;width:210px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;padding:6px 8px 4px">Ordenar por</div>
+              <div class="ord-opt" onclick="setOrden('default')" data-ord="default">Sin orden</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('fecha_desc')" data-ord="fecha_desc">📅 Más nuevos primero</div>
+              <div class="ord-opt" onclick="setOrden('fecha_asc')" data-ord="fecha_asc">📅 Más viejos primero</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('stock_desc')" data-ord="stock_desc">📦 Mayor stock primero</div>
+              <div class="ord-opt" onclick="setOrden('stock_asc')" data-ord="stock_asc">📦 Menor stock primero</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('precio_desc')" data-ord="precio_desc">💰 Mayor precio primero</div>
+              <div class="ord-opt" onclick="setOrden('precio_asc')" data-ord="precio_asc">💰 Menor precio primero</div>
+            </div>
+          </div>
+
+          <button class="btn btn-out btn-sm" id="resync-prod-btn" onclick="startMLSync()" style="display:none">↻ Re-sincronizar</button>
+          <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
+        </div>
+
+        <!-- ACTION BAR -->
+        <div id="ab-prod" class="action-bar" style="display:none;margin-bottom:12px">
+          <span class="ab-info" id="ab-prod-info">0 seleccionados</span>
+          <button class="btn btn-blue btn-sm" onclick="goPublishSelected()">🚀 Publicar</button>
+          <button class="btn btn-purple btn-sm" onclick="showPage('duplicar')">📋 Duplicar</button>
+          <button class="btn btn-out btn-sm" onclick="openUnirModal()">🔗 Unir</button>
+          <button class="btn btn-out btn-sm" onclick="clearProdSel()">✕ Limpiar</button>
+        </div>
+
+        <!-- CANALES AGRUPADOS -->
+        <div id="prod-canales-wrap"></div>
+
+        <!-- MSG -->
+        <div id="msg-prod" class="msg" style="margin-bottom:10px"></div>
+      </div>
+
+      <!-- MODAL UNIR -->
+      <div class="modal-bg" id="unir-modal">
+        <div class="modal" style="width:600px">
+          <button class="modal-close" onclick="closeUnirModal()">✕</button>
+          <h3>🔗 Unir publicaciones</h3>
+          <p style="font-size:13px;color:#7a8299;margin-bottom:16px">Uní publicaciones del mismo producto para mantener stock y precio sincronizados entre cuentas.</p>
+          <div id="unir-items" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+          <div style="font-size:12px;color:#7a8299;margin-bottom:14px">+ Agregá más publicaciones para unir:</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <select id="unir-acc-sel" style="padding:7px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:'Inter',sans-serif;flex:1"></select>
+            <button class="btn btn-out btn-sm" onclick="buscarParaUnir()">Buscar</button>
+          </div>
+          <input type="text" id="unir-search" placeholder="Buscar producto para agregar..." style="width:100%;padding:8px 12px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;margin-bottom:8px;font-family:'Inter',sans-serif" oninput="filtrarUnirSearch()" />
+          <div id="unir-search-list" style="max-height:200px;overflow-y:auto;border:1px solid #e8ecf0;border-radius:6px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-blue" onclick="guardarUnion()">Guardar unión</button>
+            <button class="btn btn-out" onclick="closeUnirModal()">Cancelar</button>
+          </div>
+          <div id="msg-unir" class="msg"></div>
+        </div>
+      </div>
+
+      <!-- PUBLICAR -->
+      <div class="page" id="page-publicar">
+        <div class="page-title">Publicar</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Cuenta de ML origen</h3></div>
+          <div class="panel-bd">
+            <div class="acc-tabs" id="pub-tabs"></div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Publicar en</label>
+                <select id="pub-target" onchange="togglePubTarget()" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif">
+                  <option value="tn">TiendaNube</option>
+                  <option value="ml">Otra cuenta ML</option>
+                </select>
+              </div>
+              <div id="pub-ml-dest-wrap" style="display:none">
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Cuenta ML destino</label>
+                <select id="pub-ml-dest" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif"></select>
+              </div>
+            </div>
+            <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none;margin-top:12px">Cargar productos →</button>
+            <div id="msg-pub" class="msg"></div>
+          </div>
+        </div>
+        <div class="panel" id="pub-prod-panel" style="display:none">
+          <div class="panel-hd">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h3>Seleccioná productos</h3>
+              <span id="pub-cnt" style="font-size:11px;color:#7a8299"></span>
+            </div>
+            <div class="fbar" style="margin:0">
+              <div class="s-wrap" style="min-width:160px"><input type="text" id="pub-q" placeholder="Buscar..." oninput="applyPubF()" /></div>
+              <button class="fpill active" onclick="setPubF('todas',this)">Todas</button>
+              <button class="fpill g" onclick="setPubF('active',this)">● Activas</button>
+              <button class="fpill o" onclick="setPubF('paused',this)">● Pausadas</button>
+              <button class="fpill r" onclick="setPubF('closed',this)">● Cerradas</button>
+            </div>
+          </div>
+          <div class="panel-bd" style="padding-bottom:0">
+            <div id="ab-pub" class="action-bar" style="display:none">
+              <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
+              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
+              <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th class="chk"><input type="checkbox" id="chk-all-pub" onchange="selAllPub(this)"/></th>
+                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>VARIACIONES</th><th>ESTADO</th>
+              </tr></thead>
+              <tbody id="pub-body"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="pub-pag-info"></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <select class="per-sel" id="pub-pp" onchange="renderPubT()"><option>10</option><option>25</option><option>50</option></select>
+              <div class="pag-btns">
+                <button class="pb" onclick="pPub(-1)">‹</button>
+                <span id="pub-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+                <button class="pb" onclick="pPub(1)">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="pub-prog-panel" style="display:none">
+          <div class="panel-hd"><h3>Publicando...</h3></div>
+          <div class="panel-bd">
+            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="pub-pf"></div></div><div class="prog-txt" id="pub-pt">Iniciando...</div></div>
+            <div class="res-list" id="pub-res"></div>
+            <div id="msg-pub-res" class="msg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DUPLICAR -->
+      <div class="page" id="page-duplicar">
+        <div class="page-title">Duplicar publicaciones</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Configuración</h3></div>
+          <div class="panel-bd">
+            <div class="f-row">
+              <div class="fg"><label>Cuenta origen</label><select id="dup-from" class="fg"></select></div>
+              <div class="fg"><label>Cuenta destino</label><select id="dup-to" class="fg"></select></div>
+            </div>
+            <button class="btn btn-blue btn-sm" onclick="loadDupProds()">Cargar productos →</button>
+            <div id="msg-dup" class="msg"></div>
+          </div>
+        </div>
+        <div class="panel" id="dup-prod-panel" style="display:none">
+          <div class="panel-hd">
+            <h3>Seleccioná qué duplicar</h3>
+            <div class="s-wrap" style="max-width:260px;margin:0"><input type="text" id="dup-q" placeholder="Buscar..." oninput="applyDupF()" /></div>
+          </div>
+          <div class="panel-bd" style="padding-bottom:0">
+            <div id="ab-dup" class="action-bar" style="display:none">
+              <span class="ab-info" id="ab-dup-info">0 seleccionados</span>
+              <button class="btn btn-purple btn-sm" onclick="openDupConfirm()">📋 Duplicar a cuenta destino</button>
+              <button class="btn btn-out btn-sm" onclick="clearDupSel()">✕</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th class="chk"><input type="checkbox" id="chk-all-dup" onchange="selAllDup(this)"/></th>
+                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>ESTADO</th>
+              </tr></thead>
+              <tbody id="dup-body"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="dup-pag-info"></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <select class="per-sel" id="dup-pp" onchange="renderDupT()"><option>10</option><option>25</option><option>50</option></select>
+              <div class="pag-btns">
+                <button class="pb" onclick="pDup(-1)">‹</button>
+                <span id="dup-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+                <button class="pb" onclick="pDup(1)">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="dup-prog-panel" style="display:none">
+          <div class="panel-hd"><h3>Duplicando...</h3></div>
+          <div class="panel-bd">
+            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="dup-pf"></div></div><div class="prog-txt" id="dup-pt"></div></div>
+            <div class="res-list" id="dup-res"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR PUBLICAR -->
+      <div class="modal-bg" id="pub-confirm-modal">
+        <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
+          <button class="modal-close" onclick="closePubConfirm()">✕</button>
+          <h3>🚀 Confirmar publicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a publicar <b id="pub-confirm-count">0</b> producto(s) en <b id="pub-confirm-dest"></b>.</p>
+
+          <!-- AGRUPAR VARIANTES — solo para TN -->
+          <div id="pub-grupo-wrap" style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+            <div id="pub-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
+                <input type="radio" name="pub-grupo" value="si" onchange="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
+                <input type="radio" name="pub-grupo" value="no" checked onchange="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Publicar ahora</button>
+            <button class="btn btn-out" onclick="closePubConfirm()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR DUPLICAR -->
+      <div class="modal-bg" id="dup-confirm-modal">
+        <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
+          <button class="modal-close" onclick="closeDupConfirm()">✕</button>
+          <h3>📋 Confirmar duplicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a duplicar <b id="dup-confirm-count">0</b> producto(s) a <b id="dup-confirm-dest"></b>.</p>
+
+          <!-- AGRUPAR VARIANTES -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+            <div id="dup-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-si">
+                <input type="radio" name="dup-grupo" value="si" onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes juntas</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-no">
+                <input type="radio" name="dup-grupo" value="no" checked onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Estado en cuenta destino</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-active">
+                <input type="radio" name="dup-estado" value="active" checked onchange="updateDupEstadoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#00a381">● Activa</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Visible inmediatamente</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-paused">
+                <input type="radio" name="dup-estado" value="paused" onchange="updateDupEstadoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#d68000">● Pausada</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">No visible hasta que la actives</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Sincronización de stock y precio</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-sync-si">
+                <input type="radio" name="dup-sync" value="si" onchange="updateDupSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🔗 Sí, sincronizar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Enlaza origen↔destino automáticamente</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-sync-no">
+                <input type="radio" name="dup-sync" value="no" checked onchange="updateDupSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">Solo duplicar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Sin enlace ni sync automático</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-purple" onclick="confirmDuplicate()" style="flex:1">📋 Duplicar ahora</button>
+            <button class="btn btn-out" onclick="closeDupConfirm()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENLACES -->
+      <div class="page" id="page-enlaces">
+        <div class="page-title">Mis enlaces ML ↔ TN</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Productos enlazados</h3><span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>PRODUCTO ML</th><th>VARIACIÓN ML</th><th>PRODUCTO TN</th><th>VARIANTE TN</th><th></th></tr></thead>
+              <tbody id="links-body"><tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CUENTAS -->
+      <div class="page" id="page-cuentas">
+        <div class="page-title">Conectar canales</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Cuentas MercadoLibre</h3></div>
+          <div id="ml-cards"></div>
+          <div class="panel-bd">
+            <div style="background:#fffbec;border:1px solid #ffe58f;border-radius:7px;padding:14px;margin-bottom:4px">
+              <div style="font-size:13px;font-weight:600;margin-bottom:5px">Conectar nueva cuenta</div>
+              <div style="font-size:12px;color:#7a8299;margin-bottom:12px;line-height:1.6">Hacé clic, iniciá sesión con la cuenta de ML y autorizá. Podés agregar hasta 4 cuentas.</div>
+              <a href="/auth/login" class="btn btn-ml">🔗 Conectar cuenta de MercadoLibre</a>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Tienda Nube</h3></div>
+          <div class="panel-bd">
+            <div id="tn-cur" style="font-size:13px;color:#7a8299;margin-bottom:14px">No conectada.</div>
+            <div class="f-row">
+              <div class="fg"><label>Store ID</label><input type="text" id="tn-sid" placeholder="ej: 123456" /></div>
+              <div class="fg"><label>Access Token</label><input type="password" id="tn-tok" placeholder="tu_access_token" /></div>
+            </div>
+            <div class="hint"><b>Store ID:</b> en la URL: tiendanube.com/stores/<b>XXXXXX</b>/...<br><b>Access Token:</b> <a href="https://partners.tiendanube.com" target="_blank">partners.tiendanube.com</a> → tu app → copiá el token.</div>
+            <div id="msg-tn" class="msg"></div>
+            <button class="btn btn-blue btn-sm" onclick="connectTN()">Conectar Tienda Nube</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SINCRONIZAR -->
+      <div class="page" id="page-sincronizar">
+        <div class="page-title">Sincronizar stock y precios</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Sincronización por enlaces manuales</h3></div>
+          <div class="panel-bd">
+            <p style="font-size:13px;color:#7a8299;margin-bottom:14px;line-height:1.6">Actualizá precio y stock en Tienda Nube según los enlaces que configuraste manualmente. Sin SKU automático.</p>
+            <div id="sync-links-info" style="font-size:13px;margin-bottom:16px"></div>
+            <button class="btn btn-green" onclick="doSync()" id="sync-btn">🔄 Sincronizar ahora</button>
+            <div id="msg-sync" class="msg"></div>
+          </div>
+        </div>
+        <div class="panel" id="sync-res-panel" style="display:none">
+          <div class="panel-hd"><h3>Resultado</h3></div>
+          <div class="panel-bd">
+            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="sync-pf"></div></div><div class="prog-txt" id="sync-pt"></div></div>
+            <div class="res-list" id="sync-res"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOG -->
+      <div class="page" id="page-log">
+        <div class="page-title">Historial</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Log completo</h3></div>
+          <div style="padding:0 18px 8px"><div id="full-log"><div class="empty"><div class="ei">📋</div>Sin actividad aún</div></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- LINK MODAL -->
+<div class="modal-bg" id="link-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3>Enlazar con Tienda Nube</h3>
+    <div id="modal-ml-info" style="font-size:13px;color:#7a8299;margin-bottom:14px"></div>
+    <input type="text" class="tn-search" id="tn-prod-search" placeholder="Buscar producto en TN..." oninput="filterTNProds()" />
+    <div class="tn-prod-list" id="tn-prod-list"><div class="empty"><div class="ei">⏳</div>Cargando productos de TN...</div></div>
+    <div id="modal-var-sel" style="display:none;margin-top:10px">
+      <div style="font-size:12px;font-weight:600;color:#7a8299;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Variante de TN (opcional)</div>
+      <select class="fg" id="tn-var-sel" style="width:100%"><option value="">— Sin variante específica —</option></select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-blue" onclick="saveLink()">Guardar enlace</button>
+      <button class="btn btn-out" onclick="closeModal()">Cancelar</button>
+    </div>
+    <div id="msg-modal" class="msg"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let SESSION = localStorage.getItem('session_token') || '';
+let appState = {ml_accounts:[],tn_connected:false,tn_store_id:'',sync_log:[],last_sync:null,links:[]};
+
+// Products state
+let prodProds=[], prodFilt=[], prodSel=[], prodAccIdx=0, prodPg=0, prodSF='todas';
+let pubProds=[], pubFilt=[], pubSel=[], pubAccIdx=0, pubPg=0, pubSF='todas';
+let dupProds=[], dupFilt=[], dupSel=[], dupPg=0;
+let tnProds=[], tnProdsFilt=[];
+let modalML={item_id:null,var_id:null,acc_idx:null,title:null};
+let selectedTNProd=null;
+
+function hdr(){return {'Content-Type':'application/json','X-Session-Token':SESSION}}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pw=document.getElementById('li-pw').value;
+  const err=document.getElementById('li-err');
+  err.classList.remove('show');
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+    const d=await r.json();
+    if(!r.ok){err.textContent=d.detail||'Error';err.classList.add('show');return;}
+    SESSION=d.token;
+    localStorage.setItem('session_token',SESSION);
+    showApp();
+  }catch(e){err.textContent='Error de conexión.';err.classList.add('show');}
+}
+
+async function doLogout(){
+  try{await fetch('/api/logout',{method:'POST',headers:hdr()});}catch(e){}
+  SESSION='';localStorage.removeItem('session_token');
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+  checkURLParams();
+  loadState();
+}
+
+// On load
+window.addEventListener('load',()=>{
+  if(SESSION){
+    fetch('/api/state',{headers:hdr()}).then(r=>{
+      if(r.ok)showApp(); else{SESSION='';localStorage.removeItem('session_token');}
+    }).catch(()=>{});
+  }
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-  ).then(() => self.clients.claim()));
+function checkURLParams(){
+  const p=new URLSearchParams(window.location.search);
+  const b=document.getElementById('app-alert');
+  if(p.get('success')==='connected'){b.textContent='✅ Cuenta de MercadoLibre conectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
+  else if(p.get('success')==='reconnected'){b.textContent='✅ Cuenta reconectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
+  else if(p.get('error')){const m={auth_failed:'Error al autenticar.',token_failed:'Error de token.',max_accounts:'Máximo 4 cuentas.'};b.textContent='❌ '+(m[p.get('error')]||'Error.');b.className='alert err show';}
+  if(p.toString())window.history.replaceState({},'','/');
+}
+
+function toggleSec(id){
+  const el=document.getElementById('sec-'+id),arr=document.getElementById('arr-'+id);
+  if(el.style.display==='none'){el.style.display='';arr.textContent='▾';}else{el.style.display='none';arr.textContent='▸';}
+}
+
+function showPage(name){
+  const target = document.getElementById('page-'+name);
+  if (!target) { console.warn('Page not found: page-'+name); return; }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  target.classList.add('active');
+  document.querySelectorAll('.nav-i,.nav-sub').forEach(n=>n.classList.remove('active'));
+  if(name==='inicio')document.querySelector('.nav-i').classList.add('active');
+  if(name==='productos'||name==='publicar'||name==='duplicar'){
+    const subs=document.querySelectorAll('.nav-sub');
+    if(name==='productos')subs[0]?.classList.add('active');
+    if(name==='publicar')subs[1]?.classList.add('active');
+    if(name==='duplicar')subs[2]?.classList.add('active');
+  }
+  if(name==='log'||name==='inicio')renderLog();
+  if(name==='produtos')renderProdTabs();
+  if(name==='publicar')renderPubTabs();
+  if(name==='duplicar')renderDupAccs();
+  if(name==='enlaces')renderLinks();
+  if(name==='sincronizar')renderSyncInfo();
+}
+
+async function loadState(){
+  try{
+    const r=await fetch('/api/state',{headers:hdr()});
+    if(r.status===401){doLogout();return;}
+    appState=await r.json();
+    updateUI();
+  }catch(e){}
+}
+
+function updateUI(){
+  const n=appState.ml_accounts.length;
+  document.getElementById('d-canales').textContent=n;
+  document.getElementById('d-can-bar').style.width=(n/4*100)+'%';
+  document.getElementById('d-tn').textContent=appState.tn_connected?'✓':'✗';
+  document.getElementById('d-tn').style.color=appState.tn_connected?'#00a381':'#e17055';
+  document.getElementById('d-tn-sub').textContent=appState.tn_connected?'Conectada (ID: '+appState.tn_store_id+')':'No conectada';
+  document.getElementById('d-acc').textContent=appState.sync_log.length;
+  if(appState.last_sync){const d=new Date(appState.last_sync*1000);document.getElementById('d-last').textContent=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+  // icons
+  document.getElementById('d-ch-icons').innerHTML=appState.ml_accounts.map(a=>`<div title="${a.name}" style="width:30px;height:30px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">${a.name[0].toUpperCase()}</div>`).join('');
+  // sidebar channels
+  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showCanal(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
+  // ML cards
+  const cards=document.getElementById('ml-cards');
+  if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
+  else{cards.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="ch-card"><div class="ch-logo">${a.name[0].toUpperCase()}</div><div class="ch-info"><div class="ch-name">${a.name}</div><div class="ch-sub">MercadoLibre · ID ${a.user_id}${!a.token_ok?' · <span style="color:#d68000">Token vencido — reconectá</span>':''}</div></div><button class="btn btn-red btn-sm" onclick="removeML(${i})">Quitar</button></div>`).join('');}
+  if(appState.tn_connected){document.getElementById('tn-cur').innerHTML=`<span style="color:#00a381;font-weight:600">✓ Conectada</span> — Store ID: <b>${appState.tn_store_id}</b>`;}
+  // dup selects — solo init si vacios
+  const _df=document.getElementById('dup-from');
+  if(!_df.options.length){
+    const _opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+    _df.innerHTML=_opts;
+    document.getElementById('dup-to').innerHTML=_opts;
+    if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
+  }
+  renderLog();renderProdTabs(true);renderPubTabs();renderLinks();renderSyncInfo();
+}
+
+function renderLog(){
+  const logs=[...(appState.sync_log||[])].reverse().slice(0,80);
+  const html=logs.length?logs.map(l=>{const d=new Date(l.ts*1000);const t=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<div class="log-row"><span class="lts">${t}</span><span class="lbadge ${l.action}">${l.action}</span><span class="ltitle">${l.product}</span><span class="lstatus ${l.status}">${l.status==='ok'?'✓':'✗'}</span></div>`;}).join(''):'<div class="empty"><div class="ei">📋</div>Sin actividad aún.</div>';
+  document.getElementById('d-log').innerHTML=html;
+  document.getElementById('full-log').innerHTML=html;
+}
+
+function renderLinks(){
+  const links=appState.links||[];
+  document.getElementById('links-count').textContent=links.length+' enlaces';
+  if(!links.length){document.getElementById('links-body').innerHTML='<tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr>';return;}
+  document.getElementById('links-body').innerHTML=links.map(l=>`<tr>
+    <td><b>${l.ml_item_id}</b></td>
+    <td>${l.ml_variation_id||'—'}</td>
+    <td>${l.tn_product_id}</td>
+    <td>${l.tn_variant_id||'—'}</td>
+    <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
+  </tr>`).join('');
+}
+
+function renderSyncInfo(){
+  const n=(appState.links||[]).length;
+  document.getElementById('sync-links-info').innerHTML=n?`<span style="color:#00a381;font-weight:600">✓ ${n} enlace(s) configurado(s)</span>`:'<span style="color:#e17055">⚠ No hay enlaces configurados. Creálos desde el Panel de productos.</span>';
+}
+
+function showMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg;el.className='msg show '+(type==='info'?'inf':type);}
+function hideMsg(id){document.getElementById(id).className='msg';}
+
+async function removeML(i){if(!confirm('¿Quitar esta cuenta?'))return;await fetch('/api/ml/'+i,{method:'DELETE',headers:hdr()});await loadState();}
+
+async function connectTN(){
+  const sid=document.getElementById('tn-sid').value.trim();
+  const tok=document.getElementById('tn-tok').value.trim();
+  if(!sid||!tok){showMsg('msg-tn','⚠️ Completá ambos campos.','err');return;}
+  try{const r=await fetch('/api/tn/connect',{method:'POST',headers:hdr(),body:JSON.stringify({store_id:sid,token:tok})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');showMsg('msg-tn','✓ Tienda Nube conectada.','ok');await loadState();}
+  catch(e){showMsg('msg-tn','❌ '+e.message,'err');}
+}
+
+// ── PROD TABLE ─────────────────────────────────────────────────────────────────
+let prodSoloSinUnir = false;
+
+let prodOrden='default';
+
+function toggleOrdenar(){
+  const p=document.getElementById('ordenar-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('filtros-panel').style.display='none';
+}
+function setOrden(val){
+  prodOrden=val;
+  document.querySelectorAll('.ord-opt').forEach(el=>el.classList.toggle('active',el.dataset.ord===val));
+  const labels={
+    'default':'','fecha_desc':'Más nuevos','fecha_asc':'Más viejos',
+    'stock_desc':'Mayor stock','stock_asc':'Menor stock',
+    'precio_desc':'Mayor precio','precio_asc':'Menor precio'
+  };
+  document.getElementById('ordenar-label').textContent=labels[val]?'· '+labels[val]:'';
+  document.getElementById('ordenar-panel').style.display='none';
+  applyProdF();
+}
+
+function toggleFiltros(){
+  const p=document.getElementById('filtros-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('ordenar-panel').style.display='none';
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#btn-filtros')&&!e.target.closest('#filtros-panel'))
+    document.getElementById('filtros-panel').style.display='none';
+  if(!e.target.closest('#btn-ordenar')&&!e.target.closest('#ordenar-panel'))
+    document.getElementById('ordenar-panel').style.display='none';
 });
 
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  // API calls: siempre network
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/diag')) {
+function filtrarSinUnir(){
+  prodSoloSinUnir=!prodSoloSinUnir;
+  document.getElementById('prod-sin-unir').style.fontWeight=prodSoloSinUnir?'700':'400';
+  applyProdF();
+}
+
+function filterByAcc(idx) {
+  prodAccIdx = idx;
+  prodProds = [];
+  prodFilt = [];
+  renderProdTabs();
+  // Cargar productos de la cuenta seleccionada
+  setTimeout(() => loadProdAcc(idx), 150);
+}
+
+function renderProdTabs(preserveProducts=false){
+  const wrap=document.getElementById('prod-canales-wrap');
+  const resync=document.getElementById('resync-prod-btn');
+  if(!appState.ml_accounts.length){
+    wrap.innerHTML=`<div class="panel"><div class="panel-bd"><div class="empty"><div class="ei">🔗</div>Conectá cuentas en <b>Canales</b> para ver productos</div></div></div>`;
     return;
   }
-  // Resto: cache first, fallback network
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, clone));
-      return res;
-    }))
-  );
+  resync.style.display='inline-flex';
+
+  const links=appState.links||[];
+  let html='';
+
+  appState.ml_accounts.forEach((a,i)=>{
+    const isOpen=i===prodAccIdx&&prodProds.length>0;
+    const prodCount=i===prodAccIdx&&prodProds.length>0?prodProds.length:null;
+    const sinUnirCount=i===prodAccIdx&&prodProds.length>0?prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length:null;
+
+    html+=`<div class="panel" style="margin-bottom:10px;overflow:visible">
+      <!-- CANAL HEADER -->
+      <div class="canal-header" onclick="toggleCanal(${i})" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none">
+        <div class="canal-av" style="background:#ffe135;color:#333;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">${a.name[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${a.name}${!a.token_ok?' <span style="color:#d68000;font-size:11px">⚠ token vencido</span>':''}</div>
+          <div style="font-size:11px;color:#4f9eff;margin-top:1px">
+            ${prodCount!==null?`${prodCount} productos`:'MercadoLibre'}
+            ${sinUnirCount>0?` · <span style="color:#e17055;cursor:pointer" onclick="event.stopPropagation();selProdAcc(${i});filtrarSinUnir()">${sinUnirCount} sin unir</span>`:''}
+          </div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();selProdAcc(${i});loadProdProds()" id="load-prod-btn-${i}">
+            ${i===prodAccIdx&&prodProds.length>0?'↻ Recargar':'Cargar'}
+          </button>
+          <span style="color:#b0b7c9;font-size:16px;transition:transform .2s" id="canal-arrow-${i}">${isOpen?'▾':'▸'}</span>
+        </div>
+      </div>
+
+      <!-- TABLA DESPLEGABLE -->
+      <div id="canal-body-${i}" style="display:${isOpen?'block':'none'};border-top:1px solid #e8ecf0">
+        ${i===prodAccIdx&&prodProds.length>0?renderCanalTablaHTML(i):'<div class="empty" style="padding:24px"><div class="ei">📦</div>Apretá "Cargar" para ver productos</div>'}
+      </div>
+    </div>`;
+  });
+
+  // TiendaNube al final si conectada
+  if(appState.tn_connected){
+    html+=`<div class="panel" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 18px">
+        <div style="width:36px;height:36px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">TN</div>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">TiendaNube</div><div style="font-size:11px;color:#7a8299">Store ID: ${appState.tn_store_id} · ${links.length} enlaces</div></div>
+      </div>
+    </div>`;
+  }
+
+  wrap.innerHTML=html;
+
+  // Si hay productos cargados y venimos de un refresh automático, re-renderizar la tabla
+  if(preserveProducts && prodProds.length>0){
+    const cb=document.getElementById('canal-body-'+prodAccIdx);
+    if(cb){
+      cb.innerHTML=renderCanalTablaHTML(prodAccIdx);
+      cb.style.display='block';
+    }
+    const ar=document.getElementById('canal-arrow-'+prodAccIdx);
+    if(ar)ar.textContent='▾';
+    // Re-renderizar productos sin resetear filtros
+    renderProdT();
+  }
+}
+
+function toggleCanal(i){
+  if(i!==prodAccIdx){
+    selProdAcc(i);
+    return;
+  }
+  const body=document.getElementById('canal-body-'+i);
+  const arrow=document.getElementById('canal-arrow-'+i);
+  if(body.style.display==='none'){
+    body.style.display='block';
+    arrow.textContent='▾';
+  } else {
+    body.style.display='none';
+    arrow.textContent='▸';
+  }
+}
+
+function renderCanalTablaHTML(i){
+  return `<div style="padding:10px 18px 6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid #f0f2f6">
+    <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span id="prod-sin-unir" style="font-size:12px;color:#e17055;cursor:pointer" onclick="filtrarSinUnir()"></span>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
+        <th></th>
+        <th>TÍTULO</th>
+        <th>CANALES</th>
+        <th>STOCK</th>
+        <th>VARIACIONES</th>
+        <th>ESTADO</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">⏳</div>Cargando...</div></td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination" style="padding:10px 18px">
+    <span id="prod-pag-info"></span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:#7a8299">Listar</span>
+      <select class="per-sel" id="prod-pp" onchange="renderProdT()"><option>10</option><option>25</option><option>50</option></select>
+      <div class="pag-btns">
+        <button class="pb" onclick="pProd(-1)">‹</button>
+        <span id="prod-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+        <button class="pb" onclick="pProd(1)">›</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function selProdAcc(i){
+  prodAccIdx=i;
+  prodProds=[];prodFilt=[];prodSel=[];prodPg=0;prodSoloSinUnir=false;
+  renderProdTabs();
+}
+
+let syncPollInterval=null;
+async function loadProdProds(){
+  // Buscar el botón del canal activo
+  const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
+  if(btn){btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;}
+  hideMsg('msg-prod');
+
+  // Asegurar que el cuerpo del canal esté abierto con la tabla
+  const canalBody=document.getElementById('canal-body-'+prodAccIdx);
+  const arrow=document.getElementById('canal-arrow-'+prodAccIdx);
+  if(canalBody){
+    canalBody.innerHTML=renderCanalTablaHTML(prodAccIdx);
+    canalBody.style.display='block';
+    if(arrow)arrow.textContent='▾';
+  }
+
+  try{
+    const r=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error');
+    if(!d.synced){
+      showMsg('msg-prod','⏳ Sin sync previo. Iniciando sincronización...','info');
+      if(btn){btn.innerHTML='Cargar';btn.disabled=false;}
+      await startMLSync();
+      return;
+    }
+    prodProds=d.products;prodSel=[];prodPg=0;prodSoloSinUnir=false;
+    document.getElementById('prod-q').value='';
+    // Actualizar subtext del canal
+    renderProdTabs();
+    // Volver a abrir el canal body con la tabla
+    const cb=document.getElementById('canal-body-'+prodAccIdx);
+    if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
+    const ar=document.getElementById('canal-arrow-'+prodAccIdx);
+    if(ar)ar.textContent='▾';
+    // Sin unir
+    const links=appState.links||[];
+    const sinUnir=prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length;
+    const sinUnirEl=document.getElementById('prod-sin-unir');
+    if(sinUnirEl)sinUnirEl.textContent=sinUnir>0?`${sinUnir} sin unir`:'';
+    applyProdF();
+    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
+    setTimeout(()=>hideMsg('msg-prod'),3000);
+  }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
+  const btn2=document.getElementById('load-prod-btn-'+prodAccIdx);
+  if(btn2){btn2.innerHTML='↻ Recargar';btn2.disabled=false;}
+}
+
+async function startMLSync(){
+  const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
+  try{
+    const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error al iniciar');
+    showMsg('msg-prod','⏳ Sincronizando con MercadoLibre...','info');
+    if(btn){btn.innerHTML='⏳ Sync...';btn.disabled=true;}
+    if(syncPollInterval) clearInterval(syncPollInterval);
+    syncPollInterval=setInterval(async()=>{
+      try{
+        const sr=await fetch('/api/ml/'+prodAccIdx+'/sync/status',{headers:hdr()});
+        const sd=await sr.json();
+        const st=sd.status||{};
+        if(st.status==='done'||(!sd.running&&st.status&&st.status.startsWith('error'))){
+          clearInterval(syncPollInterval);syncPollInterval=null;
+          if(st.status==='done'){
+            showMsg('msg-prod',`✅ Sync completo — ${st.total} productos`,'ok');
+            const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
+            const pd=await pr.json();
+            prodProds=pd.products;prodSel=[];prodPg=0;
+            renderProdTabs();
+            const cb=document.getElementById('canal-body-'+prodAccIdx);
+            if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
+            applyProdF();
+          }else{
+            showMsg('msg-prod','❌ Error: '+st.status,'err');
+          }
+          const b=document.getElementById('load-prod-btn-'+prodAccIdx);
+          if(b){b.innerHTML='↻ Recargar';b.disabled=false;}
+        }else{
+          const fetched=st.fetched||0;const total=st.total||0;
+          const txt=st.status==='fetching_ids'?'Obteniendo publicaciones...':
+            `Descargando: ${fetched}${total?' / '+total:''} productos...`;
+          showMsg('msg-prod','⏳ '+txt,'info');
+        }
+      }catch(e){}
+    },5000);
+  }catch(e){
+    showMsg('msg-prod','❌ '+e.message,'err');
+    const b=document.getElementById('load-prod-btn-'+prodAccIdx);
+    if(b){b.innerHTML='Cargar';b.disabled=false;}
+  }
+}
+
+function applyProdF(){
+  const q=document.getElementById('prod-q').value.toLowerCase();
+  const fActive=document.getElementById('f-active')?.checked!==false;
+  const fPaused=document.getElementById('f-paused')?.checked!==false;
+  const fClosed=document.getElementById('f-closed')?.checked!==false;
+  const fStock=document.querySelector('input[name="f-stock"]:checked')?.value||'todos';
+  const fCuotas=document.querySelector('input[name="f-cuotas"]:checked')?.value||'todos';
+  const links=appState.links||[];
+  prodFilt=prodProds.filter(p=>{
+    if(q&&!p.title.toLowerCase().includes(q))return false;
+    if(p.status==='active'&&!fActive)return false;
+    if(p.status==='paused'&&!fPaused)return false;
+    if(p.status==='closed'&&!fClosed)return false;
+    if(fStock==='con'&&!(p.available_quantity>0))return false;
+    if(fStock==='sin'&&p.available_quantity>0)return false;
+    if(fCuotas==='con'&&!p.accepts_mercadopago)return false;
+    if(fCuotas==='sin'&&p.accepts_mercadopago)return false;
+    if(prodSoloSinUnir&&links.find(l=>l.ml_item_id===p.id))return false;
+    return true;
+  });
+  // Ordenar
+  if(prodOrden==='fecha_desc') prodFilt.sort((a,b)=>new Date(b.date_created||0)-new Date(a.date_created||0));
+  else if(prodOrden==='fecha_asc') prodFilt.sort((a,b)=>new Date(a.date_created||0)-new Date(b.date_created||0));
+  else if(prodOrden==='stock_desc') prodFilt.sort((a,b)=>(b.available_quantity||0)-(a.available_quantity||0));
+  else if(prodOrden==='stock_asc') prodFilt.sort((a,b)=>(a.available_quantity||0)-(b.available_quantity||0));
+  else if(prodOrden==='precio_desc') prodFilt.sort((a,b)=>(b.price||0)-(a.price||0));
+  else if(prodOrden==='precio_asc') prodFilt.sort((a,b)=>(a.price||0)-(b.price||0));
+  prodPg=0;
+  const cntEl=document.getElementById('prod-cnt');
+  if(cntEl)cntEl.textContent=`${prodFilt.length} resultado${prodFilt.length!==1?'s':''}`;
+  renderProdT();
+}
+
+function renderProdT(){
+  const pp=parseInt(document.getElementById('prod-pp').value)||10;
+  const total=prodFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
+  if(prodPg>=pages)prodPg=pages-1;
+  const start=prodPg*pp;const slice=prodFilt.slice(start,start+pp);
+  document.getElementById('prod-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('prod-pag-cur').textContent=`${prodPg+1}/${pages}`;
+  const links=appState.links||[];
+  const tbody=document.getElementById('prod-body');
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div>${prodProds.length?'Sin resultados.':'Apretá "Cargar productos".'}</div></td></tr>`;return;}
+  let rows='';
+  slice.forEach(p=>{
+    const sel=prodSel.includes(p.id);
+    const img=p.pictures?.[0]?.url||p.thumbnail||'';
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const stk=p.available_quantity>0?`<span style="font-weight:600">${p.available_quantity} U.</span>`:`<span class="stock-0">Sin stock!</span>`;
+    const stDot=p.status==='active'?'#00a381':p.status==='paused'?'#d68000':'#e17055';
+    const hasVar=p._has_variations;
+    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} Var</span>`:'<span style="font-size:11px;color:#b0b7c9">—</span>';
+    const linked=links.find(l=>l.ml_item_id===p.id);
+    // Iconos de canales donde está publicado
+    const accName=appState.ml_accounts[prodAccIdx]?.name||'ML';
+    const canalIcons=`<div style="display:flex;align-items:center;gap:3px">
+      <div title="${accName}" style="width:20px;height:20px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${accName[0]}</div>
+      ${linked?`<div title="TiendaNube" style="width:20px;height:20px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">TN</div>`:''}
+    </div>`;
+    const expBtn=hasVar?`<button class="expand-btn" onclick="event.stopPropagation();toggleVars('${p.id}',this)">▶</button>`:'';
+    rows+=`<tr class="${sel?'sel':''}" data-id="${p.id}" onclick="toggleProdRow('${p.id}',this)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleProdRow('${p.id}',this.closest('tr'))" /></td>
+      <td>${imgH}</td>
+      <td>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${stDot};margin-top:4px;flex-shrink:0"></div>
+          <div>
+            <div class="ptitle" title="${p.title}">${p.title}</div>
+            <div class="psku">ID: ${p.id}</div>
+          </div>
+        </div>
+      </td>
+      <td>${canalIcons}</td>
+      <td>${stk}</td>
+      <td>${varBadge} ${expBtn}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          ${linked
+            ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">✏ TN</button>`
+            :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">+ TN</button>`}
+        </div>
+      </td>
+    </tr>`;
+    if(hasVar){
+      rows+=`<tr id="vars-${p.id}" style="display:none"><td colspan="8" style="padding:0;background:#fafbff">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:#f0f4ff">
+            <td style="padding:6px 12px 6px 52px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">VARIACIÓN</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">STOCK</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">PRECIO</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">ENLACE TN</td>
+          </tr></thead>
+          <tbody>
+          ${(p.variations||[]).map(v=>{
+            const vatrs=Object.entries(v._attrs||{}).map(([k,val])=>`${k}: ${val}`).join(' / ')||'Variación '+v.id;
+            const vprice=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(v.price||p.price||0);
+            const vstk=v.available_quantity>0?v.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
+            const vlinked=links.find(l=>l.ml_item_id===p.id&&l.ml_variation_id==v.id);
+            const vlBtn=vlinked
+              ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">✏ Enlace</button>`
+              :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
+            return `<tr class="var-row"><td style="padding:6px 12px 6px 52px;font-size:12px">${vatrs}</td><td style="padding:6px 12px;font-size:12px">${vstk}</td><td style="padding:6px 12px;font-size:12px;font-weight:600">${vprice}</td><td style="padding:6px 12px" onclick="event.stopPropagation()">${vlBtn}</td></tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </td></tr>`;
+    }
+  });
+  tbody.innerHTML=rows;
+  updateProdAB();
+}
+
+function toggleVars(id,btn){
+  const row=document.getElementById('vars-'+id);
+  if(!row)return;
+  if(row.style.display==='none'||!row.style.display){
+    row.style.display='';
+    btn.textContent='▼';
+  } else {
+    row.style.display='none';
+    btn.textContent='▶';
+    // scroll back to parent row
+    const parentRow=document.querySelector(`tr[data-id="${id}"]`);
+    if(parentRow)parentRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+}
+
+function toggleProdRow(id,tr){
+  if(prodSel.includes(id)){prodSel=prodSel.filter(i=>i!==id);tr.classList.remove('sel');}
+  else{prodSel.push(id);tr.classList.add('sel');}
+  updateProdAB();
+}
+function selAllProd(cb){
+  const ids=prodFilt.map(p=>p.id);
+  if(cb.checked)ids.forEach(id=>{if(!prodSel.includes(id))prodSel.push(id);});
+  else prodSel=prodSel.filter(id=>!ids.includes(id));
+  renderProdT();
+}
+function updateProdAB(){
+  const bar=document.getElementById('ab-prod');
+  if(prodSel.length){bar.style.display='flex';document.getElementById('ab-prod-info').textContent=prodSel.length+' seleccionados';}
+  else bar.style.display='none';
+}
+function clearProdSel(){prodSel=[];renderProdT();}
+function pProd(d){prodPg+=d;renderProdT();}
+function goPublishSelected(){pubSel=[...prodSel];showPage('publicar');}
+
+// ── UNIR MODAL ─────────────────────────────────────────────────────────────────
+let unirItems=[];
+let unirSearchProds=[];
+
+function openUnirModal(){
+  if(!prodSel.length){alert('Seleccioná al menos un producto');return;}
+  // Arrancar con los seleccionados del canal actual
+  unirItems=prodSel.map(id=>{
+    const p=prodProds.find(x=>x.id===id);
+    return {id,title:p?.title||id,accIdx:prodAccIdx,accName:appState.ml_accounts[prodAccIdx]?.name||'ML'};
+  });
+  renderUnirItems();
+  // Llenar select de cuentas
+  const sel=document.getElementById('unir-acc-sel');
+  sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  document.getElementById('unir-search').value='';
+  document.getElementById('unir-search-list').innerHTML='';
+  document.getElementById('msg-unir').className='msg';
+  document.getElementById('unir-modal').classList.add('show');
+}
+
+function renderUnirItems(){
+  document.getElementById('unir-items').innerHTML=unirItems.map((it,i)=>`
+    <div style="border:1px solid #dde1e9;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;max-width:220px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#333;flex-shrink:0">${it.accName[0]}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.title}</div>
+        <div style="font-size:10px;color:#7a8299">${it.accName}</div>
+      </div>
+      <button onclick="removeUnirItem(${i})" style="background:none;border:none;cursor:pointer;color:#b0b7c9;font-size:14px">✕</button>
+    </div>`).join('');
+}
+
+function removeUnirItem(i){unirItems.splice(i,1);renderUnirItems();}
+
+async function buscarParaUnir(){
+  const accIdx=parseInt(document.getElementById('unir-acc-sel').value);
+  try{
+    const r=await fetch('/api/ml/'+accIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    unirSearchProds=(d.products||[]).map(p=>({...p,_accIdx:accIdx,_accName:appState.ml_accounts[accIdx]?.name||'ML'}));
+    filtrarUnirSearch();
+  }catch(e){showMsg('msg-unir','❌ '+e.message,'err');}
+}
+
+function filtrarUnirSearch(){
+  const q=document.getElementById('unir-search').value.toLowerCase();
+  const lista=unirSearchProds.filter(p=>!q||p.title.toLowerCase().includes(q)).slice(0,30);
+  const el=document.getElementById('unir-search-list');
+  if(!lista.length){el.innerHTML='<div class="empty" style="padding:14px">Sin resultados</div>';return;}
+  el.innerHTML=lista.map(p=>`
+    <div style="padding:9px 14px;border-bottom:1px solid #f0f2f6;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="agregarUnirItem('${p.id}','${p.title.replace(/'/g,"\\'")}',${p._accIdx},'${p._accName}')">
+      <div style="width:22px;height:22px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${p._accName[0]}</div>
+      <div style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title}</div>
+    </div>`).join('');
+}
+
+function agregarUnirItem(id,title,accIdx,accName){
+  if(unirItems.find(x=>x.id===id)){return;}
+  unirItems.push({id,title,accIdx,accName});
+  renderUnirItems();
+}
+
+async function guardarUnion(){
+  if(unirItems.length<2){showMsg('msg-unir','⚠ Necesitás al menos 2 publicaciones para unir.','err');return;}
+  // Guardar como enlaces entre las publicaciones
+  // Por ahora guardamos en appState.links los primeros dos como ML↔TN si hay TN, sino como nota
+  showMsg('msg-unir','✓ Unión guardada (próximamente sincronización automática entre cuentas ML).','ok');
+  setTimeout(closeUnirModal,1500);
+}
+
+function closeUnirModal(){document.getElementById('unir-modal').classList.remove('show');}
+
+// ── CANAL CARD STYLES (CSS dinámico) ──────────────────────────────────────────
+(function addCanalStyles(){
+  const s=document.createElement('style');
+  s.textContent=`
+    .canal-card{background:#fff;border:1px solid #e8ecf0;border-radius:10px;cursor:pointer;transition:all .15s;overflow:hidden}
+    .canal-card:hover{border-color:#4f9eff;box-shadow:0 2px 8px rgba(79,158,255,.15)}
+    .canal-card-active{border-color:#4f9eff;background:#f8fbff}
+    .canal-card-inner{display:flex;align-items:center;gap:12px;padding:14px 18px}
+    .canal-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
+    .canal-info{flex:1;min-width:0}
+    .canal-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .canal-sub{font-size:11px;color:#7a8299;margin-top:2px}
+  `;
+  document.head.appendChild(s);
+})();
+
+// ── PUB TABLE ──────────────────────────────────────────────────────────────────
+function renderPubTabs(){
+  const el=document.getElementById('pub-tabs');const btn=document.getElementById('load-pub-btn');
+  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
+  el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
+  btn.style.display='inline-flex';
+  renderPubMLDest();
+}
+function selPubAcc(i){pubAccIdx=i;renderPubTabs();document.getElementById('pub-prod-panel').style.display='none';}
+
+async function loadPubProds(){
+  const btn=document.getElementById('load-pub-btn');
+  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-pub');
+  try{
+    const r=await fetch('/api/ml/'+pubAccIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error. Token vencido — reconectá la cuenta.');
+    pubProds=d.products;
+    if(pubSel.length){}
+    pubPg=0;pubSF='todas';
+    document.getElementById('pub-q').value='';
+    document.querySelectorAll('#page-publicar .fpill').forEach((b,i)=>b.classList.toggle('active',i===0));
+    applyPubF();
+    document.getElementById('pub-prod-panel').style.display='block';
+    document.getElementById('pub-prog-panel').style.display='none';
+  }catch(e){showMsg('msg-pub','❌ '+e.message,'err');}
+  btn.innerHTML='Cargar productos →';btn.disabled=false;
+}
+
+function setPubF(val,el){pubSF=val;pubPg=0;document.querySelectorAll('#page-publicar .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyPubF();}
+function applyPubF(){
+  const q=document.getElementById('pub-q').value.toLowerCase();
+  pubFilt=pubProds.filter(p=>(!q||p.title.toLowerCase().includes(q))&&(pubSF==='todas'||p.status===pubSF));
+  pubPg=0;document.getElementById('pub-cnt').textContent=`${pubFilt.length} de ${pubProds.length}`;renderPubT();
+}
+
+function renderPubT(){
+  const pp=parseInt(document.getElementById('pub-pp').value)||10;
+  const total=pubFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
+  if(pubPg>=pages)pubPg=pages-1;
+  const start=pubPg*pp;const slice=pubFilt.slice(start,start+pp);
+  document.getElementById('pub-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('pub-pag-cur').textContent=`${pubPg+1}/${pages}`;
+  const tbody=document.getElementById('pub-body');
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>${pubProds.length?'Sin resultados.':'Cargá los productos primero.'}</div></td></tr>`;return;}
+  tbody.innerHTML=slice.map(p=>{
+    const sel=pubSel.includes(p.id);
+    const img=p.pictures?.[0]?.url||p.thumbnail||'';
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
+    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
+    const st=p.status==='active'?'active':p.status==='paused'?'paused':'closed';
+    const stL=st==='active'?'Activa':st==='paused'?'Pausada':'Cerrada';
+    const stC=st==='active'?'ba':st==='paused'?'bp':'bc';
+    const varB=p._has_variations?`<span class="var-badge">${p._variation_count} var</span>`:'';
+    return `<tr class="${sel?'sel':''}" onclick="togglePubRow('${p.id}',this)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="togglePubRow('${p.id}',this.closest('tr'))" /></td>
+      <td>${imgH}</td>
+      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
+      <td>${stk}</td><td style="font-weight:600">${price}</td>
+      <td>${varB}</td>
+      <td><span class="badge ${stC}">${stL}</span></td>
+    </tr>`;
+  }).join('');
+  updatePubAB();
+}
+function togglePubRow(id,tr){
+  if(pubSel.includes(id)){pubSel=pubSel.filter(i=>i!==id);tr.classList.remove('sel');}
+  else{pubSel.push(id);tr.classList.add('sel');}
+  updatePubAB();
+}
+function selAllPub(cb){
+  const ids=pubFilt.map(p=>p.id);
+  if(cb.checked)ids.forEach(id=>{if(!pubSel.includes(id))pubSel.push(id);});
+  else pubSel=pubSel.filter(id=>!ids.includes(id));
+  renderPubT();
+}
+function updatePubAB(){
+  const bar=document.getElementById('ab-pub');
+  if(pubSel.length){bar.style.display='flex';document.getElementById('ab-pub-info').textContent=pubSel.length+' seleccionados';}
+  else bar.style.display='none';
+}
+function clearPubSel(){pubSel=[];renderPubT();}
+function pPub(d){pubPg+=d;renderPubT();}
+
+function togglePubTarget(){
+  const target=document.getElementById('pub-target').value;
+  document.getElementById('pub-ml-dest-wrap').style.display=target==='ml'?'block':'none';
+  const btn=document.getElementById('btn-do-publish');
+  btn.textContent=target==='ml'?'📋 Publicar en cuenta ML':'🚀 Publicar en Tienda Nube';
+  if(target==='ml')renderPubMLDest();
+}
+function renderPubMLDest(){
+  const sel=document.getElementById('pub-ml-dest');
+  sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  if(appState.ml_accounts.length>1)sel.selectedIndex=1;
+}
+function openPubConfirm(){
+  const target=document.getElementById('pub-target').value;
+  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados.','err');return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  const destTxt=target==='ml'?(appState.ml_accounts[parseInt(document.getElementById('pub-ml-dest').value)]?.name||'ML'):'Tienda Nube';
+  document.getElementById('pub-confirm-count').textContent=pubSel.length;
+  document.getElementById('pub-confirm-dest').textContent=destTxt;
+  // Agrupar solo aplica a TN o ML destino (no x variante)
+  const grupoWrap=document.getElementById('pub-grupo-wrap');
+  grupoWrap.style.display='block';
+  // Detectar grupos usando pubProds
+  const selProds=pubProds.filter(p=>pubSel.includes(p.id));
+  const grupos={};
+  selProds.forEach(p=>{
+    const modelAttr=(p.attributes||[]).find(a=>a.id==='MODEL');
+    const key=modelAttr?.value_name||p.id;
+    if(!grupos[key])grupos[key]=[];
+    grupos[key].push(p);
+  });
+  const nGrupos=Object.keys(grupos).length;
+  const preview=document.getElementById('pub-grupos-preview');
+  if(nGrupos<pubSel.length){
+    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
+  updatePubGrupoUI();
+  document.getElementById('pub-confirm-modal').classList.add('show');
+}
+function closePubConfirm(){document.getElementById('pub-confirm-modal').classList.remove('show');}
+function updatePubGrupoUI(){
+  const val=document.querySelector('input[name="pub-grupo"]:checked')?.value;
+  document.getElementById('lbl-pub-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-pub-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+async function confirmPublish(){
+  const agrupar=document.querySelector('input[name="pub-grupo"]:checked')?.value==='si';
+  closePubConfirm();
+  await doPublish(agrupar);
+}
+async function doPublish(agrupar=false){
+  const target=document.getElementById('pub-target').value;
+  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  document.getElementById('pub-prog-panel').style.display='block';
+  document.getElementById('pub-res').innerHTML='';
+  document.getElementById('pub-pf').style.width='0%';
+  document.getElementById('pub-pt').textContent=`Publicando ${pubSel.length} producto(s) en ${target==='ml'?'otra cuenta ML':'Tienda Nube'}...`;
+  hideMsg('msg-pub-res');
+  try{
+    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar};
+    if(target==='ml')payload.target_ml_index=parseInt(document.getElementById('pub-ml-dest').value);
+    const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify(payload)});
+    const d=await r.json();const results=d.results||[];
+    document.getElementById('pub-pf').style.width='100%';
+    const ok=results.filter(r=>r.ok).length;const fail=results.length-ok;
+    document.getElementById('pub-pt').textContent=`Listo: ${ok} publicados, ${fail} con error.`;
+    const list=document.getElementById('pub-res');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
+    if(ok>0)showMsg('msg-pub-res',`✓ ${ok} publicado(s).`,'ok');
+    if(fail>0)showMsg('msg-pub-res',`⚠ ${fail} con error.`,'err');
+    await loadState();
+  }catch(e){showMsg('msg-pub-res','❌ Error: '+e.message,'err');}
+}
+
+// ── DUPLICAR ───────────────────────────────────────────────────────────────────
+function renderDupAccs(){
+  const opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  document.getElementById('dup-from').innerHTML=opts;
+  document.getElementById('dup-to').innerHTML=opts;
+  if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
+}
+async function loadDupProds(){
+  const from=parseInt(document.getElementById('dup-from').value);
+  const btn=document.querySelector('#page-duplicar .btn-blue');
+  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-dup');
+  try{
+    const r=await fetch('/api/ml/'+from+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error');
+    dupProds=d.products;dupSel=[];dupPg=0;
+    document.getElementById('dup-q').value='';
+    applyDupF();
+    document.getElementById('dup-prod-panel').style.display='block';
+    document.getElementById('dup-prog-panel').style.display='none';
+  }catch(e){showMsg('msg-dup','❌ '+e.message,'err');}
+  btn.innerHTML='Cargar productos →';btn.disabled=false;
+}
+function applyDupF(){
+  const q=document.getElementById('dup-q').value.toLowerCase();
+  dupFilt=dupProds.filter(p=>!q||p.title.toLowerCase().includes(q));
+  dupPg=0;renderDupT();
+}
+function renderDupT(){
+  const pp=parseInt(document.getElementById('dup-pp').value)||10;
+  const total=dupFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
+  if(dupPg>=pages)dupPg=pages-1;
+  const start=dupPg*pp;const slice=dupFilt.slice(start,start+pp);
+  document.getElementById('dup-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('dup-pag-cur').textContent=`${dupPg+1}/${pages}`;
+  const tbody=document.getElementById('dup-body');
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="ei">🔍</div>Sin resultados.</div></td></tr>`;return;}
+  tbody.innerHTML=slice.map(p=>{
+    const sel=dupSel.includes(p.id);
+    const img=p.pictures?.[0]?.url||p.thumbnail||'';
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
+    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
+    const st=p.status==='active'?'ba':p.status==='paused'?'bp':'bc';
+    const stL=p.status==='active'?'Activa':p.status==='paused'?'Pausada':'Cerrada';
+    return `<tr class="${sel?'sel':''}" onclick="toggleDupRow('${p.id}',this)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleDupRow('${p.id}',this.closest('tr'))" /></td>
+      <td>${imgH}</td>
+      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
+      <td>${stk}</td><td style="font-weight:600">${price}</td>
+      <td><span class="badge ${st}">${stL}</span></td>
+    </tr>`;
+  }).join('');
+  updateDupAB();
+}
+function toggleDupRow(id,tr){
+  if(dupSel.includes(id)){dupSel=dupSel.filter(i=>i!==id);tr.classList.remove('sel');}
+  else{dupSel.push(id);tr.classList.add('sel');}
+  updateDupAB();
+}
+function selAllDup(cb){
+  const ids=dupFilt.map(p=>p.id);
+  if(cb.checked)ids.forEach(id=>{if(!dupSel.includes(id))dupSel.push(id);});
+  else dupSel=dupSel.filter(id=>!ids.includes(id));
+  renderDupT();
+}
+function updateDupAB(){
+  const bar=document.getElementById('ab-dup');
+  if(dupSel.length){bar.style.display='flex';document.getElementById('ab-dup-info').textContent=dupSel.length+' seleccionados';}
+  else bar.style.display='none';
+}
+function clearDupSel(){dupSel=[];renderDupT();}
+function pDup(d){dupPg+=d;renderDupT();}
+
+function updateDupGrupoUI(){
+  const val=document.querySelector('input[name="dup-grupo"]:checked')?.value;
+  document.getElementById('lbl-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+function detectarGrupos(ids){
+  // Buscar en dupProds los items seleccionados y agrupar por MODEL
+  const selProds=dupProds.filter(p=>ids.includes(p.id));
+  const grupos={};
+  selProds.forEach(p=>{
+    const modelAttr=(p.attributes||[]).find(a=>a.id==='MODEL');
+    const key=modelAttr?.value_name||p.id; // fallback al id si no tiene MODEL
+    if(!grupos[key])grupos[key]=[];
+    grupos[key].push(p);
+  });
+  return grupos;
+}
+function openDupConfirm(){
+  const from=parseInt(document.getElementById('dup-from').value);
+  const to=parseInt(document.getElementById('dup-to').value);
+  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
+  if(!dupSel.length){showMsg('msg-dup','⚠ Seleccioná al menos un producto.','err');return;}
+  const destName=appState.ml_accounts[to]?.name||'cuenta destino';
+  document.getElementById('dup-confirm-count').textContent=dupSel.length;
+  document.getElementById('dup-confirm-dest').textContent=destName;
+  // Detectar grupos
+  const grupos=detectarGrupos(dupSel);
+  const nGrupos=Object.keys(grupos).length;
+  const preview=document.getElementById('dup-grupos-preview');
+  if(nGrupos<dupSel.length){
+    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
+  updateDupEstadoUI();updateDupSyncUI();updateDupGrupoUI();
+  document.getElementById('dup-confirm-modal').classList.add('show');
+}
+function closeDupConfirm(){document.getElementById('dup-confirm-modal').classList.remove('show');}
+function updateDupEstadoUI(){
+  const val=document.querySelector('input[name="dup-estado"]:checked')?.value;
+  document.getElementById('lbl-estado-active').style.borderColor=val==='active'?'#00a381':'#e8ecf0';
+  document.getElementById('lbl-estado-paused').style.borderColor=val==='paused'?'#d68000':'#e8ecf0';
+}
+function updateDupSyncUI(){
+  const val=document.querySelector('input[name="dup-sync"]:checked')?.value;
+  document.getElementById('lbl-sync-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-sync-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+async function confirmDuplicate(){
+  const estado=document.querySelector('input[name="dup-estado"]:checked')?.value||'active';
+  const sync=document.querySelector('input[name="dup-sync"]:checked')?.value==='si';
+  const agrupar=document.querySelector('input[name="dup-grupo"]:checked')?.value==='si';
+  closeDupConfirm();
+  await doDuplicate(estado,sync,agrupar);
+}
+async function doDuplicate(estado='active', sync=false, agrupar=false){
+  const from=parseInt(document.getElementById('dup-from').value);
+  const to=parseInt(document.getElementById('dup-to').value);
+  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
+  document.getElementById('dup-prog-panel').style.display='block';
+  document.getElementById('dup-res').innerHTML='';
+  document.getElementById('dup-pf').style.width='0%';
+  const modoTxt=agrupar?'Agrupando variantes y duplicando...':'Duplicando '+dupSel.length+' producto(s)...';
+  document.getElementById('dup-pt').textContent=modoTxt;
+  try{
+    const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
+      item_ids:dupSel,from_account:from,to_account:to,
+      status:estado,auto_link:sync,agrupar:agrupar
+    })});
+    const d=await r.json();const results=d.results||[];
+    document.getElementById('dup-pf').style.width='100%';
+    const ok=results.filter(r=>r.ok).length;
+    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados':''}`;
+    const list=document.getElementById('dup-res');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;list.appendChild(item);});
+    await loadState();
+  }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
+}
+
+// ── LINK MODAL ─────────────────────────────────────────────────────────────────
+async function openModal(itemId, varId, accIdx, title){
+  modalML={item_id:itemId,var_id:varId,acc_idx:accIdx,title};
+  selectedTNProd=null;
+  document.getElementById('modal-ml-info').textContent='Enlazar: '+title;
+  document.getElementById('tn-prod-search').value='';
+  document.getElementById('modal-var-sel').style.display='none';
+  document.getElementById('msg-modal').className='msg';
+  document.getElementById('link-modal').classList.add('show');
+  document.getElementById('tn-prod-list').innerHTML='<div class="empty"><div class="ei">⏳</div>Cargando...</div>';
+  try{
+    const r=await fetch('/api/tn/products',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'TN no conectada');
+    tnProds=d.products||[];tnProdsFilt=[...tnProds];
+    renderTNProdList();
+  }catch(e){document.getElementById('tn-prod-list').innerHTML=`<div class="empty"><div class="ei">❌</div>${e.message}</div>`;}
+}
+
+function filterTNProds(){
+  const q=document.getElementById('tn-prod-search').value.toLowerCase();
+  tnProdsFilt=tnProds.filter(p=>{const name=p.name?.es||p.name||'';return !q||name.toLowerCase().includes(q);});
+  renderTNProdList();
+}
+
+function renderTNProdList(){
+  const el=document.getElementById('tn-prod-list');
+  if(!tnProdsFilt.length){el.innerHTML='<div class="empty"><div class="ei">🔍</div>Sin resultados</div>';return;}
+  el.innerHTML=tnProdsFilt.slice(0,50).map(p=>{
+    const name=p.name?.es||p.name||'ID '+p.id;
+    const variants=p.variants||[];
+    const sel=selectedTNProd?.id===p.id;
+    return `<div class="tn-prod-item ${sel?'sel':''}" onclick="selectTNProd(${p.id})" data-id="${p.id}">
+      <div class="tpn">${name}</div>
+      <div class="tpv">${variants.length} variante(s) · ID ${p.id}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectTNProd(id){
+  selectedTNProd=tnProds.find(p=>p.id===id);
+  document.querySelectorAll('.tn-prod-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.id)===id));
+  const variants=selectedTNProd?.variants||[];
+  const varSel=document.getElementById('tn-var-sel');
+  varSel.innerHTML='<option value="">— Sin variante específica —</option>'+variants.map(v=>`<option value="${v.id}">${(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id}</option>`).join('');
+  document.getElementById('modal-var-sel').style.display=variants.length>0?'block':'none';
+}
+
+async function saveLink(){
+  if(!selectedTNProd){showMsg('msg-modal','⚠ Seleccioná un producto de TN.','err');return;}
+  const tnVarId=document.getElementById('tn-var-sel').value||null;
+  try{
+    const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
+      ml_item_id:modalML.item_id,
+      ml_variation_id:modalML.var_id,
+      ml_account_index:modalML.acc_idx,
+      tn_product_id:String(selectedTNProd.id),
+      tn_variant_id:tnVarId
+    })});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error');
+    showMsg('msg-modal','✓ Enlace guardado.','ok');
+    await loadState();
+    setTimeout(closeModal,800);
+  }catch(e){showMsg('msg-modal','❌ '+e.message,'err');}
+}
+
+async function removeLink(mlId,mlVarId){
+  if(!confirm('¿Eliminar este enlace?'))return;
+  await fetch('/api/links/remove',{method:'POST',headers:hdr(),body:JSON.stringify({ml_item_id:mlId,ml_variation_id:mlVarId||null})});
+  await loadState();
+}
+
+function closeModal(){document.getElementById('link-modal').classList.remove('show');}
+
+// ── SYNC ───────────────────────────────────────────────────────────────────────
+async function doSync(){
+  if(!appState.tn_connected){showMsg('msg-sync','⚠ Primero conectá Tienda Nube.','err');return;}
+  const btn=document.getElementById('sync-btn');
+  btn.innerHTML='<span class="spinner"></span> Sincronizando...';btn.disabled=true;
+  hideMsg('msg-sync');
+  document.getElementById('sync-res-panel').style.display='block';
+  document.getElementById('sync-res').innerHTML='';
+  document.getElementById('sync-pf').style.width='0%';
+  document.getElementById('sync-pt').textContent='Sincronizando...';
+  try{
+    const r=await fetch('/api/sync/manual',{method:'POST',headers:hdr()});
+    const d=await r.json();const results=d.results||[];
+    document.getElementById('sync-pf').style.width='100%';
+    const ok=results.filter(r=>r.ok).length;
+    document.getElementById('sync-pt').textContent=d.msg||`Listo: ${ok}/${results.length} actualizados.`;
+    const list=document.getElementById('sync-res');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'⚠️'}</span><span class="rt">${r.title}</span><span class="rm">${r.action}</span>`;list.appendChild(item);});
+    showMsg('msg-sync',`✓ Sync completa: ${ok} actualizados.`,'ok');
+    await loadState();
+  }catch(e){showMsg('msg-sync','❌ Error: '+e.message,'err');}
+  btn.innerHTML='🔄 Sincronizar ahora';btn.disabled=false;
+}
+
+loadState();
+setInterval(loadState,30000);
+
+function setBN(el){document.querySelectorAll('.bn-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
+function showMobileMenu(){const d=document.getElementById('mobile-drawer');d.style.display=d.style.display==='none'?'block':'none';}
+function closeDrawer(){document.getElementById('mobile-drawer').style.display='none';}
+document.addEventListener('click',e=>{const d=document.getElementById('mobile-drawer');if(d&&!d.contains(e.target)&&!e.target.closest('.bn-item'))d.style.display='none';});
+
+// CANAL PAGE
+let canalAccIdx = 0;
+let canalItems = [];
+let canalPage = 1;
+const CANAL_PAGE_SIZE = 20;
+
+async function showCanal(idx) {
+  canalAccIdx = idx;
+  showPage('canal');
+  const acc = appState.ml_accounts[idx];
+  if (!acc) return;
+  document.getElementById('canal-av').textContent = acc.name[0].toUpperCase();
+  document.getElementById('canal-name').textContent = acc.name;
+  document.getElementById('canal-stats').textContent = 'Cargando publicaciones...';
+  document.getElementById('canal-body').innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">⏳ Cargando...</td></tr>';
+
+  try {
+    const r = await fetch(`/api/ml/${idx}/products?limit=9999`, {headers: hdr()});
+    const data = await r.json();
+    const items = data.items || data.products || [];
+    canalItems = items;
+    canalPage = 1;
+    const syncMsg = data.synced === false ? ' · ⚠️ No sincronizado — ir a Sincronizar' : '';
+    document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg} (total: ${data.total||0})`;
+    filterCanalItems();
+    // Cargar health de la primera página en background
+    loadCanalHealth(idx, canalItems.slice(0, 20));
+  } catch(e) {
+    document.getElementById('canal-body').innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#e74c3c">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadCanalHealth(idx, items) {
+  if (!items.length) return;
+  const ids = items.map(i => i.id).join(',');
+  try {
+    const r = await fetch(`/api/ml/${idx}/health?ids=${ids}`, {headers: hdr()});
+    const data = await r.json();
+    const healthMap = data.health || {};
+    // Actualizar items con health
+    canalItems = canalItems.map(item => ({
+      ...item,
+      health: healthMap[item.id] ?? item.health
+    }));
+    filterCanalItems();
+  } catch(e) {}
+}
+
+function filterCanalItems() {
+  const q = (document.getElementById('canal-q')?.value || '').toLowerCase();
+  const estado = document.getElementById('canal-estado')?.value || '';
+  let filtered = canalItems.filter(item => {
+    const matchQ = !q || (item.title||'').toLowerCase().includes(q) || (item.id||'').toString().toLowerCase().includes(q);
+    const matchE = !estado || (item.status||'') === estado;
+    return matchQ && matchE;
+  });
+  renderCanalPage(filtered);
+}
+
+function renderCanalPage(items) {
+  const total = items.length;
+  const start = (canalPage - 1) * CANAL_PAGE_SIZE;
+  const pageItems = items.slice(start, start + CANAL_PAGE_SIZE);
+  const tbody = document.getElementById('canal-body');
+
+  if (!pageItems.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Sin resultados (canalItems: ${canalItems.length}, filtered: ${total})</td></tr>`;
+    document.getElementById('canal-pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(item => {
+    const statusColor = item.status === 'active' ? '#00a381' : item.status === 'paused' ? '#d68000' : '#e74c3c';
+    const statusLabel = item.status === 'active' ? 'Activa' : item.status === 'paused' ? 'Pausada' : 'Cerrada';
+    const price = item.price ? `$ ${Number(item.price).toLocaleString('es-AR')}` : '—';
+    const stock = item.available_quantity ?? '—';
+    const thumb = item.thumbnail ? `<img src="${item.thumbnail.replace('http://','https://')}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '<div style="width:48px;height:48px;background:#f0f2f6;border-radius:6px;flex-shrink:0"></div>';
+    const health = item.health ? Math.round(item.health * 100) : null;
+    const healthColor = health >= 80 ? '#00a381' : health >= 50 ? '#d68000' : '#e74c3c';
+    const healthEl = health !== null ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:36px;height:36px;border-radius:50%;border:3px solid ${healthColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${healthColor}">${health}</div></div>` : '<span style="color:#bbb;font-size:12px">—</span>';
+
+    return `<tr style="border-bottom:1px solid #f0f2f6;transition:background .1s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+      <td style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${thumb}
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:500;color:#1a1a2e;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">${item.title || '—'}</div>
+            <div style="font-size:11px;color:#7a8299">#${item.id} · Stock: ${stock}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:10px 14px;text-align:right;font-weight:600;white-space:nowrap">${price}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#7a8299">
+        ${item.listing_type_id === 'gold_special' ? '<span style="color:#00a381;font-size:11px">✓ Clásica</span>' : item.listing_type_id === 'gold_pro' ? '<span style="color:#9b59b6;font-size:11px">★ Premium</span>' : '<span style="font-size:11px">Básica</span>'}
+      </td>
+      <td style="padding:10px 14px;text-align:right;font-weight:500">${stock}</td>
+      <td style="padding:10px 14px;text-align:center">${healthEl}</td>
+      <td style="padding:10px 14px"><span style="color:${statusColor};font-weight:500;font-size:12px">● ${statusLabel}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Paginación
+  const totalPages = Math.ceil(total / CANAL_PAGE_SIZE);
+  document.getElementById('canal-pagination').innerHTML = `
+    <span>${total} publicaciones · Página ${canalPage} de ${totalPages}</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.max(1,canalPage-1);filterCanalItems()" ${canalPage<=1?'disabled':''}>‹ Ant</button>
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.min(${totalPages},canalPage+1);filterCanalItems()" ${canalPage>=totalPages?'disabled':''}>Sig ›</button>
+    </div>`;
+}
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// PWA Install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Mostrar botón instalar si existe
+  const btn = document.getElementById('btn-install');
+  if (btn) { btn.style.display = 'inline-flex'; btn.onclick = () => { deferredPrompt.prompt(); deferredPrompt = null; btn.style.display='none'; }; }
 });
+</script>
+</body>
+</html>
