@@ -1921,7 +1921,7 @@ async function showCanal(idx) {
   document.getElementById('canal-body').innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">⏳ Cargando...</td></tr>';
 
   try {
-    const r = await fetch(`/api/ml/${idx}/products?limit=9999`);
+    const r = await fetch(`/api/ml/${idx}/products?limit=9999`, {headers: hdr()});
     const data = await r.json();
     canalItems = data.items || data.products || [];
     canalPage = 1;
@@ -1938,7 +1938,7 @@ async function loadCanalHealth(idx, items) {
   if (!items.length) return;
   const ids = items.map(i => i.id).join(',');
   try {
-    const r = await fetch(`/api/ml/${idx}/health?ids=${ids}`);
+    const r = await fetch(`/api/ml/${idx}/health?ids=${ids}`, {headers: hdr()});
     const data = await r.json();
     const healthMap = data.health || {};
     // Actualizar items con health
