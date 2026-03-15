@@ -696,7 +696,11 @@ async def duplicate(req: Request, _=Depends(auth)):
                 # Buscar guías de la cuenta destino
                 search_r = await c.post(f"{ML_API}/catalog/charts/search",
                     headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                    json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS"})
+                    json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS",
+                          "attributes":[
+                              {"id":"GENDER","values":[{"name":"Mujer"}]},
+                              {"id":"BRAND","values":[{"name": brand or ""}]}
+                          ]})
 
                 charts = []
                 if search_r.status_code == 200:
@@ -1098,7 +1102,11 @@ async def diag_charts_search(domain: str = "BRAS", brand: str = "Maxima"):
             to_uid = me_r.json().get("id","")
             r = await c.post(f"{ML_API}/catalog/charts/search",
                 headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain})
+                json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain,
+                      "attributes":[
+                          {"id":"GENDER","values":[{"name":"Mujer"}]},
+                          {"id":"BRAND","values":[{"name":brand}]}
+                      ]})
             return {"uid": to_uid, "domain": domain, "status": r.status_code, "body": r.json()}
     except Exception as e:
         return {"exception": str(e)}
