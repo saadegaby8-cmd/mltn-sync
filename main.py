@@ -948,7 +948,29 @@ async def diag_item(item_id: str):
     except Exception as e:
         return {"exception": str(e)}
 
-@app.get("/diag/sizechart/{item_id}")
+@app.get("/diag/sizecharts_cat/{category_id}")
+async def diag_sizecharts_cat(category_id: str, brand: str = "", gender_id: str = ""):
+    """Buscar guía de talles por marca como hace Astroselling"""
+    try:
+        from_t = await fresh_token(0)
+        async with httpx.AsyncClient(timeout=30) as c:
+            results = {}
+            endpoints = [
+                f"/size_charts/search?q={brand}&category_id={category_id}",
+                f"/size_charts/search?brand={brand}&category_id={category_id}",
+                f"/size_charts/search?q={brand}",
+                f"/size_charts?q={brand}&category_id={category_id}",
+                f"/size_charts?brand_name={brand}&category_id={category_id}",
+            ]
+            for ep in endpoints:
+                r = await c.get(f"{ML_API}{ep}",
+                    headers={"Authorization": f"Bearer {from_t}"})
+                results[ep] = {"status": r.status_code, "body": r.text[:500]}
+            return {"category_id": category_id, "brand": brand, "results": results}
+    except Exception as e:
+        return {"exception": str(e)}
+
+
 async def diag_sizechart(item_id: str):
     if len(ST["accounts"]) < 2:
         return {"error": "Necesitás 2 cuentas"}
@@ -1049,13 +1071,12 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
-                "family_name": "Maxima 1018",  # marca + modelo
                 "attributes": [
-                    {"id":"BRAND","value_name": brand_name},
-                    {"id":"MODEL","value_name": model_name},
-                    {"id":"family_name","value_name":"Maxima 1018"},
+                    {"id":"BRAND","value_name":"Maxima"},
+                    {"id":"MODEL","value_name":"1018"},
                     {"id":"COLOR","value_name":"Surtido"},
                     {"id":"SIZE","value_id":"100"},
+                    {"id":"family_name","value_name":"Maxima Corpiño 1018"},
                 ],
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
