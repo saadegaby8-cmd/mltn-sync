@@ -1071,13 +1071,13 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
-                "family_name": "Maxima Corpiño 1018",
                 "attributes": [
                     {"id":"BRAND","value_name":"Maxima"},
                     {"id":"MODEL","value_name":"1018"},
                     {"id":"COLOR","value_name":"Surtido"},
                     {"id":"SIZE","value_id":"100"},
                     {"id":"SIZE_GRID_ID","value_name":"2556917"},
+                    {"id":"GENDER","value_id":"339665"},
                 ],
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
