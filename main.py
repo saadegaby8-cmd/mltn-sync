@@ -1077,6 +1077,7 @@ async def diag_testdup(item_id: str):
                     {"id":"COLOR","value_name":"Surtido"},
                     {"id":"SIZE","value_id":"100"},
                     {"id":"family_name","value_name":"Maxima Corpiño 1018"},
+                    {"id":"SIZE_GRID_ID","value_name":"2556917"},
                 ],
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
