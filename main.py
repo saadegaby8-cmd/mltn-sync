@@ -1065,8 +1065,9 @@ async def diag_testdup(item_id: str):
             # Verificar si cuenta destino tiene user_product_seller tag
             me_r2 = await c.get(f"{ML_API}/users/{to_uid}", headers={"Authorization": f"Bearer {to_t}"})
             dest_tags = me_r2.json().get("tags", [])
+            # SHAMPOOSHIR es user_product_seller — usar modelo nuevo sin title
             payload = {
-                "title": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
+                "family_name": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
                 "category_id": item.get("category_id",""),
                 "price": item.get("price",0),
                 "currency_id": item.get("currency_id","ARS"),
