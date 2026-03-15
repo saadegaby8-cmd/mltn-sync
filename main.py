@@ -1088,6 +1088,21 @@ async def diag_item(item_id: str):
     except Exception as e:
         return {"exception": str(e)}
 
+@app.get("/diag/charts_search")
+async def diag_charts_search(domain: str = "BRAS", brand: str = "Maxima"):
+    """Buscar guías de talles en cuenta destino (índice 1)"""
+    try:
+        to_t = await fresh_token(1)
+        async with httpx.AsyncClient(timeout=15) as c:
+            me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
+            to_uid = me_r.json().get("id","")
+            r = await c.post(f"{ML_API}/catalog/charts/search",
+                headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain})
+            return {"uid": to_uid, "domain": domain, "status": r.status_code, "body": r.json()}
+    except Exception as e:
+        return {"exception": str(e)}
+
 @app.get("/diag/copy_chart/{chart_id}")
 async def diag_copy_chart(chart_id: str):
     """Leer guía con token del dueño"""
