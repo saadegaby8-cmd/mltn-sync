@@ -885,8 +885,10 @@ function toggleSec(id){
 }
 
 function showPage(name){
+  const target = document.getElementById('page-'+name);
+  if (!target) { console.warn('Page not found: page-'+name); return; }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
+  target.classList.add('active');
   document.querySelectorAll('.nav-i,.nav-sub').forEach(n=>n.classList.remove('active'));
   if(name==='inicio')document.querySelector('.nav-i').classList.add('active');
   if(name==='productos'||name==='publicar'||name==='duplicar'){
