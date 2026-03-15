@@ -346,7 +346,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       </div>
 
       <!-- CANAL -->
-      <div class="page" id="page-canal" style="display:none">
+      <div class="page" id="page-canal">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:10px;flex:1">
             <div id="canal-av" style="width:36px;height:36px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">L</div>
@@ -1921,13 +1921,31 @@ async function showCanal(idx) {
   try {
     const r = await fetch(`/api/ml/${idx}/products?limit=9999`);
     const data = await r.json();
-    canalItems = data.items || [];
+    canalItems = data.items || data.products || [];
     canalPage = 1;
     document.getElementById('canal-stats').textContent = `${canalItems.length} publicaciones`;
     filterCanalItems();
+    // Cargar health de la primera página en background
+    loadCanalHealth(idx, canalItems.slice(0, 20));
   } catch(e) {
     document.getElementById('canal-body').innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#e74c3c">Error: ${e.message}</td></tr>`;
   }
+}
+
+async function loadCanalHealth(idx, items) {
+  if (!items.length) return;
+  const ids = items.map(i => i.id).join(',');
+  try {
+    const r = await fetch(`/api/ml/${idx}/health?ids=${ids}`);
+    const data = await r.json();
+    const healthMap = data.health || {};
+    // Actualizar items con health
+    canalItems = canalItems.map(item => ({
+      ...item,
+      health: healthMap[item.id] ?? item.health
+    }));
+    filterCanalItems();
+  } catch(e) {}
 }
 
 function filterCanalItems() {
