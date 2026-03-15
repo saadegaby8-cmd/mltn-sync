@@ -979,7 +979,9 @@ async def duplicate(req: Request, _=Depends(auth)):
                     try:
                         err = r2.json()
                         causes = err.get("cause", [])
-                        msg = ", ".join([c2.get("code","") for c2 in causes[:3]]) if causes else err.get("message", f"Error {r2.status_code}")
+                        # Solo mostrar errores reales, ignorar warnings
+                        real_errors = [c2 for c2 in causes if c2.get("type") == "error"]
+                        msg = ", ".join([c2.get("message", c2.get("code","")) for c2 in real_errors[:3]]) if real_errors else err.get("message", f"Error {r2.status_code}")
                     except Exception:
                         msg = f"Error {r2.status_code}"
 
