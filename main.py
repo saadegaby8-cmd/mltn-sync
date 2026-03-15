@@ -340,10 +340,32 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
         products = [p for p in products if s in p.get("title","").lower()]
     total = len(products)
     if limit >= 9999:
-        return {"products": products, "total": total, "synced": True, "page": 1, "limit": total}
+        return {"items": products, "total": total, "synced": True, "page": 1, "limit": total}
     start = (page-1)*limit
     page_products = products[start:start+limit]
-    return {"products": page_products, "total": total, "synced": True, "page": page, "limit": limit}
+    return {"items": page_products, "total": total, "synced": True, "page": page, "limit": limit}
+
+@app.get("/api/ml/{i}/health")
+async def get_items_health(i: int, ids: str = "", _=Depends(auth)):
+    """Obtener health/calidad de un batch de items"""
+    if i < 0 or i >= len(ST["accounts"]):
+        raise HTTPException(404)
+    if not ids:
+        return {"health": {}}
+    token = await fresh_token(i)
+    id_list = ids.split(",")[:20]
+    health_map = {}
+    async with httpx.AsyncClient(timeout=20) as c:
+        for item_id in id_list:
+            try:
+                r = await c.get(f"{ML_API}/items/{item_id}/health",
+                               headers={"Authorization": f"Bearer {token}"})
+                if r.status_code == 200:
+                    health_map[item_id] = r.json().get("health", None)
+            except Exception:
+                pass
+            await asyncio.sleep(0.2)
+    return {"health": health_map}
 
 @app.get("/api/tn/products")
 async def get_tn_products(_=Depends(auth)):
