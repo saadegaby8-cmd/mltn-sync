@@ -1037,37 +1037,39 @@ async def duplicate(req: Request, _=Depends(auth)):
                             attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(dest_chart["chart_id"])})
                             row_id = dest_chart["rows"].get(size_val)
                             if not row_id:
-                                # Agregar el talle faltante a la guía destino via PUT
+                                # Agregar el talle faltante via POST /catalog/charts/{id}/rows
                                 try:
                                     async with httpx.AsyncClient(timeout=20) as cc:
-                                        # Leer guía completa actual
-                                        gr = await cc.get(
-                                            f"{ML_API}/catalog/charts/{dest_chart['chart_id']}",
-                                            headers={"Authorization": f"Bearer {to_t}"}
+                                        # Leer guía original para copiar el row con todos sus atributos
+                                        orig_chart_r = await cc.get(
+                                            f"{ML_API}/catalog/charts/{orig_chart_id}",
+                                            headers={"Authorization": f"Bearer {from_t}"}
                                         )
-                                        if gr.status_code == 200:
-                                            chart_data = gr.json()
-                                            existing_rows = chart_data.get("rows", [])
-                                            # Armar nuevo row sin IDs
-                                            new_row = {"attributes": [{"id": "SIZE", "values": [{"name": size_val}]}]}
-                                            rows_payload = []
-                                            for r in existing_rows:
-                                                rows_payload.append({"attributes": r.get("attributes", [])})
-                                            rows_payload.append(new_row)
-                                            put_r = await cc.put(
-                                                f"{ML_API}/catalog/charts/{dest_chart['chart_id']}",
-                                                headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                                                json={"rows": rows_payload}
-                                            )
-                                            if put_r.status_code in (200, 201):
-                                                updated = put_r.json()
-                                                for r in (updated.get("rows") or []):
-                                                    rid2 = r.get("id", "")
-                                                    sv2 = next((v.get("name","") for a in r.get("attributes",[])
-                                                                if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                                                    if sv2 and rid2:
-                                                        dest_chart["rows"][sv2] = rid2
-                                                row_id = dest_chart["rows"].get(size_val)
+                                        orig_row_data = None
+                                        if orig_chart_r.status_code == 200:
+                                            for r in (orig_chart_r.json().get("rows") or []):
+                                                sv = next((v.get("name","") for a in r.get("attributes",[])
+                                                           if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                                                if sv == size_val:
+                                                    orig_row_data = r
+                                                    break
+                                        # Armar payload del nuevo row limpiando IDs
+                                        if orig_row_data:
+                                            new_row_attrs = []
+                                            for a in orig_row_data.get("attributes", []):
+                                                new_row_attrs.append({"id": a["id"], "values": a.get("values", [])})
+                                        else:
+                                            new_row_attrs = [{"id": "SIZE", "values": [{"name": size_val}]}]
+                                        add_r = await cc.post(
+                                            f"{ML_API}/catalog/charts/{dest_chart['chart_id']}/rows",
+                                            headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                                            json={"attributes": new_row_attrs}
+                                        )
+                                        if add_r.status_code in (200, 201):
+                                            added = add_r.json()
+                                            row_id = added.get("id", "")
+                                            if row_id:
+                                                dest_chart["rows"][size_val] = row_id
                                 except Exception:
                                     pass
                             if row_id:
