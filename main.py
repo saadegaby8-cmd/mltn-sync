@@ -1066,6 +1066,20 @@ async def diag_testdup(item_id: str):
             me_r2 = await c.get(f"{ML_API}/users/{to_uid}", headers={"Authorization": f"Bearer {to_t}"})
             dest_tags = me_r2.json().get("tags", [])
             # SHAMPOOSHIR es user_product_seller — usar modelo nuevo sin title
+            # Usar todos los atributos del item original
+            up_attrs = []
+            for a in (item.get("attributes") or []):
+                aid = a.get("id","")
+                if aid in ("SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
+                           "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE"):
+                    continue
+                if aid == "SIZE_GRID_ID":
+                    up_attrs.append({"id":"SIZE_GRID_ID","value_name":"2556917"})
+                    continue
+                if a.get("value_id"):
+                    up_attrs.append({"id":aid,"value_id":a["value_id"]})
+                elif a.get("value_name"):
+                    up_attrs.append({"id":aid,"value_name":a["value_name"]})
             payload = {
                 "family_name": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
                 "category_id": item.get("category_id",""),
@@ -1075,14 +1089,7 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
-                "attributes": [
-                    {"id":"BRAND","value_name":"Maxima"},
-                    {"id":"MODEL","value_name":"1018"},
-                    {"id":"COLOR","value_name":"Surtido"},
-                    {"id":"SIZE","value_id":"100"},
-                    {"id":"SIZE_GRID_ID","value_name":"2556917"},
-                    {"id":"GENDER","value_id":"339665"},
-                ],
+                "attributes": up_attrs,
             }
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
             resp = r2.json()
