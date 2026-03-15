@@ -1113,14 +1113,19 @@ async def diag_testdup(item_id: str):
                 "pictures": [],
                 "attributes": up_attrs,
             }
-            # Mapear SIZE_GRID_ROW_ID de guía LENCERIA a guía SHAMPOOSHIR
-            # Guía 2556917: fila 1=S/M,2=85,3=90,4=L/XL,5=95,6=100,7=2XL,8=105,9=110,10=3XL,11=115,12=120,13=125
+            # Mapa correcto SIZE → ROW_ID para guía 2556917 de SHAMPOOSHIR
+            CHART_2556917 = {
+                "S/M":"2556917:1","85":"2556917:5","90":"2556917:6","L/XL":"2556917:2",
+                "95":"2556917:7","100":"2556917:8","2XL":"2556917:3","105":"2556917:9",
+                "110":"2556917:10","3XL":"2556917:4","115":"2556917:11","120":"2556917:12","125":"2556917:13"
+            }
+            size_val = next((x.get("value_name","") for x in payload["attributes"] if x.get("id")=="SIZE"), "")
             for i, a in enumerate(payload["attributes"]):
                 if a.get("id") == "SIZE_GRID_ROW_ID":
-                    orig = a.get("value_name","")
-                    # Reemplazar chart_id en el row_id
-                    new_row = orig.replace("2504917", "2556917")
-                    payload["attributes"][i] = {"id":"SIZE_GRID_ROW_ID","value_name":new_row}
+                    mapped = CHART_2556917.get(size_val)
+                    if mapped:
+                        payload["attributes"][i] = {"id":"SIZE_GRID_ROW_ID","value_name":mapped}
+                    break
             r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
             resp = r2.json()
             if r2.status_code in (200,201):
