@@ -1091,7 +1091,15 @@ async def diag_testdup(item_id: str):
                 "pictures": [],
                 "attributes": up_attrs,
             }
-            r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
+            # Mapear SIZE_GRID_ROW_ID de guía LENCERIA a guía SHAMPOOSHIR
+            # Guía 2556917: fila 1=S/M,2=85,3=90,4=L/XL,5=95,6=100,7=2XL,8=105,9=110,10=3XL,11=115,12=120,13=125
+            for i, a in enumerate(payload["attributes"]):
+                if a.get("id") == "SIZE_GRID_ROW_ID":
+                    orig = a.get("value_name","")
+                    # Reemplazar chart_id en el row_id
+                    new_row = orig.replace("2504917", "2556917")
+                    payload["attributes"][i] = {"id":"SIZE_GRID_ROW_ID","value_name":new_row}
+            r2 = await c.post(f"{ML_API}/items", headers={{"Authorization": f"Bearer {to_t}"}}, json=payload)
             resp = r2.json()
             if r2.status_code in (200,201):
                 new_id = resp.get("id")
