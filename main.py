@@ -1206,14 +1206,36 @@ async def diag_copy_chart(chart_id: str):
     try:
         from_t = await fresh_token(0)
         to_t = await fresh_token(1)
+        t2 = await fresh_token(2)
         async with httpx.AsyncClient(timeout=30) as c:
-            # Probar con ambos tokens
             r0 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {from_t}"})
             r1 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {to_t}"})
+            r2 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {t2}"})
             return {
                 "with_account_0": {"status": r0.status_code, "chart": r0.json()},
                 "with_account_1": {"status": r1.status_code, "chart": r1.json()},
+                "with_account_2": {"status": r2.status_code, "chart": r2.json()},
             }
+    except Exception as e:
+        return {"exception": str(e)}
+
+@app.get("/diag/chart_rows/{chart_id}")
+async def diag_chart_rows(chart_id: str, acc: int = 2):
+    """Ver rows de una guía de talles con cuenta específica"""
+    try:
+        t = await fresh_token(acc)
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {t}"})
+            if r.status_code != 200:
+                return {"error": r.status_code, "body": r.text}
+            chart = r.json()
+            rows = []
+            for row in (chart.get("rows") or []):
+                rid = row.get("id", "")
+                size_val = next((v.get("name","") for a in row.get("attributes",[])
+                                 if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                rows.append({"row_id": rid, "size": size_val, "raw": row})
+            return {"chart_id": chart_id, "name": chart.get("names"), "domain": chart.get("domain_id"), "rows": rows}
     except Exception as e:
         return {"exception": str(e)}
 
