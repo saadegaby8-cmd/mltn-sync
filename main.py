@@ -950,13 +950,18 @@ async def diag_item(item_id: str):
 
 @app.get("/diag/copy_chart/{chart_id}")
 async def diag_copy_chart(chart_id: str):
-    """Leer guía de LENCERIA con catalog/charts endpoint"""
+    """Leer guía con token del dueño"""
     try:
         from_t = await fresh_token(0)
+        to_t = await fresh_token(1)
         async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{ML_API}/catalog/charts/{chart_id}",
-                           headers={"Authorization": f"Bearer {from_t}"})
-            return {"status": r.status_code, "chart": r.json()}
+            # Probar con ambos tokens
+            r0 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {from_t}"})
+            r1 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {to_t}"})
+            return {
+                "with_account_0": {"status": r0.status_code, "chart": r0.json()},
+                "with_account_1": {"status": r1.status_code, "chart": r1.json()},
+            }
     except Exception as e:
         return {"exception": str(e)}
 
