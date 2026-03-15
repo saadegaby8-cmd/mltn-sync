@@ -1970,7 +1970,7 @@ function renderCanalPage(items) {
   const tbody = document.getElementById('canal-body');
 
   if (!pageItems.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Sin resultados</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Sin resultados (canalItems: ${canalItems.length}, filtered: ${total})</td></tr>`;
     document.getElementById('canal-pagination').innerHTML = '';
     return;
   }
