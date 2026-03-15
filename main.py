@@ -735,6 +735,65 @@ async def duplicate(req: Request, _=Depends(auth)):
             pass
         return None
 
+    async def copy_chart_to_dest(orig_chart_id: str, domain_id: str = ""):
+        """Copiar guía de talles de cuenta origen a cuenta destino"""
+        cache_key = f"copy_{orig_chart_id}"
+        if cache_key in dest_charts_cache:
+            return dest_charts_cache[cache_key]
+        try:
+            async with httpx.AsyncClient(timeout=20) as c:
+                # Leer guía original con token origen
+                r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
+                               headers={"Authorization": f"Bearer {from_t}"})
+                if r.status_code != 200:
+                    return None
+                orig = r.json()
+
+                # Armar payload para crear la guía en destino
+                new_chart = {
+                    "names": orig.get("names", {"MLA": "Guía de talles"}),
+                    "domain_id": orig.get("domain_id") or domain_id or "BRAS",
+                    "site_id": orig.get("site_id", "MLA"),
+                    "main_attribute": {"attributes": [{"site_id": "MLA", "id": orig.get("main_attribute_id", "SIZE")}]},
+                    "attributes": orig.get("attributes", []),
+                    "rows": []
+                }
+                if orig.get("measure_type"):
+                    new_chart["measure_type"] = orig["measure_type"]
+
+                # Copiar rows — limpiar IDs
+                for row in (orig.get("rows") or []):
+                    new_row = {"attributes": []}
+                    for a in row.get("attributes", []):
+                        new_row["attributes"].append({
+                            "id": a["id"],
+                            "values": a.get("values", [])
+                        })
+                    new_chart["rows"].append(new_row)
+
+                r2 = await c.post(f"{ML_API}/catalog/charts",
+                                 headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                                 json=new_chart)
+
+                if r2.status_code in (200, 201):
+                    new_chart_data = r2.json()
+                    new_id = str(new_chart_data.get("id",""))
+                    # Cargar los rows del nuevo chart
+                    row_map = {}
+                    for row in (new_chart_data.get("rows") or []):
+                        rid = row.get("id","")
+                        size_val2 = next((v.get("name","") for a in row.get("attributes",[])
+                                         if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                        if size_val2 and rid:
+                            row_map[size_val2] = rid
+                    result = {"chart_id": new_id, "rows": row_map}
+                    dest_charts_cache[cache_key] = result
+                    dest_charts_cache[orig_chart_id] = result  # también cachear por ID original
+                    return result
+        except Exception:
+            pass
+        return None
+
     await get_dest_user_info()
 
     results = []
@@ -949,14 +1008,22 @@ async def duplicate(req: Request, _=Depends(auth)):
                         except Exception:
                             pass
                         dest_chart = await load_dest_chart(str(orig_chart_id), cat_domain, brand_val)
+                        if not dest_chart:
+                            # Intentar copiar la guía automáticamente
+                            dest_chart = await copy_chart_to_dest(str(orig_chart_id), cat_domain)
                         if dest_chart:
                             attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(dest_chart["chart_id"])})
                             row_id = dest_chart["rows"].get(size_val)
                             if row_id:
                                 attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":row_id})
-                        elif orig_row_id:
-                            attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
-                            attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":orig_row_id})
+                            else:
+                                results.append({"id": iid, "title": item.get("title", iid), "ok": False,
+                                    "msg": f"⚠️ El talle '{size_val}' no existe en la guía de talles de la cuenta destino. Revisá la guía en mercadolibre.com.ar/moda/talles/"})
+                                continue
+                        else:
+                            results.append({"id": iid, "title": item.get("title", iid), "ok": False,
+                                "msg": f"⚠️ No se encontró guía de talles para la marca '{brand_val}' en la cuenta destino y no se pudo copiar automáticamente. Creá una en mercadolibre.com.ar/moda/talles/"})
+                            continue
                     else:
                         attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
                         if orig_row_id:
