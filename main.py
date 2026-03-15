@@ -948,6 +948,18 @@ async def diag_item(item_id: str):
     except Exception as e:
         return {"exception": str(e)}
 
+@app.get("/diag/copy_chart/{chart_id}")
+async def diag_copy_chart(chart_id: str):
+    """Leer guía de LENCERIA con catalog/charts endpoint"""
+    try:
+        from_t = await fresh_token(0)
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.get(f"{ML_API}/catalog/charts/{chart_id}",
+                           headers={"Authorization": f"Bearer {from_t}"})
+            return {"status": r.status_code, "chart": r.json()}
+    except Exception as e:
+        return {"exception": str(e)}
+
 @app.get("/diag/sizecharts_cat/{category_id}")
 async def diag_sizecharts_cat(category_id: str, brand: str = "", gender_id: str = ""):
     """Buscar guía de talles por marca como hace Astroselling"""
@@ -1073,6 +1085,11 @@ async def diag_testdup(item_id: str):
                 if aid in ("SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
                            "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE",
                            "SIZE"):  # SIZE no es válido para user_product_seller
+                    continue
+                if aid == "SIZE":
+                    # Para user_product_seller SIZE va como value_name
+                    vn = a.get("value_name") or str(a.get("value_id",""))
+                    if vn: up_attrs.append({"id":"SIZE","value_name":vn})
                     continue
                 if aid == "SIZE_GRID_ID":
                     up_attrs.append({"id":"SIZE_GRID_ID","value_name":"2556917"})
