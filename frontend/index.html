@@ -343,6 +343,52 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
         </div>
       </div>
 
+      </div>
+
+      <!-- CANAL -->
+      <div class="page" id="page-canal" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div id="canal-av" style="width:36px;height:36px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">L</div>
+            <div>
+              <div id="canal-name" style="font-size:16px;font-weight:700"></div>
+              <div id="canal-stats" style="font-size:12px;color:#7a8299"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="canal-q" placeholder="Buscar..." oninput="filterCanalItems()" style="padding:7px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;width:180px">
+            <select id="canal-estado" onchange="filterCanalItems()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px">
+              <option value="">Todos los estados</option>
+              <option value="active">Activas</option>
+              <option value="paused">Pausadas</option>
+              <option value="closed">Cerradas</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TABLA ESTILO ML -->
+        <div class="panel" style="padding:0;overflow:hidden">
+          <div style="overflow-x:auto">
+            <table id="canal-table" style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f8f9fb;border-bottom:2px solid #e8ecf0">
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299;white-space:nowrap">Publicación</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299;white-space:nowrap">Precio</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299;white-space:nowrap">Cuotas y envío</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299;white-space:nowrap">Stock</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:600;color:#7a8299;white-space:nowrap">Calidad</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299;white-space:nowrap">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="canal-body">
+                <tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="canal-pagination" style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e8ecf0;font-size:13px;color:#7a8299"></div>
+        </div>
+      </div>
+
       <!-- PRODUCTOS -->
       <div class="page" id="page-productos">
         <div class="page-title">Panel de productos</div>
@@ -878,7 +924,7 @@ function updateUI(){
   // icons
   document.getElementById('d-ch-icons').innerHTML=appState.ml_accounts.map(a=>`<div title="${a.name}" style="width:30px;height:30px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">${a.name[0].toUpperCase()}</div>`).join('');
   // sidebar channels
-  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map(a=>`<div class="nav-ch"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
+  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showCanal(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
   // ML cards
   const cards=document.getElementById('ml-cards');
   if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
@@ -1855,6 +1901,97 @@ function setBN(el){document.querySelectorAll('.bn-item').forEach(i=>i.classList.
 function showMobileMenu(){const d=document.getElementById('mobile-drawer');d.style.display=d.style.display==='none'?'block':'none';}
 function closeDrawer(){document.getElementById('mobile-drawer').style.display='none';}
 document.addEventListener('click',e=>{const d=document.getElementById('mobile-drawer');if(d&&!d.contains(e.target)&&!e.target.closest('.bn-item'))d.style.display='none';});
+
+// CANAL PAGE
+let canalAccIdx = 0;
+let canalItems = [];
+let canalPage = 1;
+const CANAL_PAGE_SIZE = 20;
+
+async function showCanal(idx) {
+  canalAccIdx = idx;
+  showPage('canal');
+  const acc = appState.ml_accounts[idx];
+  if (!acc) return;
+  document.getElementById('canal-av').textContent = acc.name[0].toUpperCase();
+  document.getElementById('canal-name').textContent = acc.name;
+  document.getElementById('canal-stats').textContent = 'Cargando publicaciones...';
+  document.getElementById('canal-body').innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">⏳ Cargando...</td></tr>';
+
+  try {
+    const r = await fetch(`/api/ml/${idx}/products?limit=9999`);
+    const data = await r.json();
+    canalItems = data.items || [];
+    canalPage = 1;
+    document.getElementById('canal-stats').textContent = `${canalItems.length} publicaciones`;
+    filterCanalItems();
+  } catch(e) {
+    document.getElementById('canal-body').innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#e74c3c">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function filterCanalItems() {
+  const q = (document.getElementById('canal-q')?.value || '').toLowerCase();
+  const estado = document.getElementById('canal-estado')?.value || '';
+  let filtered = canalItems.filter(item => {
+    const matchQ = !q || item.title?.toLowerCase().includes(q) || item.id?.toLowerCase().includes(q);
+    const matchE = !estado || item.status === estado;
+    return matchQ && matchE;
+  });
+  renderCanalPage(filtered);
+}
+
+function renderCanalPage(items) {
+  const total = items.length;
+  const start = (canalPage - 1) * CANAL_PAGE_SIZE;
+  const pageItems = items.slice(start, start + CANAL_PAGE_SIZE);
+  const tbody = document.getElementById('canal-body');
+
+  if (!pageItems.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Sin resultados</td></tr>';
+    document.getElementById('canal-pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(item => {
+    const statusColor = item.status === 'active' ? '#00a381' : item.status === 'paused' ? '#d68000' : '#e74c3c';
+    const statusLabel = item.status === 'active' ? 'Activa' : item.status === 'paused' ? 'Pausada' : 'Cerrada';
+    const price = item.price ? `$ ${Number(item.price).toLocaleString('es-AR')}` : '—';
+    const stock = item.available_quantity ?? '—';
+    const thumb = item.thumbnail ? `<img src="${item.thumbnail.replace('http://','https://')}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '<div style="width:48px;height:48px;background:#f0f2f6;border-radius:6px;flex-shrink:0"></div>';
+    const health = item.health ? Math.round(item.health * 100) : null;
+    const healthColor = health >= 80 ? '#00a381' : health >= 50 ? '#d68000' : '#e74c3c';
+    const healthEl = health !== null ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:36px;height:36px;border-radius:50%;border:3px solid ${healthColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${healthColor}">${health}</div></div>` : '<span style="color:#bbb;font-size:12px">—</span>';
+
+    return `<tr style="border-bottom:1px solid #f0f2f6;transition:background .1s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+      <td style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${thumb}
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:500;color:#1a1a2e;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">${item.title || '—'}</div>
+            <div style="font-size:11px;color:#7a8299">#${item.id} · Stock: ${stock}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:10px 14px;text-align:right;font-weight:600;white-space:nowrap">${price}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#7a8299">
+        ${item.listing_type_id === 'gold_special' ? '<span style="color:#00a381;font-size:11px">✓ Clásica</span>' : item.listing_type_id === 'gold_pro' ? '<span style="color:#9b59b6;font-size:11px">★ Premium</span>' : '<span style="font-size:11px">Básica</span>'}
+      </td>
+      <td style="padding:10px 14px;text-align:right;font-weight:500">${stock}</td>
+      <td style="padding:10px 14px;text-align:center">${healthEl}</td>
+      <td style="padding:10px 14px"><span style="color:${statusColor};font-weight:500;font-size:12px">● ${statusLabel}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Paginación
+  const totalPages = Math.ceil(total / CANAL_PAGE_SIZE);
+  document.getElementById('canal-pagination').innerHTML = `
+    <span>${total} publicaciones · Página ${canalPage} de ${totalPages}</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.max(1,canalPage-1);filterCanalItems()" ${canalPage<=1?'disabled':''}>‹ Ant</button>
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.min(${totalPages},canalPage+1);filterCanalItems()" ${canalPage>=totalPages?'disabled':''}>Sig ›</button>
+    </div>`;
+}
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
