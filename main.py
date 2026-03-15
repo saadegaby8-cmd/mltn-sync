@@ -340,10 +340,10 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
         products = [p for p in products if s in p.get("title","").lower()]
     total = len(products)
     if limit >= 9999:
-        return {"items": products, "total": total, "synced": True, "page": 1, "limit": total}
+        return {"products": products, "items": products, "total": total, "synced": True, "page": 1, "limit": total}
     start = (page-1)*limit
     page_products = products[start:start+limit]
-    return {"items": page_products, "total": total, "synced": True, "page": page, "limit": limit}
+    return {"products": page_products, "items": page_products, "total": total, "synced": True, "page": page, "limit": limit}
 
 @app.get("/api/ml/{i}/health")
 async def get_items_health(i: int, ids: str = "", _=Depends(auth)):
