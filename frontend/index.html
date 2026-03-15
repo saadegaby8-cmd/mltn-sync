@@ -1923,9 +1923,11 @@ async function showCanal(idx) {
   try {
     const r = await fetch(`/api/ml/${idx}/products?limit=9999`, {headers: hdr()});
     const data = await r.json();
-    canalItems = data.items || data.products || [];
+    const items = data.items || data.products || [];
+    canalItems = items;
     canalPage = 1;
-    document.getElementById('canal-stats').textContent = `${canalItems.length} publicaciones`;
+    const syncMsg = data.synced === false ? ' · ⚠️ No sincronizado — ir a Sincronizar' : '';
+    document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg}`;
     filterCanalItems();
     // Cargar health de la primera página en background
     loadCanalHealth(idx, canalItems.slice(0, 20));
