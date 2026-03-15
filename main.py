@@ -666,12 +666,15 @@ async def duplicate(req: Request, _=Depends(auth)):
             tags = r.json().get("tags", [])
             dest_is_up = "user_product_seller" in tags
 
-    async def load_dest_chart(chart_id: str):
-        if chart_id in dest_charts_cache:
-            return dest_charts_cache[chart_id]
+    async def load_dest_chart(orig_chart_id: str, domain_id: str = "", brand: str = ""):
+        """Buscar guía de talles equivalente en cuenta destino"""
+        cache_key = f"{orig_chart_id}_{to_idx}"
+        if cache_key in dest_charts_cache:
+            return dest_charts_cache[cache_key]
         try:
             async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.get(f"{ML_API}/catalog/charts/{chart_id}",
+                # Primero intentar leer la guía con token destino (por si es del mismo vendedor)
+                r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
                                headers={"Authorization": f"Bearer {to_t}"})
                 if r.status_code == 200:
                     chart = r.json()
@@ -682,8 +685,48 @@ async def duplicate(req: Request, _=Depends(auth)):
                                         if a.get("id")=="SIZE" for v in a.get("values",[])), "")
                         if size_val and rid:
                             row_map[size_val] = rid
-                    dest_charts_cache[chart_id] = {"chart_id": chart_id, "rows": row_map}
-                    return dest_charts_cache[chart_id]
+                    result = {"chart_id": orig_chart_id, "rows": row_map}
+                    dest_charts_cache[cache_key] = result
+                    return result
+
+                # Si da 403, buscar guías del vendedor destino por dominio
+                me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
+                to_uid = me_r.json().get("id","")
+
+                # Buscar guías de la cuenta destino
+                search_r = await c.post(f"{ML_API}/catalog/charts/search",
+                    headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                    json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS"})
+
+                charts = []
+                if search_r.status_code == 200:
+                    charts = search_r.json().get("charts", [])
+
+                # Elegir la guía que más coincida (por brand en nombre)
+                best = None
+                for ch in charts:
+                    if brand.upper() in ch.get("names",{}).get("MLA","").upper():
+                        best = ch
+                        break
+                if not best and charts:
+                    best = charts[0]
+
+                if best:
+                    # Cargar los rows de la mejor guía
+                    r2 = await c.get(f"{ML_API}/catalog/charts/{best['id']}",
+                                    headers={"Authorization": f"Bearer {to_t}"})
+                    if r2.status_code == 200:
+                        chart = r2.json()
+                        row_map = {}
+                        for row in (chart.get("rows") or []):
+                            rid = row.get("id","")
+                            size_val = next((v.get("name","") for a in row.get("attributes",[])
+                                            if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                            if size_val and rid:
+                                row_map[size_val] = rid
+                        result = {"chart_id": str(best["id"]), "rows": row_map}
+                        dest_charts_cache[cache_key] = result
+                        return result
         except Exception:
             pass
         return None
@@ -892,7 +935,16 @@ async def duplicate(req: Request, _=Depends(auth)):
                 if orig_chart_id:
                     # Para UP: buscar guía en cuenta destino por su ID
                     if dest_is_up:
-                        dest_chart = await load_dest_chart(str(orig_chart_id))
+                        # Obtener domain_id de la categoría
+                        cat_domain = ""
+                        try:
+                            async with httpx.AsyncClient(timeout=10) as cc:
+                                dr = await cc.get(f"{ML_API}/categories/{item.get('category_id','')}", 
+                                                  headers={"Authorization": f"Bearer {from_t}"})
+                                cat_domain = dr.json().get("domain_id","")
+                        except Exception:
+                            pass
+                        dest_chart = await load_dest_chart(str(orig_chart_id), cat_domain, brand_val)
                         if dest_chart:
                             attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(dest_chart["chart_id"])})
                             row_id = dest_chart["rows"].get(size_val)
