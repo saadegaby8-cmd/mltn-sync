@@ -1036,6 +1036,22 @@ async def duplicate(req: Request, _=Depends(auth)):
                         if dest_chart:
                             attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(dest_chart["chart_id"])})
                             row_id = dest_chart["rows"].get(size_val)
+                            if not row_id:
+                                # Intentar agregar el talle faltante a la guía destino
+                                try:
+                                    async with httpx.AsyncClient(timeout=15) as cc:
+                                        patch_r = await cc.post(
+                                            f"{ML_API}/catalog/charts/{dest_chart['chart_id']}/rows",
+                                            headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                                            json={"attributes": [{"id": "SIZE", "values": [{"name": size_val}]}]}
+                                        )
+                                        if patch_r.status_code in (200, 201):
+                                            new_row = patch_r.json()
+                                            row_id = new_row.get("id", "")
+                                            if row_id:
+                                                dest_chart["rows"][size_val] = row_id
+                                except Exception:
+                                    pass
                             if row_id:
                                 attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":row_id})
                             else:
