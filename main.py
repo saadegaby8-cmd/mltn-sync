@@ -668,7 +668,7 @@ async def duplicate(req: Request, _=Depends(auth)):
 
     async def load_dest_chart(orig_chart_id: str, domain_id: str = "", brand: str = ""):
         """Buscar guía de talles equivalente en cuenta destino"""
-        cache_key = f"{orig_chart_id}_{to_idx}"
+        cache_key = f"{orig_chart_id}"
         if cache_key in dest_charts_cache:
             return dest_charts_cache[cache_key]
         try:
