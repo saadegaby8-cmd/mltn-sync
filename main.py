@@ -1049,10 +1049,11 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
+                "family_name": family,  # campo raíz
                 "attributes": [
                     {"id":"BRAND","value_name": brand_name},
                     {"id":"MODEL","value_name": model_name},
-                    {"id":"family_name","value_name": family},
+                    {"id":"family_name","value_name": family},  # también en attributes
                     {"id":"COLOR","value_name":"Surtido"},
                     {"id":"SIZE","value_id":"100"},
                 ],
