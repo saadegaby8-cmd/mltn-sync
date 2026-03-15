@@ -1071,7 +1071,8 @@ async def diag_testdup(item_id: str):
             for a in (item.get("attributes") or []):
                 aid = a.get("id","")
                 if aid in ("SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
-                           "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE"):
+                           "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE",
+                           "SIZE"):  # SIZE no es válido para user_product_seller
                     continue
                 if aid == "SIZE_GRID_ID":
                     up_attrs.append({"id":"SIZE_GRID_ID","value_name":"2556917"})
