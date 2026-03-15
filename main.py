@@ -1298,6 +1298,45 @@ async def diag_add_row(chart_id: str, size_val: str, acc: int = 0):
         return {"exception": str(e)}
 
 
+@app.get("/diag/create_pijama_chart")
+async def diag_create_pijama_chart(acc: int = 0):
+    """Crear guía de talles de pijamas con XL-2XL y 3XL-4XL en cuenta destino"""
+    try:
+        t = await fresh_token(acc)
+        async with httpx.AsyncClient(timeout=30) as c:
+            payload = {
+                "names": {"MLA": "Pijamas Mujer Talles Grandes"},
+                "domain_id": "PAJAMAS",
+                "site_id": "MLA",
+                "main_attribute": {"attributes": [{"site_id": "MLA", "id": "SIZE"}]},
+                "attributes": [{"id": "GENDER", "values": [{"id": "339665", "name": "Mujer"}]}],
+                "rows": [
+                    {"attributes": [
+                        {"id": "SIZE", "values": [{"name": "XL-2XL"}]},
+                        {"id": "FILTRABLE_SIZE", "values": [{"id": "12917787", "name": "XL"}, {"id": "12917846", "name": "2XL"}]},
+                        {"id": "GARMENT_CHEST_WIDTH_FROM", "values": [{"name": "55 cm", "struct": {"number": 55.0, "unit": "cm"}}]},
+                        {"id": "GARMENT_CHEST_WIDTH_TO", "values": [{"name": "65 cm", "struct": {"number": 65.0, "unit": "cm"}}]},
+                        {"id": "GARMENT_HIP_WIDTH_FROM", "values": [{"name": "55 cm", "struct": {"number": 55.0, "unit": "cm"}}]},
+                        {"id": "GARMENT_HIP_WIDTH_TO", "values": [{"name": "65 cm", "struct": {"number": 65.0, "unit": "cm"}}]},
+                    ]},
+                    {"attributes": [
+                        {"id": "SIZE", "values": [{"name": "3XL-4XL"}]},
+                        {"id": "FILTRABLE_SIZE", "values": [{"id": "12917837", "name": "3XL"}, {"id": "12918373", "name": "4XL"}]},
+                        {"id": "GARMENT_CHEST_WIDTH_FROM", "values": [{"name": "66 cm", "struct": {"number": 66.0, "unit": "cm"}}]},
+                        {"id": "GARMENT_CHEST_WIDTH_TO", "values": [{"name": "80 cm", "struct": {"number": 80.0, "unit": "cm"}}]},
+                        {"id": "GARMENT_HIP_WIDTH_FROM", "values": [{"name": "66 cm", "struct": {"number": 66.0, "unit": "cm"}}]},
+                        {"id": "GARMENT_HIP_WIDTH_TO", "values": [{"name": "80 cm", "struct": {"number": 80.0, "unit": "cm"}}]},
+                    ]}
+                ]
+            }
+            r = await c.post(f"{ML_API}/catalog/charts",
+                            headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
+                            json=payload)
+            return {"status": r.status_code, "response": r.json()}
+    except Exception as e:
+        return {"exception": str(e)}
+
+
 @app.get("/diag/sizecharts_cat/{category_id}")
 async def diag_sizecharts_cat(category_id: str, brand: str = "", gender_id: str = ""):
     """Buscar guía de talles por marca como hace Astroselling"""
