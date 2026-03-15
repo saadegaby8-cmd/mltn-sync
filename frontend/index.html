@@ -1927,7 +1927,7 @@ async function showCanal(idx) {
     canalItems = items;
     canalPage = 1;
     const syncMsg = data.synced === false ? ' · ⚠️ No sincronizado — ir a Sincronizar' : '';
-    document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg}`;
+    document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg} (total: ${data.total||0})`;
     filterCanalItems();
     // Cargar health de la primera página en background
     loadCanalHealth(idx, canalItems.slice(0, 20));
@@ -1956,8 +1956,8 @@ function filterCanalItems() {
   const q = (document.getElementById('canal-q')?.value || '').toLowerCase();
   const estado = document.getElementById('canal-estado')?.value || '';
   let filtered = canalItems.filter(item => {
-    const matchQ = !q || item.title?.toLowerCase().includes(q) || item.id?.toLowerCase().includes(q);
-    const matchE = !estado || item.status === estado;
+    const matchQ = !q || (item.title||'').toLowerCase().includes(q) || (item.id||'').toString().toLowerCase().includes(q);
+    const matchE = !estado || (item.status||'') === estado;
     return matchQ && matchE;
   });
   renderCanalPage(filtered);
