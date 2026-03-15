@@ -1071,12 +1071,12 @@ async def diag_testdup(item_id: str):
                 "listing_type_id": "gold_special",
                 "condition": item.get("condition","new"),
                 "pictures": [],
+                "family_name": "Maxima Corpiño 1018",
                 "attributes": [
                     {"id":"BRAND","value_name":"Maxima"},
                     {"id":"MODEL","value_name":"1018"},
                     {"id":"COLOR","value_name":"Surtido"},
                     {"id":"SIZE","value_id":"100"},
-                    {"id":"family_name","value_name":"Maxima Corpiño 1018"},
                     {"id":"SIZE_GRID_ID","value_name":"2556917"},
                 ],
             }
