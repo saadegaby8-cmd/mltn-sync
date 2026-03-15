@@ -53,10 +53,10 @@ body{background:#f4f6f9;color:#1a1a2e;font-family:'Inter',sans-serif;min-height:
 .btn-logout{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif}
 .btn-logout:hover{color:#fff}
 /* TOPBAR */
-.topbar{position:sticky;top:0;height:52px;background:#1a1f36;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:flex-end;padding:0 24px;gap:14px;z-index:99}
+.topbar{position:fixed;top:0;left:200px;right:0;height:52px;background:#1a1f36;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:flex-end;padding:0 24px;gap:14px;z-index:99}
 .topbar-av{width:32px;height:32px;border-radius:50%;background:#e91e63;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;cursor:pointer}
 /* MAIN */
-.main{flex:1;padding:24px 28px;min-width:0;overflow-x:hidden}
+.main{flex:1;padding:24px 28px;min-width:0;overflow-x:hidden;margin-left:200px;margin-top:52px}
 .page{display:none}
 .page.active{display:block;animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -211,9 +211,9 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
 /* MOBILE */
 @media(max-width:768px){
-  .sidebar{width:180px;min-width:180px}
-  .topbar{padding:10px 12px}
-  .main{padding:12px}
+  .sidebar{width:160px}
+  .topbar{left:160px}
+  .main{margin-left:160px;padding:14px}
   .modal-box{width:95vw;max-width:95vw;margin:10px}
   .modal-content{padding:16px}
   table{font-size:12px}
