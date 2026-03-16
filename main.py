@@ -963,6 +963,8 @@ async def duplicate(req: Request, _=Depends(auth)):
                                     item_attrs.append({"id": "SIZE", "value_name": talle})
                                 if color:
                                     item_attrs.append({"id": "COLOR", "value_name": color})
+                                # Agregar family_name requerido por ML
+                                item_attrs.append({"id": "FAMILY_NAME", "value_name": item.get("title", "")[:60]})
                                 # Agregar SIZE_GRID_ID con override o el original
                                 orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
                                 dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
