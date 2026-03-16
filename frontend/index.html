@@ -696,6 +696,12 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
             </div>
           </div>
 
+          <!-- GUÍAS DE TALLES -->
+          <div id="dup-charts-wrap" style="display:none;border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📏 Guías de talles</div>
+            <div id="dup-charts-list"><span style="font-size:12px;color:#7a8299">Cargando guías...</span></div>
+          </div>
+
           <div style="display:flex;gap:8px">
             <button class="btn btn-purple" onclick="confirmDuplicate()" style="flex:1">📋 Duplicar ahora</button>
             <button class="btn btn-out" onclick="closeDupConfirm()">Cancelar</button>
@@ -1779,8 +1785,62 @@ function openDupConfirm(){
   }
   updateDupEstadoUI();updateDupSyncUI();updateDupGrupoUI();
   document.getElementById('dup-confirm-modal').classList.add('show');
+  // Cargar guías de la cuenta destino
+  loadChartsForConfirm(to);
 }
 function closeDupConfirm(){document.getElementById('dup-confirm-modal').classList.remove('show');}
+
+async function loadChartsForConfirm(toAccount){
+  // Detectar qué productos seleccionados tienen SIZE_GRID_ID
+  const selProds = dupProds.filter(p => dupSel.includes(p.id));
+  const prodsConGuia = [];
+  const seenCharts = new Set();
+  selProds.forEach(p => {
+    const attrs = p.attributes || [];
+    const chartAttr = attrs.find(a => a.id === 'SIZE_GRID_ID');
+    if(chartAttr){
+      const origId = String(chartAttr.value_name || chartAttr.value_id || '');
+      if(origId && !seenCharts.has(origId)){
+        seenCharts.add(origId);
+        prodsConGuia.push({origId, title: p.title});
+      }
+    }
+  });
+  const wrap = document.getElementById('dup-charts-wrap');
+  const list = document.getElementById('dup-charts-list');
+  if(!prodsConGuia.length){wrap.style.display='none'; return;}
+  wrap.style.display = 'block';
+  list.innerHTML = '<span style="font-size:12px;color:#7a8299">Cargando guías disponibles...</span>';
+  try{
+    const r = await fetch('/api/ml/'+toAccount+'/charts', {headers:hdr()});
+    const d = await r.json();
+    const charts = d.charts || [];
+    if(!charts.length){
+      list.innerHTML = '<span style="font-size:12px;color:#e17055">No hay guías en la cuenta destino.</span>';
+      return;
+    }
+    const opts = charts.map(ch =>
+      '<option value="'+ch.id+'">'+(ch.name||'Sin nombre')+' — '+ch.sizes.filter(Boolean).join(', ')+'</option>'
+    ).join('');
+    list.innerHTML = prodsConGuia.map(p =>
+      '<div style="margin-bottom:10px">'+
+        '<div style="font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
+        '<select data-origid="'+p.origId+'" style="width:100%;padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif" onchange="setDupChart(this.dataset.origid,this.value)">'+
+          '<option value="">— Automático —</option>'+opts+
+        '</select>'+
+      '</div>'
+    ).join('');
+    // Pre-seleccionar si ya hay override guardado
+    prodsConGuia.forEach(p => {
+      if(dupChartMap[p.origId]){
+        const sel = list.querySelector('select[data-origid="'+p.origId+'"]');
+        if(sel) sel.value = dupChartMap[p.origId];
+      }
+    });
+  }catch(e){
+    list.innerHTML = '<span style="font-size:12px;color:#e17055">Error: '+e.message+'</span>';
+  }
+}
 function updateDupEstadoUI(){
   const val=document.querySelector('input[name="dup-estado"]:checked')?.value;
   document.getElementById('lbl-estado-active').style.borderColor=val==='active'?'#00a381':'#e8ecf0';
