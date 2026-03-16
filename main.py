@@ -944,8 +944,13 @@ async def duplicate(req: Request, _=Depends(auth)):
                             # Crear un item por cada variante
                             for v in variations:
                                 attrs = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                                talle = attrs.get("Talle", attrs.get("Tamaño", attrs.get("Size", "")))
-                                color = attrs.get("Color", "")
+                                # Buscar talle con cualquier key posible
+                                talle = (attrs.get("Talle") or attrs.get("Tamaño") or 
+                                        attrs.get("Size") or attrs.get("Talla") or
+                                        next((v for k,v in attrs.items() if "tall" in k.lower() or "size" in k.lower() or "tamaño" in k.lower()), ""))
+                                color = (attrs.get("Color") or 
+                                        next((v for k,v in attrs.items() if "color" in k.lower()), ""))
+                                print(f"Variante attrs: {attrs}, talle={talle}, color={color}")
                                 suffix = " - ".join(filter(None, [talle, color]))
                                 new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
                                 price = v.get("price") or item.get("price", 0)
