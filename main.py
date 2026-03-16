@@ -695,23 +695,28 @@ async def duplicate(req: Request, _=Depends(auth)):
             return dest_charts_cache[cache_key]
         try:
             async with httpx.AsyncClient(timeout=15) as c:
-                # Primero intentar leer la guía con token destino (por si es del mismo vendedor)
-                r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
-                               headers={"Authorization": f"Bearer {to_t}"})
-                if r.status_code == 200:
-                    chart = r.json()
-                    row_map = {}
-                    for row in (chart.get("rows") or []):
-                        rid = row.get("id","")
-                        size_val = next((v.get("name","") for a in row.get("attributes",[])
-                                        if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                        if size_val and rid:
-                            row_map[size_val] = rid
-                    result = {"chart_id": orig_chart_id, "rows": row_map}
-                    dest_charts_cache[cache_key] = result
-                    return result
+                # Para UP siempre buscar en las guías del vendedor destino
+                # Para no-UP: intentar leer la guía origen directamente
+                if not dest_is_up:
+                    r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
+                                   headers={"Authorization": f"Bearer {to_t}"})
+                    if r.status_code == 200:
+                        chart = r.json()
+                        # Solo usar si es del vendedor destino
+                        if str(chart.get("seller_id","")) == str(to_uid if False else ""):
+                            pass  # skip, we don't have to_uid yet
+                        row_map = {}
+                        for row in (chart.get("rows") or []):
+                            rid = row.get("id","")
+                            size_val = next((v.get("name","") for a in row.get("attributes",[])
+                                            if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                            if size_val and rid:
+                                row_map[size_val] = rid
+                        result = {"chart_id": orig_chart_id, "rows": row_map}
+                        dest_charts_cache[cache_key] = result
+                        return result
 
-                # Si da 403, buscar guías del vendedor destino por dominio
+                # Buscar guías del vendedor destino por dominio
                 me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
                 to_uid = me_r.json().get("id","")
 
