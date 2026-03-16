@@ -988,7 +988,8 @@ async def duplicate(req: Request, _=Depends(auth)):
                                     "listing_type_id": item.get("listing_type_id", "gold_special"),
                                     "condition": item.get("condition", "new"),
                                     "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                                    "attributes": item_attrs
+                                    "attributes": item_attrs,
+                                    "family_name": new_title
                                 }
                                 async with httpx.AsyncClient(timeout=30) as c2:
                                     r2 = await c2.post(f"{ML_API}/items",
