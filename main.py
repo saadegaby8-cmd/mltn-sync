@@ -988,13 +988,22 @@ async def duplicate(req: Request, _=Depends(auth)):
                                     "listing_type_id": item.get("listing_type_id", "gold_special"),
                                     "condition": item.get("condition", "new"),
                                     "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                                    "attributes": item_attrs,
-                                    "family_name": new_title
+                                    "attributes": item_attrs
                                 }
+                                # ML requiere family_name para esta categoría - lo agregamos por separado
+                                # intentar primero sin family_name, si falla con ese error agregarlo
                                 async with httpx.AsyncClient(timeout=30) as c2:
                                     r2 = await c2.post(f"{ML_API}/items",
                                         headers={"Authorization": f"Bearer {to_t}"},
                                         json=payload)
+                                if r2.status_code == 400:
+                                    err_try = r2.json()
+                                    if "family_name" in str(err_try):
+                                        payload["family_name"] = item.get("title","")
+                                        async with httpx.AsyncClient(timeout=30) as c3:
+                                            r2 = await c3.post(f"{ML_API}/items",
+                                                headers={"Authorization": f"Bearer {to_t}"},
+                                                json=payload)
                                 ok = r2.status_code in (200, 201)
                                 try:
                                     err_body = r2.json()
