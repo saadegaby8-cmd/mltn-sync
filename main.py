@@ -1311,10 +1311,10 @@ async def list_charts(i: int, req: Request = None):
         t = await fresh_token(i)
         async with httpx.AsyncClient(timeout=15) as c:
             me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {t}"})
-            uid = me_r.json().get("id","")
+            uid = str(me_r.json().get("id",""))
             r = await c.post(f"{ML_API}/catalog/charts/search",
                 headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
-                json={"site_id": "MLA", "seller_id": uid})
+                json={"site_id": "MLA", "seller_id": int(uid) if uid.isdigit() else uid})
             if r.status_code == 200:
                 charts = r.json().get("charts", [])
                 result = []
@@ -1325,10 +1325,10 @@ async def list_charts(i: int, req: Request = None):
                                    if a.get("id")=="SIZE" for v in a.get("values",[])), "")
                         if sv:
                             sizes.append(sv)
-                    result.append({"id": ch["id"], "name": ch.get("names",{}).get("MLA",""),
+                    result.append({"id": str(ch["id"]), "name": ch.get("names",{}).get("MLA",""),
                                    "domain": ch.get("domain_id",""), "sizes": sizes})
                 return {"charts": result}
-            return {"charts": [], "error": r.status_code}
+            return {"charts": [], "error": r.status_code, "body": r.text[:200]}
     except Exception as e:
         return {"charts": [], "error": str(e)}
 
