@@ -713,6 +713,18 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
             </div>
           </div>
 
+          <!-- DIMENSIONES DEL PAQUETE -->
+          <div id="dup-dims-wrap" style="display:none;border:1px solid #ffe58f;background:#fffbec;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📦 Dimensiones del paquete</div>
+            <div style="font-size:11px;color:#7a8299;margin-bottom:12px">Requerido por ML para publicaciones nuevas. Si el producto original ya las tiene, se copian automáticamente.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="fg"><label>Alto (cm)</label><input type="number" id="dup-dim-h" placeholder="ej: 10" min="1" style="padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Ancho (cm)</label><input type="number" id="dup-dim-w" placeholder="ej: 20" min="1" style="padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Largo (cm)</label><input type="number" id="dup-dim-l" placeholder="ej: 30" min="1" style="padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Peso (kg)</label><input type="number" id="dup-dim-p" placeholder="ej: 0.5" min="0.1" step="0.1" style="padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:Inter,sans-serif;width:100%" /></div>
+            </div>
+          </div>
+
           <div style="display:flex;gap:8px">
             <button class="btn btn-purple" onclick="confirmDuplicate()" style="flex:1">📋 Duplicar ahora</button>
             <button class="btn btn-out" onclick="closeDupConfirm()">Cancelar</button>
@@ -1763,6 +1775,7 @@ function updateDupGrupoUI(){
   document.getElementById('lbl-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
   document.getElementById('lbl-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
   document.getElementById('lbl-grupo-explotar').style.borderColor=val==='explotar'?'#e17055':'#e8ecf0';
+  document.getElementById('dup-dims-wrap').style.display=val==='explotar'?'block':'none';
 }
 function detectarGrupos(ids){
   // Buscar en dupProds los items seleccionados y agrupar por MODEL
@@ -1874,6 +1887,12 @@ async function confirmDuplicate(){
   const grupoVal=document.querySelector('input[name="dup-grupo"]:checked')?.value||'no';
   const agrupar=grupoVal==='si';
   const explotar=grupoVal==='explotar';
+  const dims = explotar ? {
+    h: parseFloat(document.getElementById('dup-dim-h')?.value)||0,
+    w: parseFloat(document.getElementById('dup-dim-w')?.value)||0,
+    l: parseFloat(document.getElementById('dup-dim-l')?.value)||0,
+    p: parseFloat(document.getElementById('dup-dim-p')?.value)||0
+  } : null;
   // Guardar override manual si se ingresó un ID
   const manualChartId = document.getElementById('dup-chart-id-input')?.value?.trim();
   if(manualChartId){
@@ -1882,7 +1901,7 @@ async function confirmDuplicate(){
     await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:{'manual':manualChartId}})});
   }
   closeDupConfirm();
-  await doDuplicate(estado,sync,agrupar,explotar);
+  await doDuplicate(estado,sync,agrupar,explotar,dims);
 }
 // ── DUPLICAR ──────────────────────────────────────────────────────────────────
 let chartOverride = {};
@@ -1890,11 +1909,12 @@ let pendingDupArgs = null;
 let selectedChartId = null;
 let pendingChartOrigId = null;
 
-async function doDuplicate(estado, sync, agrupar, explotar){
+async function doDuplicate(estado, sync, agrupar, explotar, dims){
   estado = estado || 'active';
   sync = sync || false;
   agrupar = agrupar || false;
   explotar = explotar || false;
+  dims = dims || null;
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
   if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
@@ -1909,7 +1929,7 @@ async function doDuplicate(estado, sync, agrupar, explotar){
     }
     const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
       item_ids:dupSel,from_account:from,to_account:to,
-      status:estado,auto_link:sync,agrupar:agrupar,explotar:explotar
+      status:estado,auto_link:sync,agrupar:agrupar,explotar:explotar,dims:dims
     })});
     const d=await r.json();
     const results=d.results||[];
