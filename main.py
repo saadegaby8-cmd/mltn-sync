@@ -958,6 +958,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 suffix = " - ".join(filter(None, [talle, color]))
                                 suffix_clean = suffix.replace("/", "-")
                                 new_title = f"{item['title']} - {suffix_clean}" if suffix_clean else item["title"]
+                                print(f"Titulo: '{new_title}' len={len(new_title)}")
                                 price = v.get("price") or item.get("price", 0)
                                 stock = v.get("available_quantity", item.get("available_quantity", 0))
                                 # Construir atributos — tomar del item original
