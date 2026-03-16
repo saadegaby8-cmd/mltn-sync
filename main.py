@@ -666,6 +666,7 @@ async def duplicate(req: Request, _=Depends(auth)):
     status = b.get("status", "active")
     auto_link = b.get("auto_link", False)
     agrupar = b.get("agrupar", False)
+    explotar = b.get("explotar", False)
     try:
         from_t = await fresh_token(from_idx)
         to_t = await fresh_token(to_idx)
@@ -928,6 +929,56 @@ async def duplicate(req: Request, _=Depends(auth)):
 
     results = []
     item_ids = b.get("item_ids", [])
+
+    # Si explotar=True, expandir variantes como productos separados
+    if explotar:
+        new_item_ids = []
+        for iid in item_ids:
+            try:
+                async with httpx.AsyncClient(timeout=15) as c:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
+                    if r.status_code == 200:
+                        item = r.json()
+                        variations = item.get("variations", [])
+                        if variations:
+                            # Crear un item por cada variante
+                            for v in variations:
+                                attrs = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
+                                talle = attrs.get("Talle", attrs.get("Tamaño", attrs.get("Size", "")))
+                                color = attrs.get("Color", "")
+                                suffix = " - ".join(filter(None, [talle, color]))
+                                new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
+                                price = v.get("price") or item.get("price", 0)
+                                stock = v.get("available_quantity", item.get("available_quantity", 0))
+                                payload = {
+                                    "title": new_title,
+                                    "category_id": item.get("category_id"),
+                                    "price": price,
+                                    "currency_id": item.get("currency_id", "ARS"),
+                                    "available_quantity": stock,
+                                    "buying_mode": "buy_it_now",
+                                    "listing_type_id": item.get("listing_type_id", "gold_special"),
+                                    "condition": item.get("condition", "new"),
+                                    "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
+                                    "attributes": [a for a in (item.get("attributes") or []) if a.get("id") not in ("SIZE_GRID_ID",)]
+                                }
+                                async with httpx.AsyncClient(timeout=30) as c2:
+                                    r2 = await c2.post(f"{ML_API}/items",
+                                        headers={"Authorization": f"Bearer {to_t}"},
+                                        json=payload)
+                                ok = r2.status_code in (200, 201)
+                                results.append({"id": iid, "title": new_title, "ok": ok,
+                                    "msg": "Publicado" if ok else r2.json().get("message", "Error")})
+                        else:
+                            new_item_ids.append(iid)
+                    else:
+                        new_item_ids.append(iid)
+            except Exception as e:
+                results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
+        # Los items sin variantes se procesan normal
+        item_ids = new_item_ids
+        if not item_ids:
+            return {"results": results}
 
     # Si agrupar=True, obtener todos los items primero y agrupar por MODEL
     if agrupar:
