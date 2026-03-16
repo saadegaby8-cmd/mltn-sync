@@ -687,6 +687,16 @@ async def duplicate(req: Request, _=Depends(auth)):
     # Detectar si cuenta destino es user_product_seller y preparar carga de guías
     dest_is_up = False
     dest_charts_cache = {}  # chart_id -> {chart_id, rows: {size_name: row_id}}
+    # Cargar overrides de guías seleccionadas por el usuario
+    chart_override = {}
+    try:
+        r_redis = get_redis()
+        if r_redis:
+            raw = r_redis.get("mltn:chart_override")
+            if raw:
+                chart_override = json.loads(raw)
+    except Exception:
+        pass
     # Hardcode conocidos: guía origen -> guía destino por cuenta
     KNOWN_CHARTS = {
         # LENCERIA pijamas (4788364) -> SHAMPOOSHIR pijamas (5127137)
@@ -707,6 +717,26 @@ async def duplicate(req: Request, _=Depends(auth)):
         cache_key = f"{orig_chart_id}"
         if cache_key in dest_charts_cache:
             return dest_charts_cache[cache_key]
+        # Verificar override del usuario
+        if orig_chart_id in chart_override:
+            override_id = chart_override[orig_chart_id]
+            try:
+                async with httpx.AsyncClient(timeout=10) as c:
+                    r = await c.get(f"{ML_API}/catalog/charts/{override_id}",
+                                   headers={"Authorization": f"Bearer {to_t}"})
+                    if r.status_code == 200:
+                        row_map = {}
+                        for row in (r.json().get("rows") or []):
+                            rid = row.get("id","")
+                            sv = next((v.get("name","") for a in row.get("attributes",[])
+                                       if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                            if sv and rid:
+                                row_map[sv] = rid
+                        result = {"chart_id": override_id, "rows": row_map}
+                        dest_charts_cache[cache_key] = result
+                        return result
+            except Exception:
+                pass
         # Usar mapeo conocido si existe
         if orig_chart_id in KNOWN_CHARTS:
             result = KNOWN_CHARTS[orig_chart_id]
@@ -1272,6 +1302,47 @@ async def diag_item(item_id: str):
             }
     except Exception as e:
         return {"exception": str(e)}
+
+@app.get("/api/ml/{i}/charts")
+async def list_charts(i: int, req: Request = None):
+    """Listar guías de talles de una cuenta ML"""
+    check_session(req)
+    try:
+        t = await fresh_token(i)
+        async with httpx.AsyncClient(timeout=15) as c:
+            me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {t}"})
+            uid = me_r.json().get("id","")
+            r = await c.post(f"{ML_API}/catalog/charts/search",
+                headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
+                json={"site_id": "MLA", "seller_id": uid})
+            if r.status_code == 200:
+                charts = r.json().get("charts", [])
+                result = []
+                for ch in charts:
+                    sizes = []
+                    for row in (ch.get("rows") or []):
+                        sv = next((v.get("name","") for a in row.get("attributes",[])
+                                   if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                        if sv:
+                            sizes.append(sv)
+                    result.append({"id": ch["id"], "name": ch.get("names",{}).get("MLA",""),
+                                   "domain": ch.get("domain_id",""), "sizes": sizes})
+                return {"charts": result}
+            return {"charts": [], "error": r.status_code}
+    except Exception as e:
+        return {"charts": [], "error": str(e)}
+
+@app.post("/api/duplicate/with_chart")
+async def dup_with_chart(request: Request):
+    """Guardar override de guía de talles para el duplicador"""
+    check_session(request)
+    b = await request.json()
+    chart_override = b.get("chart_override", {})
+    r = get_redis()
+    if r and chart_override:
+        r.set("mltn:chart_override", json.dumps(chart_override), ex=3600)
+    return {"ok": True}
+
 
 @app.get("/diag/charts_search")
 async def diag_charts_search(domain: str = "BRAS", brand: str = "Maxima"):
