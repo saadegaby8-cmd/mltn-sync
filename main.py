@@ -955,6 +955,15 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
                                 price = v.get("price") or item.get("price", 0)
                                 stock = v.get("available_quantity", item.get("available_quantity", 0))
+                                # Construir atributos — mantener todos excepto SIZE_GRID_ID
+                                # y agregar SIZE_GRID_ID con la guía override si existe
+                                item_attrs = [a for a in (item.get("attributes") or []) if a.get("id") != "SIZE_GRID_ID"]
+                                orig_chart_id = str(item.get("attributes") and next((a.get("value_name","") for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), "") or "")
+                                dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
+                                if dest_chart_id:
+                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
+                                elif orig_chart_id:
+                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
                                 payload = {
                                     "title": new_title,
                                     "category_id": item.get("category_id"),
@@ -965,7 +974,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                                     "listing_type_id": item.get("listing_type_id", "gold_special"),
                                     "condition": item.get("condition", "new"),
                                     "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                                    "attributes": [a for a in (item.get("attributes") or []) if a.get("id") not in ("SIZE_GRID_ID",)]
+                                    "attributes": item_attrs
                                 }
                                 async with httpx.AsyncClient(timeout=30) as c2:
                                     r2 = await c2.post(f"{ML_API}/items",
