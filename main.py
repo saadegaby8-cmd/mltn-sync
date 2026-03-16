@@ -1261,20 +1261,24 @@ async def duplicate(req: Request, _=Depends(auth)):
     return {"results": results}
 
 @app.get("/diag/prod_attrs/{i}")
-async def diag_prod_attrs(i: int):
-    """Ver atributos del primer producto cacheado"""
+async def diag_prod_attrs(i: int, q: str = ""):
+    """Ver atributos de productos cacheados, buscar por título"""
     try:
         acc = ST["accounts"][i]
         uid = acc.get("uid","")
         prods = get_cached_products(uid)
         if not prods:
             return {"error": "no products cached"}
+        if q:
+            prods = [p for p in prods if q.lower() in p.get("title","").lower()]
+        if not prods:
+            return {"error": "no matching products"}
         p = prods[0]
         attrs = p.get("attributes", [])
         size_grid = next((a for a in attrs if a.get("id") == "SIZE_GRID_ID"), None)
-        return {"title": p.get("title",""), "has_attributes": len(attrs) > 0, 
+        return {"title": p.get("title",""), "has_attributes": len(attrs) > 0,
                 "attr_count": len(attrs), "size_grid": size_grid,
-                "first_attrs": attrs[:3]}
+                "total_matching": len(prods)}
     except Exception as e:
         return {"error": str(e)}
 
