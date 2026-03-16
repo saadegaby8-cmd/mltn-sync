@@ -1388,10 +1388,7 @@ async def diag_prod_attrs(i: int, q: str = ""):
             return {"error": "no matching products"}
         p = prods[0]
         attrs = p.get("attributes", [])
-        size_grid = next((a for a in attrs if a.get("id") == "SIZE_GRID_ID"), None)
-        return {"title": p.get("title",""), "has_attributes": len(attrs) > 0,
-                "attr_count": len(attrs), "size_grid": size_grid,
-                "total_matching": len(prods)}
+        return {"title": p.get("title",""), "attr_count": len(attrs), "all_attrs": attrs}
     except Exception as e:
         return {"error": str(e)}
 
