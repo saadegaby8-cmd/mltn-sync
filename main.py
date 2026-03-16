@@ -1,11 +1,45 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import httpx, asyncio, json, os, time, secrets
 from pathlib import Path
 
-app = FastAPI()
+async def token_refresh_loop():
+    """Refresca tokens de ML automáticamente cada 5 horas"""
+    while True:
+        await asyncio.sleep(5 * 3600)  # esperar 5 horas
+        for i, acc in enumerate(ST.get("accounts", [])):
+            try:
+                if acc.get("refresh"):
+                    async with httpx.AsyncClient(timeout=15) as c:
+                        r = await c.post("https://api.mercadolibre.com/oauth/token",
+                            data={"grant_type":"refresh_token","client_id":ML_APP_ID,
+                                  "client_secret":ML_SECRET,"refresh_token":acc["refresh"]},
+                            headers={"Content-Type":"application/x-www-form-urlencoded"})
+                        td = r.json()
+                    if "access_token" in td:
+                        acc["token"] = td["access_token"]
+                        acc["refresh"] = td.get("refresh_token", acc["refresh"])
+                        acc["expiry"] = time.time() + td.get("expires_in", 21600) - 300
+                        acc["token_ok"] = True
+                        save_state()
+                        print(f"Token refreshed OK for account {i}: {acc.get('name','')}")
+                    else:
+                        acc["token_ok"] = False
+                        acc["expiry"] = 0
+                        save_state()
+                        print(f"Token refresh FAILED for account {i}: {td}")
+            except Exception as e:
+                print(f"Token refresh error account {i}: {e}")
+
+@asynccontextmanager
+async def lifespan(app):
+    asyncio.create_task(token_refresh_loop())
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 ML_APP_ID     = os.getenv("ML_CLIENT_ID", "4576804985048120")
