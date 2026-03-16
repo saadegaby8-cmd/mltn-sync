@@ -715,25 +715,42 @@ async def duplicate(req: Request, _=Depends(auth)):
                 me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
                 to_uid = me_r.json().get("id","")
 
-                # Buscar guías de la cuenta destino
-                search_r = await c.post(f"{ML_API}/catalog/charts/search",
-                    headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                    json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS",
-                          "attributes":[
-                              {"id":"GENDER","values":[{"name":"Mujer"}]},
-                              {"id":"BRAND","values":[{"name": brand or ""}]}
-                          ]})
-
+                # Buscar guías de la cuenta destino — primero con brand, luego sin brand
                 charts = []
-                if search_r.status_code == 200:
-                    charts = search_r.json().get("charts", [])
+                for search_payload in [
+                    {"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS",
+                     "attributes":[{"id":"GENDER","values":[{"name":"Mujer"}]},{"id":"BRAND","values":[{"name": brand or ""}]}]},
+                    {"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS",
+                     "attributes":[{"id":"GENDER","values":[{"name":"Mujer"}]}]},
+                    {"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS"},
+                ]:
+                    search_r = await c.post(f"{ML_API}/catalog/charts/search",
+                        headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
+                        json=search_payload)
+                    if search_r.status_code == 200:
+                        charts = search_r.json().get("charts", [])
+                        if charts:
+                            break
 
-                # Elegir la guía que más coincida (por brand en nombre)
+                # Elegir la guía que tenga el talle que necesitamos
                 best = None
+                # Primero buscar la guía que ya tenga el size_val en sus rows
                 for ch in charts:
-                    if brand.upper() in ch.get("names",{}).get("MLA","").upper():
-                        best = ch
+                    for row in (ch.get("rows") or []):
+                        sv = next((v.get("name","") for a in row.get("attributes",[])
+                                   if a.get("id")=="SIZE" for v in a.get("values",[])), "")
+                        if sv == size_val:
+                            best = ch
+                            break
+                    if best:
                         break
+                # Si ninguna tiene el talle, tomar la que coincida por brand
+                if not best:
+                    for ch in charts:
+                        ch_name = ch.get("names",{}).get("MLA","").upper()
+                        if brand and brand.upper() in ch_name:
+                            best = ch
+                            break
                 if not best and charts:
                     best = charts[0]
 
