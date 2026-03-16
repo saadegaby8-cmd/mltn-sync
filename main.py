@@ -1141,7 +1141,8 @@ async def duplicate(req: Request, _=Depends(auth)):
                         else:
                             results.append({"id": iid, "title": item.get("title", iid), "ok": False,
                                 "msg": f"⚠️ No se encontró guía de talles para '{brand_val}' en la cuenta destino.",
-                                "orig_chart_id": str(orig_chart_id) if orig_chart_id else ""})
+                                "orig_chart_id": str(orig_chart_id) if orig_chart_id else "",
+                                "chart_error": True})
                             continue
                     else:
                         attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
