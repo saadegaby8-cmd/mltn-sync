@@ -445,6 +445,20 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
         </div>
       </div>
 
+      <!-- MODAL SELECTOR GUIA TALLES -->
+      <div class="modal-bg" id="chart-modal">
+        <div class="modal" style="width:560px">
+          <button class="modal-close" onclick="closeChartModal()">✕</button>
+          <h3>📏 Elegir guía de talles</h3>
+          <p style="font-size:13px;color:#7a8299;margin-bottom:16px">El duplicador no encontró la guía correcta automáticamente. Elegí cuál usar en la cuenta destino:</p>
+          <div id="chart-modal-list" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;margin-bottom:16px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-blue" id="chart-modal-confirm" onclick="confirmChartSelection()" disabled>Confirmar y duplicar</button>
+            <button class="btn btn-out" onclick="closeChartModal()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PUBLICAR -->
       <div class="page" id="page-publicar">
         <div class="page-title">Publicar</div>
@@ -1751,6 +1765,9 @@ async function confirmDuplicate(){
   closeDupConfirm();
   await doDuplicate(estado,sync,agrupar);
 }
+let chartOverride = {}; // {orig_chart_id: dest_chart_id}
+let pendingDupArgs = null;
+
 async function doDuplicate(estado='active', sync=false, agrupar=false){
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
@@ -1770,46 +1787,83 @@ async function doDuplicate(estado='active', sync=false, agrupar=false){
     const ok=results.filter(r=>r.ok).length;
     document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados':''}`;
     const list=document.getElementById('dup-res');
+
+    // Detectar errores de guía de talles
+    const chartErrors = results.filter(r=>!r.ok && r.orig_chart_id);
+    if(chartErrors.length > 0 && ok < results.length){
+      const origChartId = chartErrors[0].orig_chart_id;
+      // Mostrar botón para elegir guía
+      const info = document.createElement('div');
+      info.className='ri fail';
+      info.innerHTML=`<div style="flex:1">
+        <b>⚠️ Problema con guía de talles</b><br>
+        <span style="font-size:12px;color:#7a8299">El duplicador no encontró la guía correcta automáticamente.</span><br>
+        <button class="btn btn-blue btn-sm" style="margin-top:8px" onclick="openChartModal('${origChartId}',${to},'${estado}',${sync},${agrupar})">📏 Elegir guía de talles</button>
+      </div>`;
+      list.appendChild(info);
+    }
+
     results.forEach(r=>{
+      if(r.orig_chart_id) return; // ya mostrado arriba
       const item=document.createElement('div');
       item.className='ri '+(r.ok?'ok':'fail');
-      let extra = '';
-      if(!r.ok && r.ml_talles_url){
-        extra = `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-          <a href="${r.ml_talles_url}" target="_blank" class="btn btn-out btn-sm">🔗 Ir a ML Talles</a>
-          ${r.error_type==='missing_chart' ? `<button class="btn btn-blue btn-sm" onclick="crearGuiaAuto('${r.orig_chart_id}','${r.domain_id}','${r.brand}',${b.to_account})">⚡ Crear guía automáticamente</button>` : ''}
-          ${r.error_type==='missing_size' ? `<button class="btn btn-blue btn-sm" onclick="agregarTalle('${r.chart_id}','${r.missing_size}',${b.to_account})">⚡ Agregar talle automáticamente</button>` : ''}
-        </div>`;
-      }
-      item.innerHTML=`<div style="flex:1"><span>${r.ok?'✅':'❌'}</span> <span class="rt">${r.title||r.id}</span><br><span class="rm">${r.msg||''}</span>${extra}</div>`;
+      item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;
       list.appendChild(item);
     });
     await loadState();
   }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
 }
 
-async function crearGuiaAuto(origChartId, domainId, brand, toAccount){
-  const btn = event.target;
-  btn.disabled=true; btn.textContent='Creando...';
+let selectedChartId = null;
+let pendingChartOrigId = null;
+let pendingDupTo = null;
+
+async function openChartModal(origChartId, toAccount, estado, sync, agrupar){
+  pendingChartOrigId = origChartId;
+  pendingDupTo = toAccount;
+  pendingDupArgs = [estado, sync, agrupar];
+  selectedChartId = null;
+  document.getElementById('chart-modal-confirm').disabled = true;
+  document.getElementById('chart-modal-list').innerHTML = '<div style="padding:20px;text-align:center;color:#7a8299">Cargando guías...</div>';
+  document.getElementById('chart-modal').classList.add('show');
   try{
-    const r = await fetch('/api/duplicate/create_chart',{method:'POST',headers:hdr(),
-      body:JSON.stringify({orig_chart_id:origChartId, domain_id:domainId, brand, to_account:toAccount})});
+    const r = await fetch(`/api/ml/${toAccount}/charts`, {headers:hdr()});
     const d = await r.json();
-    if(d.ok) btn.closest('.ri').innerHTML=`<span>✅</span> <span class="rt">Guía creada — volvé a duplicar</span>`;
-    else btn.closest('.ri').innerHTML=`<span>❌</span> <span class="rt">${d.msg}</span>`;
-  }catch(e){btn.textContent='Error'; btn.disabled=false;}
+    const charts = d.charts || [];
+    if(!charts.length){
+      document.getElementById('chart-modal-list').innerHTML = '<div style="padding:20px;text-align:center;color:#e17055">No hay guías de talles en esta cuenta. <a href="https://www.mercadolibre.com.ar/moda/talles/" target="_blank">Creá una en ML</a></div>';
+      return;
+    }
+    document.getElementById('chart-modal-list').innerHTML = charts.map(ch=>`
+      <div class="tn-prod-item" onclick="selectChart('${ch.id}',this)" data-id="${ch.id}" style="cursor:pointer">
+        <div style="font-weight:600;font-size:13px">${ch.name || 'Sin nombre'} <span style="font-size:11px;color:#7a8299">#${ch.id}</span></div>
+        <div style="font-size:11px;color:#7a8299;margin-top:3px">Dominio: ${ch.domain} · Talles: ${ch.sizes.filter(Boolean).join(', ') || '—'}</div>
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('chart-modal-list').innerHTML = `<div style="padding:20px;text-align:center;color:#e17055">Error: ${e.message}</div>`;
+  }
 }
 
-async function agregarTalle(chartId, sizeVal, toAccount){
-  const btn = event.target;
-  btn.disabled=true; btn.textContent='Agregando...';
-  try{
-    const r = await fetch('/api/duplicate/add_size',{method:'POST',headers:hdr(),
-      body:JSON.stringify({chart_id:chartId, size_val:sizeVal, to_account:toAccount})});
-    const d = await r.json();
-    if(d.ok) btn.closest('.ri').innerHTML=`<span>✅</span> <span class="rt">Talle '${sizeVal}' agregado — volvé a duplicar</span>`;
-    else btn.closest('.ri').innerHTML=`<span>❌</span> <span class="rt">${d.msg}</span>`;
-  }catch(e){btn.textContent='Error'; btn.disabled=false;}
+function selectChart(id, el){
+  selectedChartId = id;
+  document.querySelectorAll('#chart-modal-list .tn-prod-item').forEach(i=>i.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('chart-modal-confirm').disabled = false;
+}
+
+async function confirmChartSelection(){
+  if(!selectedChartId || !pendingChartOrigId) return;
+  chartOverride[pendingChartOrigId] = selectedChartId;
+  // Guardar override en backend
+  await fetch('/api/duplicate/with_chart', {method:'POST', headers:hdr(),
+    body: JSON.stringify({chart_override: chartOverride})});
+  closeChartModal();
+  // Volver a duplicar con el override configurado
+  await doDuplicate(...pendingDupArgs);
+}
+
+function closeChartModal(){
+  document.getElementById('chart-modal').classList.remove('show');
 }
 
 // ── LINK MODAL ─────────────────────────────────────────────────────────────────
