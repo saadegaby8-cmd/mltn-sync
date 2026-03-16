@@ -1028,10 +1028,16 @@ async def duplicate(req: Request, _=Depends(auth)):
                             if a.get("value_id"): attrs_clean.append({"id":"SIZE","value_id":a["value_id"]})
                             elif a.get("value_name"): attrs_clean.append({"id":"SIZE","value_name":a["value_name"]})
                         continue
-                    if a.get("value_id"):
-                        attrs_clean.append({"id": aid, "value_id": a["value_id"]})
-                    elif a.get("value_name"):
-                        attrs_clean.append({"id": aid, "value_name": a["value_name"]})
+                    if dest_is_up:
+                        # Para UP: siempre value_name
+                        vn = a.get("value_name")
+                        if vn:
+                            attrs_clean.append({"id": aid, "value_name": vn})
+                    else:
+                        if a.get("value_id"):
+                            attrs_clean.append({"id": aid, "value_id": a["value_id"]})
+                        elif a.get("value_name"):
+                            attrs_clean.append({"id": aid, "value_name": a["value_name"]})
 
                 # Agregar SIZE_GRID_ID y SIZE_GRID_ROW_ID
                 if orig_chart_id:
