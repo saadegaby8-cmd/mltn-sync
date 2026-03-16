@@ -680,16 +680,11 @@ async def duplicate(req: Request, _=Depends(auth)):
     # Detectar si cuenta destino es user_product_seller y preparar carga de guías
     dest_is_up = False
     dest_charts_cache = {}  # chart_id -> {chart_id, rows: {size_name: row_id}}
-    # Leer overrides de guías configurados por el usuario
-    chart_override = {}
-    try:
-        r_redis = get_redis()
-        if r_redis:
-            raw = r_redis.get("mltn:chart_override")
-            if raw:
-                chart_override = json.loads(raw)
-    except Exception:
-        pass
+    # Hardcode conocidos: guía origen -> guía destino por cuenta
+    KNOWN_CHARTS = {
+        # LENCERIA pijamas (4666038) -> SHAMPOOSHIR pijamas (5127137)
+        "4666038": {"chart_id": "5127137", "rows": {"XL-2XL": "5127137:1", "3XL-4XL": "5127137:2"}},
+    }
 
     async def get_dest_user_info():
         nonlocal dest_is_up
@@ -703,27 +698,11 @@ async def duplicate(req: Request, _=Depends(auth)):
         cache_key = f"{orig_chart_id}"
         if cache_key in dest_charts_cache:
             return dest_charts_cache[cache_key]
-        # Verificar si el usuario configuró un override para esta guía
-        if orig_chart_id in chart_override:
-            override_id = chart_override[orig_chart_id]
-            try:
-                async with httpx.AsyncClient(timeout=10) as c:
-                    r = await c.get(f"{ML_API}/catalog/charts/{override_id}",
-                                   headers={"Authorization": f"Bearer {to_t}"})
-                    if r.status_code == 200:
-                        chart = r.json()
-                        row_map = {}
-                        for row in (chart.get("rows") or []):
-                            rid = row.get("id","")
-                            sv = next((v.get("name","") for a in row.get("attributes",[])
-                                       if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                            if sv and rid:
-                                row_map[sv] = rid
-                        result = {"chart_id": override_id, "rows": row_map}
-                        dest_charts_cache[cache_key] = result
-                        return result
-            except Exception:
-                pass
+        # Usar mapeo conocido si existe
+        if orig_chart_id in KNOWN_CHARTS:
+            result = KNOWN_CHARTS[orig_chart_id]
+            dest_charts_cache[cache_key] = result
+            return result
         try:
             async with httpx.AsyncClient(timeout=15) as c:
                 # Para UP siempre buscar en las guías del vendedor destino
@@ -1136,13 +1115,19 @@ async def duplicate(req: Request, _=Depends(auth)):
                             else:
                                 results.append({"id": iid, "title": item.get("title", iid), "ok": False,
                                     "msg": f"⚠️ El talle '{size_val}' no existe en la guía de talles de la cuenta destino.",
-                                    "orig_chart_id": str(orig_chart_id)})
+                                    "error_type": "missing_size",
+                                    "missing_size": size_val,
+                                    "chart_id": dest_chart["chart_id"],
+                                    "ml_talles_url": "https://www.mercadolibre.com.ar/moda/talles/"})
                                 continue
                         else:
                             results.append({"id": iid, "title": item.get("title", iid), "ok": False,
-                                "msg": f"⚠️ No se encontró guía de talles para '{brand_val}' en la cuenta destino.",
-                                "orig_chart_id": str(orig_chart_id) if orig_chart_id else "",
-                                "chart_error": True})
+                                "msg": f"⚠️ No hay guía de talles para '{brand_val}' en la cuenta destino.",
+                                "error_type": "missing_chart",
+                                "domain_id": cat_domain,
+                                "brand": brand_val,
+                                "orig_chart_id": str(orig_chart_id),
+                                "ml_talles_url": "https://www.mercadolibre.com.ar/moda/talles/"})
                             continue
                     else:
                         attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
@@ -1297,46 +1282,6 @@ async def diag_charts_search(domain: str = "BRAS", brand: str = "Maxima"):
             return {"uid": to_uid, "domain": domain, "status": r.status_code, "body": r.json()}
     except Exception as e:
         return {"exception": str(e)}
-
-@app.get("/api/ml/{i}/charts")
-async def list_charts(i: int, domain_id: str = "", req: Request = None):
-    """Listar guías de talles de una cuenta ML"""
-    check_session(req)
-    try:
-        t = await fresh_token(i)
-        async with httpx.AsyncClient(timeout=15) as c:
-            me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {t}"})
-            uid = me_r.json().get("id","")
-            payload = {"site_id": "MLA", "seller_id": uid}
-            if domain_id:
-                payload["domain_id"] = domain_id
-            r = await c.post(f"{ML_API}/catalog/charts/search",
-                headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
-                json=payload)
-            if r.status_code == 200:
-                charts = r.json().get("charts", [])
-                return {"charts": [{"id": ch["id"], "name": ch.get("names",{}).get("MLA",""), 
-                                    "domain": ch.get("domain_id",""),
-                                    "sizes": [next((v.get("name","") for a in row.get("attributes",[]) 
-                                                    if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                                              for row in ch.get("rows",[])]} 
-                                   for ch in charts]}
-            return {"charts": [], "error": r.status_code}
-    except Exception as e:
-        return {"charts": [], "error": str(e)}
-
-@app.post("/api/duplicate/with_chart")
-async def duplicate_with_chart(request: Request):
-    """Duplicar forzando una guía de talles específica"""
-    check_session(request)
-    b = await request.json()
-    # Guardar en Redis el mapeo chart_id_orig -> chart_id_dest para esta sesión
-    chart_override = b.get("chart_override", {})  # {orig_chart_id: dest_chart_id}
-    r = get_redis()
-    if r and chart_override:
-        r.set("mltn:chart_override", json.dumps(chart_override), ex=3600)
-    return {"ok": True}
-
 
 @app.get("/diag/copy_chart/{chart_id}")
 async def diag_copy_chart(chart_id: str):
