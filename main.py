@@ -954,7 +954,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                 orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
                 dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
                 NON_MODIFIABLE = {"IS_TOM_BRAND","IS_EMERGING_BRAND","IS_HIGHLIGHT_BRAND",
-                                  "FILTRABLE_GENDER","AGE_GROUP","IMPORT_DUTY","VALUE_ADDED_TAX",
+                                  "FILTRABLE_GENDER","AGE_GROUP",
                                   "IS_SUITABLE_FOR_LACTANTING_PEOPLE","IS_SUITABLE_FOR_PREGNANCY",
                                   "WITH_RECYCLED_MATERIALS","ITEM_CONDITION"}
                 base_attrs = [a for a in (item.get("attributes") or []) 
@@ -999,10 +999,10 @@ async def duplicate(req: Request, _=Depends(auth)):
                             item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
                         # Agregar dimensiones del paquete si se ingresaron
                         if dims:
-                            if dims.get("h"): item_attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":str(dims["h"])})
-                            if dims.get("w"): item_attrs.append({"id":"SELLER_PACKAGE_WIDTH","value_name":str(dims["w"])})
-                            if dims.get("l"): item_attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":str(dims["l"])})
-                            if dims.get("p"): item_attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":str(dims["p"])})
+                            if dims.get("h"): item_attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":f'{int(dims["h"])} cm'})
+                            if dims.get("w"): item_attrs.append({"id":"SELLER_PACKAGE_WIDTH","value_name":f'{int(dims["w"])} cm'})
+                            if dims.get("l"): item_attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":f'{int(dims["l"])} cm'})
+                            if dims.get("p"): item_attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":f'{int(float(dims["p"])*1000)} g'})
                         # Subir fotos y obtener sus IDs para el nuevo modelo UP
                         pic_ids = []
                         for pic in (item.get("pictures") or [])[:6]:
