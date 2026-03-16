@@ -955,10 +955,16 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
                                 price = v.get("price") or item.get("price", 0)
                                 stock = v.get("available_quantity", item.get("available_quantity", 0))
-                                # Construir atributos — mantener todos excepto SIZE_GRID_ID
-                                # y agregar SIZE_GRID_ID con la guía override si existe
-                                item_attrs = [a for a in (item.get("attributes") or []) if a.get("id") != "SIZE_GRID_ID"]
-                                orig_chart_id = str(item.get("attributes") and next((a.get("value_name","") for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), "") or "")
+                                # Construir atributos — tomar del item original
+                                item_attrs = [a for a in (item.get("attributes") or []) 
+                                              if a.get("id") not in ("SIZE_GRID_ID", "SIZE", "COLOR")]
+                                # Agregar SIZE y COLOR de esta variante
+                                if talle:
+                                    item_attrs.append({"id": "SIZE", "value_name": talle})
+                                if color:
+                                    item_attrs.append({"id": "COLOR", "value_name": color})
+                                # Agregar SIZE_GRID_ID con override o el original
+                                orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
                                 dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
                                 if dest_chart_id:
                                     item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
