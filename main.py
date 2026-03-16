@@ -688,9 +688,9 @@ async def duplicate(req: Request, _=Depends(auth)):
             tags = r.json().get("tags", [])
             dest_is_up = "user_product_seller" in tags
 
-    async def load_dest_chart(orig_chart_id: str, domain_id: str = "", brand: str = ""):
+    async def load_dest_chart(orig_chart_id: str, domain_id: str = "", brand: str = "", needed_size: str = ""):
         """Buscar guía de talles equivalente en cuenta destino"""
-        cache_key = f"{orig_chart_id}"
+        cache_key = f"{orig_chart_id}:{needed_size}"
         if cache_key in dest_charts_cache:
             return dest_charts_cache[cache_key]
         try:
@@ -739,12 +739,12 @@ async def duplicate(req: Request, _=Depends(auth)):
 
                 # Elegir la guía que tenga el talle que necesitamos
                 best = None
-                # Primero buscar la guía que ya tenga el size_val en sus rows
+                # Primero buscar la guía que ya tenga el talle en sus rows
                 for ch in charts:
                     for row in (ch.get("rows") or []):
                         sv = next((v.get("name","") for a in row.get("attributes",[])
                                    if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                        if sv == size_val:
+                        if needed_size and sv == needed_size:
                             best = ch
                             break
                     if best:
@@ -774,6 +774,8 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 row_map[size_val] = rid
                         result = {"chart_id": str(best["id"]), "rows": row_map}
                         dest_charts_cache[cache_key] = result
+                        # Also cache without size for fallback
+                        dest_charts_cache[orig_chart_id] = result
                         return result
         except Exception:
             pass
@@ -1057,7 +1059,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 cat_domain = dr.json().get("domain_id","")
                         except Exception:
                             pass
-                        dest_chart = await load_dest_chart(str(orig_chart_id), cat_domain, brand_val)
+                        dest_chart = await load_dest_chart(str(orig_chart_id), cat_domain, brand_val, size_val)
                         if not dest_chart:
                             # Intentar copiar la guía automáticamente
                             dest_chart = await copy_chart_to_dest(str(orig_chart_id), cat_domain)
