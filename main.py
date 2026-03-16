@@ -744,7 +744,11 @@ async def duplicate(req: Request, _=Depends(auth)):
         nonlocal dest_is_up
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
-            tags = r.json().get("tags", [])
+            try:
+                data = r.json() if r.content else {}
+            except Exception:
+                data = {}
+            tags = data.get("tags", [])
             dest_is_up = "user_product_seller" in tags
 
     async def load_dest_chart(orig_chart_id: str, domain_id: str = "", brand: str = ""):
