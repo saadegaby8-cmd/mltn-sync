@@ -696,10 +696,14 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
             </div>
           </div>
 
-          <!-- GUÍAS DE TALLES -->
-          <div id="dup-charts-wrap" style="display:block;border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
-            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📏 Guías de talles</div>
-            <div id="dup-charts-list"><span style="font-size:12px;color:#7a8299">Cargando guías...</span></div>
+          <!-- GUÍAS DE TALLES MANUAL -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📏 Guía de talles (opcional)</div>
+            <div style="font-size:11px;color:#7a8299;margin-bottom:10px">Si el producto tiene guía de talles, ingresá el ID de la guía en la cuenta destino.</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" id="dup-chart-id-input" placeholder="ID de guía destino (ej: 5127137)" style="flex:1;padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:Inter,sans-serif" />
+              <span style="font-size:11px;color:#7a8299">Dejá vacío para automático</span>
+            </div>
           </div>
 
           <div style="display:flex;gap:8px">
@@ -1860,6 +1864,13 @@ async function confirmDuplicate(){
   const estado=document.querySelector('input[name="dup-estado"]:checked')?.value||'active';
   const sync=document.querySelector('input[name="dup-sync"]:checked')?.value==='si';
   const agrupar=document.querySelector('input[name="dup-grupo"]:checked')?.value==='si';
+  // Guardar override manual si se ingresó un ID
+  const manualChartId = document.getElementById('dup-chart-id-input')?.value?.trim();
+  if(manualChartId){
+    // Guardar para todos los productos seleccionados (no sabemos el orig_chart_id, usamos "manual")
+    dupChartMap['manual'] = manualChartId;
+    await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:{'manual':manualChartId}})});
+  }
   closeDupConfirm();
   await doDuplicate(estado,sync,agrupar);
 }
