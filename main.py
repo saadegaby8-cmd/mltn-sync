@@ -702,16 +702,13 @@ async def duplicate(req: Request, _=Depends(auth)):
                                    headers={"Authorization": f"Bearer {to_t}"})
                     if r.status_code == 200:
                         chart = r.json()
-                        # Solo usar si es del vendedor destino
-                        if str(chart.get("seller_id","")) == str(to_uid if False else ""):
-                            pass  # skip, we don't have to_uid yet
                         row_map = {}
                         for row in (chart.get("rows") or []):
                             rid = row.get("id","")
-                            size_val = next((v.get("name","") for a in row.get("attributes",[])
+                            sv_inner = next((v.get("name","") for a in row.get("attributes",[])
                                             if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                            if size_val and rid:
-                                row_map[size_val] = rid
+                            if sv_inner and rid:
+                                row_map[sv_inner] = rid
                         result = {"chart_id": orig_chart_id, "rows": row_map}
                         dest_charts_cache[cache_key] = result
                         return result
@@ -768,13 +765,12 @@ async def duplicate(req: Request, _=Depends(auth)):
                         row_map = {}
                         for row in (chart.get("rows") or []):
                             rid = row.get("id","")
-                            size_val = next((v.get("name","") for a in row.get("attributes",[])
+                            sv_inner = next((v.get("name","") for a in row.get("attributes",[])
                                             if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                            if size_val and rid:
-                                row_map[size_val] = rid
+                            if sv_inner and rid:
+                                row_map[sv_inner] = rid
                         result = {"chart_id": str(best["id"]), "rows": row_map}
                         dest_charts_cache[cache_key] = result
-                        # Also cache without size for fallback
                         dest_charts_cache[orig_chart_id] = result
                         return result
         except Exception:
