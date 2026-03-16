@@ -1808,7 +1808,12 @@ async function loadChartsForConfirm(toAccount){
   });
   const wrap = document.getElementById('dup-charts-wrap');
   const list = document.getElementById('dup-charts-list');
-  if(!prodsConGuia.length){wrap.style.display='none'; return;}
+  if(!prodsConGuia.length){
+    // Mostrar debug info
+    wrap.style.display='block';
+    list.innerHTML='<span style="font-size:11px;color:#7a8299">Debug: '+selProds.length+' productos seleccionados. Attrs del primero: '+(selProds[0]?.attributes?.length||0)+' attrs. SIZE_GRID_ID: '+(selProds[0]?.attributes?.find(a=>a.id==="SIZE_GRID_ID")?.value_name||"no encontrado")+'</span>';
+    return;
+  }
   wrap.style.display = 'block';
   list.innerHTML = '<span style="font-size:12px;color:#7a8299">Cargando guías disponibles...</span>';
   try{
