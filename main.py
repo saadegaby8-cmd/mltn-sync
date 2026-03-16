@@ -1304,9 +1304,8 @@ async def diag_item(item_id: str):
         return {"exception": str(e)}
 
 @app.get("/api/ml/{i}/charts")
-async def list_charts(i: int, req: Request = None):
+async def list_charts(i: int, _=Depends(auth)):
     """Listar guías de talles de una cuenta ML"""
-    check_session(req)
     try:
         t = await fresh_token(i)
         async with httpx.AsyncClient(timeout=15) as c:
@@ -1330,12 +1329,12 @@ async def list_charts(i: int, req: Request = None):
                 return {"charts": result}
             return {"charts": [], "error": r.status_code, "body": r.text[:200]}
     except Exception as e:
-        return {"charts": [], "error": str(e)}
+        import traceback
+        return {"charts": [], "error": str(e), "trace": traceback.format_exc()[:500]}
 
 @app.post("/api/duplicate/with_chart")
-async def dup_with_chart(request: Request):
+async def dup_with_chart(request: Request, _=Depends(auth)):
     """Guardar override de guía de talles para el duplicador"""
-    check_session(request)
     b = await request.json()
     chart_override = b.get("chart_override", {})
     r = get_redis()
