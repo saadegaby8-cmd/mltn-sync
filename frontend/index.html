@@ -1789,9 +1789,9 @@ async function doDuplicate(estado='active', sync=false, agrupar=false){
     const list=document.getElementById('dup-res');
 
     // Detectar errores de guía de talles
-    const chartErrors = results.filter(r=>!r.ok && r.orig_chart_id);
+    const chartErrors = results.filter(r=>!r.ok && (r.chart_error || r.orig_chart_id));
     if(chartErrors.length > 0 && ok < results.length){
-      const origChartId = chartErrors[0].orig_chart_id;
+      const origChartId = chartErrors[0].orig_chart_id || "";
       // Mostrar botón para elegir guía
       const info = document.createElement('div');
       info.className='ri fail';
