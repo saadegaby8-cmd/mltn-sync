@@ -717,7 +717,10 @@ async def duplicate(req: Request, _=Depends(auth)):
         cache_key = f"{orig_chart_id}"
         if cache_key in dest_charts_cache:
             return dest_charts_cache[cache_key]
-        # Verificar override del usuario
+        # Verificar override del usuario (por ID específico o "manual" para cualquiera)
+        override_key = orig_chart_id if orig_chart_id in chart_override else ("manual" if "manual" in chart_override else None)
+        if override_key:
+            orig_chart_id = override_key  # reusar lógica abajo
         if orig_chart_id in chart_override:
             override_id = chart_override[orig_chart_id]
             try:
