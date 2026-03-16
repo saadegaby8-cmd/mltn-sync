@@ -987,8 +987,11 @@ async def duplicate(req: Request, _=Depends(auth)):
                                         headers={"Authorization": f"Bearer {to_t}"},
                                         json=payload)
                                 ok = r2.status_code in (200, 201)
+                                if not ok:
+                                    err_body = r2.json()
+                                    print(f"ML error {r2.status_code}: {json.dumps(err_body)[:500]}")
                                 results.append({"id": iid, "title": new_title, "ok": ok,
-                                    "msg": "Publicado" if ok else r2.json().get("message", "Error")})
+                                    "msg": "Publicado" if ok else r2.json().get("cause",[{}])[0].get("message", r2.json().get("message","Error"))})
                         else:
                             new_item_ids.append(iid)
                     else:
