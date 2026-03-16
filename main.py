@@ -971,8 +971,26 @@ async def duplicate(req: Request, _=Depends(auth)):
                             item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
                         elif orig_chart_id:
                             item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
+                        # Subir fotos y obtener sus IDs para el nuevo modelo UP
+                        pic_ids = []
+                        for pic in (item.get("pictures") or [])[:6]:
+                            pic_url = pic.get("url","") or pic.get("source","")
+                            if not pic_url:
+                                continue
+                            try:
+                                async with httpx.AsyncClient(timeout=20) as cp:
+                                    rp = await cp.post(f"{ML_API}/pictures/items/upload",
+                                        headers={"Authorization": f"Bearer {to_t}",
+                                                 "Content-Type": "application/json"},
+                                        json={"source": pic_url})
+                                if rp.status_code in (200,201):
+                                    pic_ids.append({"id": rp.json().get("id","")})
+                            except Exception:
+                                pass
+                        # Si no pudimos subir fotos, usar source como fallback
+                        if not pic_ids:
+                            pic_ids = [{"source": p.get("url","")} for p in (item.get("pictures") or [])[:6] if p.get("url")]
                         payload = {
-                            "title": new_title,
                             "category_id": item.get("category_id"),
                             "price": price,
                             "currency_id": item.get("currency_id", "ARS"),
@@ -980,9 +998,9 @@ async def duplicate(req: Request, _=Depends(auth)):
                             "buying_mode": "buy_it_now",
                             "listing_type_id": item.get("listing_type_id", "gold_special"),
                             "condition": item.get("condition", "new"),
-                            "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
+                            "pictures": pic_ids,
                             "attributes": item_attrs,
-                            "family_name": item.get("title","")
+                            "family_name": new_title
                         }
                         async with httpx.AsyncClient(timeout=30) as c2:
                             r2 = await c2.post(f"{ML_API}/items",
