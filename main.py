@@ -944,6 +944,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                     if r.status_code == 200:
                         item = r.json()
                         variations = item.get("variations", [])
+                        print(f"Item {iid}: status={item.get('status')}, variations_count={len(variations)}, r_status={r.status_code}")
                         if variations:
                             print(f"Total variantes a procesar: {len(variations)}")
                             # Crear un item por cada variante
