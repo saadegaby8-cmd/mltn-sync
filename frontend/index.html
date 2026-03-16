@@ -1791,9 +1791,12 @@ async function doDuplicate(estado='active', sync=false, agrupar=false){
     results.forEach(r=>{
       const item=document.createElement('div');
       item.className='ri '+(r.ok?'ok':'fail');
-      const isChartError = !r.ok && r.msg && (r.msg.includes('guía') || r.msg.includes('talle'));
-      const extraBtn = isChartError ? `<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartModal('${r.orig_chart_id||''}',${to},'${estado}',${sync},${agrupar})">📏 Elegir guía de talles manualmente</button>` : '';
-      item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>${extraBtn}`;
+      const isChartError = !r.ok && r.msg && (r.msg.includes('gu') || r.msg.includes('talle'));
+      let html = `<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;
+      if(isChartError){
+        html += '<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartModal(\''+( r.orig_chart_id||'')+'\',' + to + ',\'' + estado + '\',' + sync + ',' + agrupar + ')">📏 Elegir guía de talles</button>';
+      }
+      item.innerHTML = html;
       list.appendChild(item);
     });
     await loadState();
