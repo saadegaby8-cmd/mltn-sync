@@ -945,6 +945,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                         item = r.json()
                         variations = item.get("variations", [])
                         if variations:
+                            print(f"Total variantes a procesar: {len(variations)}")
                             # Crear un item por cada variante
                             for v in variations:
                                 attrs = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
