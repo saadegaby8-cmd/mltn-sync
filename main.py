@@ -682,7 +682,9 @@ async def duplicate(req: Request, _=Depends(auth)):
     dest_charts_cache = {}  # chart_id -> {chart_id, rows: {size_name: row_id}}
     # Hardcode conocidos: guía origen -> guía destino por cuenta
     KNOWN_CHARTS = {
-        # LENCERIA pijamas (4666038) -> SHAMPOOSHIR pijamas (5127137)
+        # LENCERIA pijamas (4788364) -> SHAMPOOSHIR pijamas (5127137)
+        "4788364": {"chart_id": "5127137", "rows": {"XL-2XL": "5127137:1", "3XL-4XL": "5127137:2"}},
+        # También mapear 4666038 por si acaso
         "4666038": {"chart_id": "5127137", "rows": {"XL-2XL": "5127137:1", "3XL-4XL": "5127137:2"}},
     }
 
