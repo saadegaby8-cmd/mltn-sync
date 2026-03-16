@@ -951,9 +951,9 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 # Buscar talle con cualquier key posible
                                 talle = (attrs.get("Talle") or attrs.get("Tamaño") or 
                                         attrs.get("Size") or attrs.get("Talla") or
-                                        next((v for k,v in attrs.items() if "tall" in k.lower() or "size" in k.lower() or "tamaño" in k.lower()), ""))
+                                        next((val for k,val in attrs.items() if "tall" in k.lower() or "size" in k.lower() or "tamaño" in k.lower()), ""))
                                 color = (attrs.get("Color") or 
-                                        next((v for k,v in attrs.items() if "color" in k.lower()), ""))
+                                        next((val for k,val in attrs.items() if "color" in k.lower()), ""))
                                 print(f"Variante attrs: {attrs}, talle={talle}, color={color}")
                                 suffix = " - ".join(filter(None, [talle, color]))
                                 new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
