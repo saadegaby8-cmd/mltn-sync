@@ -941,89 +941,69 @@ async def duplicate(req: Request, _=Depends(auth)):
             try:
                 async with httpx.AsyncClient(timeout=15) as c:
                     r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
-                    if r.status_code == 200:
-                        item = r.json()
-                        variations = item.get("variations", [])
-                        print(f"Item {iid}: status={item.get('status')}, variations_count={len(variations)}, r_status={r.status_code}")
-                        if variations:
-                            print(f"Total variantes a procesar: {len(variations)}")
-                            # Crear un item por cada variante
-                            for v in variations:
-                                attrs = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                                # Buscar talle con cualquier key posible
-                                talle = (attrs.get("Talle") or attrs.get("Tamaño") or 
-                                        attrs.get("Size") or attrs.get("Talla") or
-                                        next((val for k,val in attrs.items() if "tall" in k.lower() or "size" in k.lower() or "tamaño" in k.lower()), ""))
-                                color = (attrs.get("Color") or 
-                                        next((val for k,val in attrs.items() if "color" in k.lower()), ""))
-                                print(f"Variante attrs: {attrs}, talle={talle}, color={color}")
-                                suffix = " - ".join(filter(None, [talle, color]))
-                                suffix_clean = suffix.replace("/", "-")
-                                new_title = f"{item['title']} - {suffix_clean}" if suffix_clean else item["title"]
-                                print(f"Titulo: '{new_title}' len={len(new_title)}")
-                                print(f"Payload keys: {list(payload.keys())}")
-                                print(f"Listing type: {payload.get('listing_type_id')}")
-                                price = v.get("price") or item.get("price", 0)
-                                stock = v.get("available_quantity", item.get("available_quantity", 0))
-                                # Construir atributos — tomar del item original
-                                item_attrs = [a for a in (item.get("attributes") or []) 
-                                              if a.get("id") not in ("SIZE_GRID_ID", "SIZE", "COLOR")]
-                                # Agregar SIZE y COLOR de esta variante
-                                if talle:
-                                    item_attrs.append({"id": "SIZE", "value_name": talle})
-                                if color:
-                                    item_attrs.append({"id": "COLOR", "value_name": color})
-                                # Agregar family_name requerido por ML
-                                item_attrs.append({"id": "FAMILY_NAME", "value_name": item.get("title", "")[:60]})
-                                # Agregar SIZE_GRID_ID con override o el original
-                                orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
-                                dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
-                                if dest_chart_id:
-                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
-                                elif orig_chart_id:
-                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
-                                payload = {
-                                    "title": new_title,
-                                    "category_id": item.get("category_id"),
-                                    "price": price,
-                                    "currency_id": item.get("currency_id", "ARS"),
-                                    "available_quantity": stock,
-                                    "buying_mode": "buy_it_now",
-                                    "listing_type_id": item.get("listing_type_id", "gold_special"),
-                                    "condition": item.get("condition", "new"),
-                                    "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                                    "attributes": item_attrs
-                                }
-                                # ML requiere family_name para esta categoría - lo agregamos por separado
-                                # intentar primero sin family_name, si falla con ese error agregarlo
-                                async with httpx.AsyncClient(timeout=30) as c2:
-                                    r2 = await c2.post(f"{ML_API}/items",
-                                        headers={"Authorization": f"Bearer {to_t}"},
-                                        json=payload)
-                                if r2.status_code == 400:
-                                    err_try = r2.json()
-                                    if "family_name" in str(err_try):
-                                        payload["family_name"] = item.get("title","")
-                                        async with httpx.AsyncClient(timeout=30) as c3:
-                                            r2 = await c3.post(f"{ML_API}/items",
-                                                headers={"Authorization": f"Bearer {to_t}"},
-                                                json=payload)
-                                ok = r2.status_code in (200, 201)
-                                try:
-                                    err_body = r2.json()
-                                except:
-                                    err_body = {}
-                                if not ok:
-                                    print(f"ML error {r2.status_code}: {json.dumps(err_body)[:500]}")
-                                cause_list = err_body.get("cause", [])
-                                err_msg = cause_list[0].get("message","") if cause_list else err_body.get("message","Error")
-                                results.append({"id": iid, "title": new_title, "ok": ok,
-                                    "msg": "Publicado" if ok else err_msg})
-                        else:
-                            new_item_ids.append(iid)
-                    else:
-                        new_item_ids.append(iid)
+                if r.status_code != 200:
+                    new_item_ids.append(iid)
+                    continue
+                item = r.json()
+                variations = item.get("variations", [])
+                if not variations:
+                    new_item_ids.append(iid)
+                    continue
+                print(f"Explotando {iid}: {len(variations)} variantes")
+                orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
+                dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
+                base_attrs = [a for a in (item.get("attributes") or []) if a.get("id") not in ("SIZE_GRID_ID","SIZE","COLOR")]
+                for v in variations:
+                    try:
+                        vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
+                        talle = vcombos.get("Talle") or vcombos.get("Tamaño") or vcombos.get("Size") or vcombos.get("Talla") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
+                        color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
+                        suffix = " - ".join(filter(None, [talle.replace("/","-") if talle else "", color]))
+                        new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
+                        price = v.get("price") or item.get("price", 0)
+                        stock = v.get("available_quantity", item.get("available_quantity", 0))
+                        item_attrs = list(base_attrs)
+                        if talle:
+                            item_attrs.append({"id": "SIZE", "value_name": talle})
+                        if color:
+                            item_attrs.append({"id": "COLOR", "value_name": color})
+                        if dest_chart_id:
+                            item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
+                        elif orig_chart_id:
+                            item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
+                        payload = {
+                            "title": new_title,
+                            "category_id": item.get("category_id"),
+                            "price": price,
+                            "currency_id": item.get("currency_id", "ARS"),
+                            "available_quantity": stock,
+                            "buying_mode": "buy_it_now",
+                            "listing_type_id": item.get("listing_type_id", "gold_special"),
+                            "condition": item.get("condition", "new"),
+                            "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
+                            "attributes": item_attrs,
+                            "family_name": item.get("title","")
+                        }
+                        async with httpx.AsyncClient(timeout=30) as c2:
+                            r2 = await c2.post(f"{ML_API}/items",
+                                headers={"Authorization": f"Bearer {to_t}"},
+                                json=payload)
+                        ok = r2.status_code in (200, 201)
+                        try:
+                            err_body = r2.json()
+                        except:
+                            err_body = {}
+                        if not ok:
+                            print(f"ML error {r2.status_code}: {json.dumps(err_body)[:300]}")
+                        cause_list = err_body.get("cause", [])
+                        err_msg = cause_list[0].get("message","") if cause_list else err_body.get("message","Error")
+                        results.append({"id": iid, "title": new_title, "ok": ok,
+                            "msg": "Publicado" if ok else err_msg})
+                    except Exception as ve:
+                        print(f"Error en variante: {ve}")
+                        results.append({"id": iid, "title": iid, "ok": False, "msg": str(ve)})
             except Exception as e:
+                print(f"Error en item {iid}: {e}")
                 results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
         # Los items sin variantes se procesan normal
         item_ids = new_item_ids
