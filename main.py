@@ -144,9 +144,16 @@ async def fresh_token(i: int) -> str:
                 acc["token"] = td["access_token"]
                 acc["refresh"] = td.get("refresh_token", acc["refresh"])
                 acc["expiry"] = time.time() + td.get("expires_in",21600) - 300
+                acc["token_ok"] = True
                 save_state()
-        except:
-            pass
+            else:
+                # Refresh falló — marcar como vencido
+                acc["token_ok"] = False
+                acc["expiry"] = 0
+                save_state()
+        except Exception as e:
+            acc["token_ok"] = False
+            save_state()
     return acc["token"]
 
 @app.get("/api/state")
@@ -1124,7 +1131,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                                 continue
                         else:
                             results.append({"id": iid, "title": item.get("title", iid), "ok": False,
-                                "msg": f"⚠️ No hay guía de talles para '{brand_val}' en la cuenta destino.",
+                                "msg": f"⚠️ No hay guía de talles para '{brand_val}' en la cuenta destino. SIZE_GRID_ID origen: {orig_chart_id}",
                                 "error_type": "missing_chart",
                                 "domain_id": cat_domain,
                                 "brand": brand_val,
