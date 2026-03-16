@@ -1260,6 +1260,24 @@ async def duplicate(req: Request, _=Depends(auth)):
     save_state()
     return {"results": results}
 
+@app.get("/diag/prod_attrs/{i}")
+async def diag_prod_attrs(i: int):
+    """Ver atributos del primer producto cacheado"""
+    try:
+        acc = ST["accounts"][i]
+        uid = acc.get("uid","")
+        prods = get_cached_products(uid)
+        if not prods:
+            return {"error": "no products cached"}
+        p = prods[0]
+        attrs = p.get("attributes", [])
+        size_grid = next((a for a in attrs if a.get("id") == "SIZE_GRID_ID"), None)
+        return {"title": p.get("title",""), "has_attributes": len(attrs) > 0, 
+                "attr_count": len(attrs), "size_grid": size_grid,
+                "first_attrs": attrs[:3]}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/diag/item/{item_id}")
 async def diag_item(item_id: str):
     if not ST["accounts"]:
