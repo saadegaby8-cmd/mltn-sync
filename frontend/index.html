@@ -1788,26 +1788,12 @@ async function doDuplicate(estado='active', sync=false, agrupar=false){
     document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados':''}`;
     const list=document.getElementById('dup-res');
 
-    // Detectar errores de guía de talles
-    const chartErrors = results.filter(r=>!r.ok && (r.chart_error || r.orig_chart_id));
-    if(chartErrors.length > 0 && ok < results.length){
-      const origChartId = chartErrors[0].orig_chart_id || "";
-      // Mostrar botón para elegir guía
-      const info = document.createElement('div');
-      info.className='ri fail';
-      info.innerHTML=`<div style="flex:1">
-        <b>⚠️ Problema con guía de talles</b><br>
-        <span style="font-size:12px;color:#7a8299">El duplicador no encontró la guía correcta automáticamente.</span><br>
-        <button class="btn btn-blue btn-sm" style="margin-top:8px" onclick="openChartModal('${origChartId}',${to},'${estado}',${sync},${agrupar})">📏 Elegir guía de talles</button>
-      </div>`;
-      list.appendChild(info);
-    }
-
     results.forEach(r=>{
-      if(r.orig_chart_id) return; // ya mostrado arriba
       const item=document.createElement('div');
       item.className='ri '+(r.ok?'ok':'fail');
-      item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;
+      const isChartError = !r.ok && r.msg && (r.msg.includes('guía') || r.msg.includes('talle'));
+      const extraBtn = isChartError ? `<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartModal('${r.orig_chart_id||''}',${to},'${estado}',${sync},${agrupar})">📏 Elegir guía de talles manualmente</button>` : '';
+      item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>${extraBtn}`;
       list.appendChild(item);
     });
     await loadState();
