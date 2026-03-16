@@ -565,7 +565,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
             <table>
               <thead><tr>
                 <th class="chk"><input type="checkbox" id="chk-all-dup" onchange="selAllDup(this)"/></th>
-                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>ESTADO</th>
+                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>ESTADO</th><th>GUÍA TALLES</th>
               </tr></thead>
               <tbody id="dup-body"></tbody>
             </table>
@@ -1649,8 +1649,9 @@ async function loadDupProds(){
     const r=await fetch('/api/ml/'+from+'/products?limit=9999',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
-    dupProds=d.products;dupSel=[];dupPg=0;
+    dupProds=d.products;dupSel=[];dupPg=0;dupChartMap={};
     document.getElementById('dup-q').value='';
+    await loadDestCharts();
     applyDupF();
     document.getElementById('dup-prod-panel').style.display='block';
     document.getElementById('dup-prog-panel').style.display='none';
@@ -1662,6 +1663,18 @@ function applyDupF(){
   dupFilt=dupProds.filter(p=>!q||p.title.toLowerCase().includes(q));
   dupPg=0;renderDupT();
 }
+let destCharts = [];
+let dupChartMap = {}; // item_id -> chart_id selected by user
+
+async function loadDestCharts(){
+  const to = parseInt(document.getElementById('dup-to').value);
+  try{
+    const r = await fetch('/api/ml/'+to+'/charts',{headers:hdr()});
+    const d = await r.json();
+    destCharts = d.charts || [];
+  }catch(e){ destCharts = []; }
+}
+
 function renderDupT(){
   const pp=parseInt(document.getElementById('dup-pp').value)||10;
   const total=dupFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
@@ -1670,7 +1683,7 @@ function renderDupT(){
   document.getElementById('dup-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
   document.getElementById('dup-pag-cur').textContent=`${dupPg+1}/${pages}`;
   const tbody=document.getElementById('dup-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="ei">🔍</div>Sin resultados.</div></td></tr>`;return;}
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>Sin resultados.</div></td></tr>`;return;}
   tbody.innerHTML=slice.map(p=>{
     const sel=dupSel.includes(p.id);
     const img=p.pictures?.[0]?.url||p.thumbnail||'';
@@ -1679,15 +1692,35 @@ function renderDupT(){
     const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
     const st=p.status==='active'?'ba':p.status==='paused'?'bp':'bc';
     const stL=p.status==='active'?'Activa':p.status==='paused'?'Pausada':'Cerrada';
+    // Detectar si tiene SIZE_GRID_ID
+    const attrs = p.attributes || [];
+    const hasChart = attrs.some(a=>a.id==='SIZE_GRID_ID');
+    const origChartId = hasChart ? (attrs.find(a=>a.id==='SIZE_GRID_ID')?.value_name || attrs.find(a=>a.id==='SIZE_GRID_ID')?.value_id || '') : '';
+    let chartCell = '<td></td>';
+    if(hasChart){
+      const savedChart = dupChartMap[origChartId] || '';
+      if(destCharts.length){
+        const opts = destCharts.map(ch=>`<option value="${ch.id}" ${savedChart===ch.id?'selected':''}>${ch.name||ch.id} (${ch.sizes.filter(Boolean).slice(0,3).join(',')}...)</option>`).join('');
+        chartCell = `<td onclick="event.stopPropagation()"><select style="font-size:11px;padding:3px 6px;border:1px solid #dde1e9;border-radius:5px;max-width:160px" onchange="setDupChart('${origChartId}',this.value)"><option value="">— Automático —</option>${opts}</select></td>`;
+      } else {
+        chartCell = `<td><span style="font-size:11px;color:#7a8299">📏 Cargando...</span></td>`;
+      }
+    }
     return `<tr class="${sel?'sel':''}" onclick="toggleDupRow('${p.id}',this)">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleDupRow('${p.id}',this.closest('tr'))" /></td>
       <td>${imgH}</td>
       <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
       <td>${stk}</td><td style="font-weight:600">${price}</td>
       <td><span class="badge ${st}">${stL}</span></td>
+      ${chartCell}
     </tr>`;
   }).join('');
   updateDupAB();
+}
+
+function setDupChart(origChartId, destChartId){
+  if(destChartId) dupChartMap[origChartId] = destChartId;
+  else delete dupChartMap[origChartId];
 }
 function toggleDupRow(id,tr){
   if(dupSel.includes(id)){dupSel=dupSel.filter(i=>i!==id);tr.classList.remove('sel');}
@@ -1765,90 +1798,106 @@ async function confirmDuplicate(){
   closeDupConfirm();
   await doDuplicate(estado,sync,agrupar);
 }
-let chartOverride = {}; // {orig_chart_id: dest_chart_id}
+// ── DUPLICAR ──────────────────────────────────────────────────────────────────
+let chartOverride = {};
 let pendingDupArgs = null;
+let selectedChartId = null;
+let pendingChartOrigId = null;
 
-async function doDuplicate(estado='active', sync=false, agrupar=false){
+async function doDuplicate(estado, sync, agrupar){
+  estado = estado || 'active';
+  sync = sync || false;
+  agrupar = agrupar || false;
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
   if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
   document.getElementById('dup-prog-panel').style.display='block';
   document.getElementById('dup-res').innerHTML='';
   document.getElementById('dup-pf').style.width='0%';
-  const modoTxt=agrupar?'Agrupando variantes y duplicando...':'Duplicando '+dupSel.length+' producto(s)...';
-  document.getElementById('dup-pt').textContent=modoTxt;
+  document.getElementById('dup-pt').textContent=agrupar?'Agrupando variantes y duplicando...':'Duplicando '+dupSel.length+' producto(s)...';
   try{
+    // Guardar overrides de guías seleccionadas
+    if(Object.keys(dupChartMap).length){
+      await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:dupChartMap})});
+    }
     const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
       item_ids:dupSel,from_account:from,to_account:to,
       status:estado,auto_link:sync,agrupar:agrupar
     })});
-    const d=await r.json();const results=d.results||[];
+    const d=await r.json();
+    const results=d.results||[];
     document.getElementById('dup-pf').style.width='100%';
-    const ok=results.filter(r=>r.ok).length;
-    document.getElementById('dup-pt').textContent=`Listo: ${ok}/${results.length} duplicados.${sync?' · Links creados':''}`;
+    const ok=results.filter(function(x){return x.ok;}).length;
+    document.getElementById('dup-pt').textContent='Listo: '+ok+'/'+results.length+' duplicados.'+(sync?' · Links creados':'');
     const list=document.getElementById('dup-res');
-
-    results.forEach(r=>{
-      const item=document.createElement('div');
-      item.className='ri '+(r.ok?'ok':'fail');
-      const isChartError = !r.ok && r.msg && (r.msg.includes('gu') || r.msg.includes('talle'));
-      let html = `<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg||''}</span>`;
-      if(isChartError){
-        html += '<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartModal(\''+( r.orig_chart_id||'')+'\',' + to + ',\'' + estado + '\',' + sync + ',' + agrupar + ')">📏 Elegir guía de talles</button>';
+    list.innerHTML='';
+    let shownChartBtn=false;
+    results.forEach(function(res){
+      const div=document.createElement('div');
+      div.className='ri '+(res.ok?'ok':'fail');
+      const isChartErr=!res.ok && res.msg && (res.msg.indexOf('u') >= 0);
+      let html='<span>'+(res.ok?'✅':'❌')+'</span><span class="rt">'+(res.title||res.id)+'</span><span class="rm">'+(res.msg||'')+'</span>';
+      if(isChartErr && !shownChartBtn){
+        shownChartBtn=true;
+        div.dataset.origChartId=res.orig_chart_id||'';
+        div.dataset.dupTo=to;
+        div.dataset.dupEstado=estado;
+        div.dataset.dupSync=sync?'1':'0';
+        div.dataset.dupAgrupar=agrupar?'1':'0';
+        html+='<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartFromBtn(this)">📏 Elegir guía de talles</button>';
       }
-      item.innerHTML = html;
-      list.appendChild(item);
+      div.innerHTML=html;
+      list.appendChild(div);
     });
     await loadState();
   }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
 }
 
-let selectedChartId = null;
-let pendingChartOrigId = null;
-let pendingDupTo = null;
+function openChartFromBtn(btn){
+  const row=btn.closest('.ri');
+  pendingChartOrigId=row.dataset.origChartId||'';
+  const toAcc=parseInt(row.dataset.dupTo);
+  pendingDupArgs=[row.dataset.dupEstado, row.dataset.dupSync==='1', row.dataset.dupAgrupar==='1'];
+  openChartModal(pendingChartOrigId, toAcc);
+}
 
-async function openChartModal(origChartId, toAccount, estado, sync, agrupar){
-  pendingChartOrigId = origChartId;
-  pendingDupTo = toAccount;
-  pendingDupArgs = [estado, sync, agrupar];
-  selectedChartId = null;
-  document.getElementById('chart-modal-confirm').disabled = true;
-  document.getElementById('chart-modal-list').innerHTML = '<div style="padding:20px;text-align:center;color:#7a8299">Cargando guías...</div>';
+async function openChartModal(origChartId, toAccount){
+  selectedChartId=null;
+  document.getElementById('chart-modal-confirm').disabled=true;
+  document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#7a8299">Cargando guías...</div>';
   document.getElementById('chart-modal').classList.add('show');
   try{
-    const r = await fetch(`/api/ml/${toAccount}/charts`, {headers:hdr()});
-    const d = await r.json();
-    const charts = d.charts || [];
+    const r=await fetch('/api/ml/'+toAccount+'/charts',{headers:hdr()});
+    const d=await r.json();
+    const charts=d.charts||[];
     if(!charts.length){
-      document.getElementById('chart-modal-list').innerHTML = '<div style="padding:20px;text-align:center;color:#e17055">No hay guías de talles en esta cuenta. <a href="https://www.mercadolibre.com.ar/moda/talles/" target="_blank">Creá una en ML</a></div>';
+      document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#e17055">No hay guías en esta cuenta. <a href="https://www.mercadolibre.com.ar/moda/talles/" target="_blank">Creá una en ML</a></div>';
       return;
     }
-    document.getElementById('chart-modal-list').innerHTML = charts.map(ch=>`
-      <div class="tn-prod-item" onclick="selectChart('${ch.id}',this)" data-id="${ch.id}" style="cursor:pointer">
-        <div style="font-weight:600;font-size:13px">${ch.name || 'Sin nombre'} <span style="font-size:11px;color:#7a8299">#${ch.id}</span></div>
-        <div style="font-size:11px;color:#7a8299;margin-top:3px">Dominio: ${ch.domain} · Talles: ${ch.sizes.filter(Boolean).join(', ') || '—'}</div>
-      </div>`).join('');
+    document.getElementById('chart-modal-list').innerHTML=charts.map(function(ch){
+      return '<div class="tn-prod-item" data-id="'+ch.id+'" onclick="selectChart(this.dataset.id,this)">'+
+        '<div style="font-weight:600;font-size:13px">'+(ch.name||'Sin nombre')+' <span style="font-size:11px;color:#7a8299">#'+ch.id+'</span></div>'+
+        '<div style="font-size:11px;color:#7a8299;margin-top:3px">Dominio: '+ch.domain+' · Talles: '+(ch.sizes.filter(Boolean).join(', ')||'—')+'</div>'+
+        '</div>';
+    }).join('');
   }catch(e){
-    document.getElementById('chart-modal-list').innerHTML = `<div style="padding:20px;text-align:center;color:#e17055">Error: ${e.message}</div>`;
+    document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#e17055">Error: '+e.message+'</div>';
   }
 }
 
-function selectChart(id, el){
-  selectedChartId = id;
-  document.querySelectorAll('#chart-modal-list .tn-prod-item').forEach(i=>i.classList.remove('sel'));
+function selectChart(id,el){
+  selectedChartId=id;
+  document.querySelectorAll('#chart-modal-list .tn-prod-item').forEach(function(i){i.classList.remove('sel');});
   el.classList.add('sel');
-  document.getElementById('chart-modal-confirm').disabled = false;
+  document.getElementById('chart-modal-confirm').disabled=false;
 }
 
 async function confirmChartSelection(){
-  if(!selectedChartId || !pendingChartOrigId) return;
-  chartOverride[pendingChartOrigId] = selectedChartId;
-  // Guardar override en backend
-  await fetch('/api/duplicate/with_chart', {method:'POST', headers:hdr(),
-    body: JSON.stringify({chart_override: chartOverride})});
+  if(!selectedChartId) return;
+  if(pendingChartOrigId) chartOverride[pendingChartOrigId]=selectedChartId;
+  await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:chartOverride})});
   closeChartModal();
-  // Volver a duplicar con el override configurado
-  await doDuplicate(...pendingDupArgs);
+  await doDuplicate(pendingDupArgs[0],pendingDupArgs[1],pendingDupArgs[2]);
 }
 
 function closeChartModal(){
@@ -1956,6 +2005,25 @@ async function doSync(){
 
 loadState();
 setInterval(loadState,30000);
+
+// Auto-detectar tokens vencidos y mostrar alerta
+setInterval(async function(){
+  if(!SESSION) return;
+  try{
+    const r = await fetch('/api/state',{headers:hdr()});
+    if(!r.ok) return;
+    const d = await r.json();
+    const vencidas = (d.ml_accounts||[]).filter(a=>!a.token_ok);
+    if(vencidas.length){
+      const names = vencidas.map(a=>a.name).join(', ');
+      const b = document.getElementById('app-alert');
+      if(b && !b.classList.contains('show')){
+        b.textContent = '⚠️ Token vencido en: ' + names + ' — reconectá desde Conectar canales';
+        b.className = 'alert err show';
+      }
+    }
+  }catch(e){}
+}, 60000);
 
 function setBN(el){document.querySelectorAll('.bn-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
 function showMobileMenu(){const d=document.getElementById('mobile-drawer');d.style.display=d.style.display==='none'?'block':'none';}
