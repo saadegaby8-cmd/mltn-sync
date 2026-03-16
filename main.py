@@ -667,6 +667,7 @@ async def duplicate(req: Request, _=Depends(auth)):
     auto_link = b.get("auto_link", False)
     agrupar = b.get("agrupar", False)
     explotar = b.get("explotar", False)
+    dims = b.get("dims", None)  # {h, w, l, p} dimensiones del paquete
     try:
         from_t = await fresh_token(from_idx)
         to_t = await fresh_token(to_idx)
@@ -952,7 +953,29 @@ async def duplicate(req: Request, _=Depends(auth)):
                 print(f"Explotando {iid}: {len(variations)} variantes")
                 orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
                 dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
-                base_attrs = [a for a in (item.get("attributes") or []) if a.get("id") not in ("SIZE_GRID_ID","SIZE","COLOR")]
+                NON_MODIFIABLE = {"IS_TOM_BRAND","IS_EMERGING_BRAND","IS_HIGHLIGHT_BRAND",
+                                  "FILTRABLE_GENDER","AGE_GROUP","IMPORT_DUTY","VALUE_ADDED_TAX",
+                                  "IS_SUITABLE_FOR_LACTANTING_PEOPLE","IS_SUITABLE_FOR_PREGNANCY",
+                                  "WITH_RECYCLED_MATERIALS","ITEM_CONDITION"}
+                base_attrs = [a for a in (item.get("attributes") or []) 
+                              if a.get("id") not in ("SIZE_GRID_ID","SIZE","COLOR","SIZE_GRID_ROW_ID")
+                              and a.get("id") not in NON_MODIFIABLE]
+                # Obtener rows de la guía destino para mapear talles a row IDs
+                chart_rows = {}
+                if dest_chart_id:
+                    try:
+                        async with httpx.AsyncClient(timeout=10) as cr:
+                            rr = await cr.get(f"{ML_API}/catalog/charts/{dest_chart_id}",
+                                headers={"Authorization": f"Bearer {to_t}"})
+                            if rr.status_code == 200:
+                                for row in (rr.json().get("rows") or []):
+                                    rid = row.get("id","")
+                                    sv = next((v2.get("name","") for a2 in row.get("attributes",[])
+                                        if a2.get("id")=="SIZE" for v2 in a2.get("values",[])), "")
+                                    if sv and rid:
+                                        chart_rows[sv] = rid
+                    except Exception:
+                        pass
                 for v in variations:
                     try:
                         vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
@@ -969,8 +992,17 @@ async def duplicate(req: Request, _=Depends(auth)):
                             item_attrs.append({"id": "COLOR", "value_name": color})
                         if dest_chart_id:
                             item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
+                            row_id = chart_rows.get(talle,"")
+                            if row_id:
+                                item_attrs.append({"id": "SIZE_GRID_ROW_ID", "value_name": row_id})
                         elif orig_chart_id:
                             item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
+                        # Agregar dimensiones del paquete si se ingresaron
+                        if dims:
+                            if dims.get("h"): item_attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":str(dims["h"])})
+                            if dims.get("w"): item_attrs.append({"id":"SELLER_PACKAGE_WIDTH","value_name":str(dims["w"])})
+                            if dims.get("l"): item_attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":str(dims["l"])})
+                            if dims.get("p"): item_attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":str(dims["p"])})
                         # Subir fotos y obtener sus IDs para el nuevo modelo UP
                         pic_ids = []
                         for pic in (item.get("pictures") or [])[:6]:
