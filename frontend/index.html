@@ -638,19 +638,26 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
             <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
             <div id="dup-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
-            <div style="display:flex;gap:10px">
-              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-si">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-si">
                 <input type="radio" name="dup-grupo" value="si" onchange="updateDupGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes juntas</div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">1 producto con todas las variantes juntas</div>
                 </div>
               </label>
-              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-no">
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-no">
                 <input type="radio" name="dup-grupo" value="no" checked onchange="updateDupGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 Uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto separado por cada ítem</div>
+                </div>
+              </label>
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-explotar">
+                <input type="radio" name="dup-grupo" value="explotar" onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#e17055">💥 Explotar variantes</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto por cada talle+color</div>
                 </div>
               </label>
             </div>
@@ -1755,6 +1762,7 @@ function updateDupGrupoUI(){
   const val=document.querySelector('input[name="dup-grupo"]:checked')?.value;
   document.getElementById('lbl-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
   document.getElementById('lbl-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+  document.getElementById('lbl-grupo-explotar').style.borderColor=val==='explotar'?'#e17055':'#e8ecf0';
 }
 function detectarGrupos(ids){
   // Buscar en dupProds los items seleccionados y agrupar por MODEL
@@ -1863,7 +1871,9 @@ function updateDupSyncUI(){
 async function confirmDuplicate(){
   const estado=document.querySelector('input[name="dup-estado"]:checked')?.value||'active';
   const sync=document.querySelector('input[name="dup-sync"]:checked')?.value==='si';
-  const agrupar=document.querySelector('input[name="dup-grupo"]:checked')?.value==='si';
+  const grupoVal=document.querySelector('input[name="dup-grupo"]:checked')?.value||'no';
+  const agrupar=grupoVal==='si';
+  const explotar=grupoVal==='explotar';
   // Guardar override manual si se ingresó un ID
   const manualChartId = document.getElementById('dup-chart-id-input')?.value?.trim();
   if(manualChartId){
@@ -1872,7 +1882,7 @@ async function confirmDuplicate(){
     await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:{'manual':manualChartId}})});
   }
   closeDupConfirm();
-  await doDuplicate(estado,sync,agrupar);
+  await doDuplicate(estado,sync,agrupar,explotar);
 }
 // ── DUPLICAR ──────────────────────────────────────────────────────────────────
 let chartOverride = {};
@@ -1880,10 +1890,11 @@ let pendingDupArgs = null;
 let selectedChartId = null;
 let pendingChartOrigId = null;
 
-async function doDuplicate(estado, sync, agrupar){
+async function doDuplicate(estado, sync, agrupar, explotar){
   estado = estado || 'active';
   sync = sync || false;
   agrupar = agrupar || false;
+  explotar = explotar || false;
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
   if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
@@ -1898,7 +1909,7 @@ async function doDuplicate(estado, sync, agrupar){
     }
     const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
       item_ids:dupSel,from_account:from,to_account:to,
-      status:estado,auto_link:sync,agrupar:agrupar
+      status:estado,auto_link:sync,agrupar:agrupar,explotar:explotar
     })});
     const d=await r.json();
     const results=d.results||[];
