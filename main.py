@@ -440,6 +440,7 @@ async def add_link(req: Request, _=Depends(auth)):
     key = b["ml_item_id"] + ("_"+b["ml_variation_id"] if b.get("ml_variation_id") else "")
     ST["links"] = [l for l in ST["links"]
                    if (l["ml_item_id"]+("_"+l.get("ml_variation_id","") if l.get("ml_variation_id") else "")) != key]
+    b["created_at"] = int(time.time())
     ST["links"].append(b)
     save_state()
     return {"ok": True}
