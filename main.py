@@ -1127,6 +1127,16 @@ async def duplicate(req: Request, _=Depends(auth)):
                             attrs_clean.append({"id": aid, "value_name": a["value_name"]})
                     family2 = f"{brand_val} {model_val2}".strip() or base_item.get("title","")[:60]
                     attrs_clean.append({"id": "family_name", "value_name": family2})
+                    # Agregar dimensiones si se ingresaron
+                    if dims:
+                        if dims.get("h"): attrs_clean.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":f'{int(dims["h"])} cm'})
+                        if dims.get("w"): attrs_clean.append({"id":"SELLER_PACKAGE_WIDTH","value_name":f'{int(dims["w"])} cm'})
+                        if dims.get("l"): attrs_clean.append({"id":"SELLER_PACKAGE_LENGTH","value_name":f'{int(dims["l"])} cm'})
+                        if dims.get("p"): attrs_clean.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":f'{int(float(dims["p"])*1000)} g'})
+                        if dims.get("ph"): attrs_clean.append({"id":"PRODUCT_HEIGHT","value_name":f'{int(dims["ph"])} cm'})
+                        if dims.get("pw"): attrs_clean.append({"id":"PRODUCT_WIDTH","value_name":f'{int(dims["pw"])} cm'})
+                        if dims.get("pl"): attrs_clean.append({"id":"PRODUCT_LENGTH","value_name":f'{int(dims["pl"])} cm'})
+                        if dims.get("pp"): attrs_clean.append({"id":"PRODUCT_WEIGHT","value_name":f'{int(float(dims["pp"])*1000)} g'})
 
                     # Título base: cortar después del número de modelo
                     _t = base_item.get("title", "")
@@ -1194,8 +1204,20 @@ async def duplicate(req: Request, _=Depends(auth)):
     async with httpx.AsyncClient(timeout=30) as c:
         for iid in item_ids:
             try:
-                r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
-                item = r.json()
+                # Fetch con retry en caso de rate limit
+                r = None
+                for attempt in range(3):
+                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
+                    if r.status_code == 429:
+                        await asyncio.sleep((attempt+1) * 15)
+                        continue
+                    break
+                try:
+                    item = r.json()
+                except:
+                    results.append({"id": iid, "title": iid, "ok": False, "msg": "Rate limit ML (429) — esperá unos minutos"})
+                    await asyncio.sleep(30)
+                    continue
                 if "error" in item:
                     results.append({"id": iid, "title": iid, "ok": False, "msg": item.get("message", "Error ML")})
                     continue
