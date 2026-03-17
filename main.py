@@ -667,7 +667,6 @@ async def duplicate(req: Request, _=Depends(auth)):
     auto_link = b.get("auto_link", False)
     agrupar = b.get("agrupar", False)
     explotar = b.get("explotar", False)
-    dims = b.get("dims", None)  # {h, w, l, p} dimensiones del paquete
     try:
         from_t = await fresh_token(from_idx)
         to_t = await fresh_token(to_idx)
@@ -942,118 +941,69 @@ async def duplicate(req: Request, _=Depends(auth)):
             try:
                 async with httpx.AsyncClient(timeout=15) as c:
                     r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
-                if r.status_code != 200:
-                    new_item_ids.append(iid)
-                    continue
-                item = r.json()
-                variations = item.get("variations", [])
-                if not variations:
-                    new_item_ids.append(iid)
-                    continue
-                print(f"Explotando {iid}: {len(variations)} variantes")
-                orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
-                dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
-                NON_MODIFIABLE = {"IS_TOM_BRAND","IS_EMERGING_BRAND","IS_HIGHLIGHT_BRAND",
-                                  "FILTRABLE_GENDER","AGE_GROUP",
-                                  "IS_SUITABLE_FOR_LACTANTING_PEOPLE","IS_SUITABLE_FOR_PREGNANCY",
-                                  "WITH_RECYCLED_MATERIALS","ITEM_CONDITION"}
-                base_attrs = [a for a in (item.get("attributes") or []) 
-                              if a.get("id") not in ("SIZE_GRID_ID","SIZE","COLOR","SIZE_GRID_ROW_ID")
-                              and a.get("id") not in NON_MODIFIABLE]
-                # Obtener rows de la guía destino para mapear talles a row IDs
-                chart_rows = {}
-                if dest_chart_id:
-                    try:
-                        async with httpx.AsyncClient(timeout=10) as cr:
-                            rr = await cr.get(f"{ML_API}/catalog/charts/{dest_chart_id}",
-                                headers={"Authorization": f"Bearer {to_t}"})
-                            if rr.status_code == 200:
-                                for row in (rr.json().get("rows") or []):
-                                    rid = row.get("id","")
-                                    sv = next((v2.get("name","") for a2 in row.get("attributes",[])
-                                        if a2.get("id")=="SIZE" for v2 in a2.get("values",[])), "")
-                                    if sv and rid:
-                                        chart_rows[sv] = rid
-                    except Exception:
-                        pass
-                for v in variations:
-                    try:
-                        vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                        talle = vcombos.get("Talle") or vcombos.get("Tamaño") or vcombos.get("Size") or vcombos.get("Talla") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
-                        color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
-                        suffix = " - ".join(filter(None, [talle.replace("/","-") if talle else "", color]))
-                        new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
-                        price = v.get("price") or item.get("price", 0)
-                        stock = v.get("available_quantity", item.get("available_quantity", 0))
-                        item_attrs = list(base_attrs)
-                        if talle:
-                            item_attrs.append({"id": "SIZE", "value_name": talle})
-                        if color:
-                            item_attrs.append({"id": "COLOR", "value_name": color})
-                        if dest_chart_id:
-                            item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
-                            row_id = chart_rows.get(talle,"")
-                            if row_id:
-                                item_attrs.append({"id": "SIZE_GRID_ROW_ID", "value_name": row_id})
-                        elif orig_chart_id:
-                            item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
-                        # Agregar dimensiones del paquete si se ingresaron
-                        if dims:
-                            if dims.get("h"): item_attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":f'{int(dims["h"])} cm'})
-                            if dims.get("w"): item_attrs.append({"id":"SELLER_PACKAGE_WIDTH","value_name":f'{int(dims["w"])} cm'})
-                            if dims.get("l"): item_attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":f'{int(dims["l"])} cm'})
-                            if dims.get("p"): item_attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":f'{int(float(dims["p"])*1000)} g'})
-                        # Subir fotos y obtener sus IDs para el nuevo modelo UP
-                        pic_ids = []
-                        for pic in (item.get("pictures") or [])[:6]:
-                            pic_url = pic.get("url","") or pic.get("source","")
-                            if not pic_url:
-                                continue
-                            try:
-                                async with httpx.AsyncClient(timeout=20) as cp:
-                                    rp = await cp.post(f"{ML_API}/pictures/items/upload",
-                                        headers={"Authorization": f"Bearer {to_t}",
-                                                 "Content-Type": "application/json"},
-                                        json={"source": pic_url})
-                                if rp.status_code in (200,201):
-                                    pic_ids.append({"id": rp.json().get("id","")})
-                            except Exception:
-                                pass
-                        # Si no pudimos subir fotos, usar source como fallback
-                        if not pic_ids:
-                            pic_ids = [{"source": p.get("url","")} for p in (item.get("pictures") or [])[:6] if p.get("url")]
-                        payload = {
-                            "category_id": item.get("category_id"),
-                            "price": price,
-                            "currency_id": item.get("currency_id", "ARS"),
-                            "available_quantity": stock,
-                            "buying_mode": "buy_it_now",
-                            "listing_type_id": item.get("listing_type_id", "gold_special"),
-                            "condition": item.get("condition", "new"),
-                            "pictures": pic_ids,
-                            "attributes": item_attrs,
-                            "family_name": new_title[:60]
-                        }
-                        async with httpx.AsyncClient(timeout=30) as c2:
-                            r2 = await c2.post(f"{ML_API}/items",
-                                headers={"Authorization": f"Bearer {to_t}"},
-                                json=payload)
-                        ok = r2.status_code in (200, 201)
-                        try:
-                            err_body = r2.json()
-                        except:
-                            err_body = {}
-                        if not ok:
-                            print(f"ML error {r2.status_code}: {json.dumps(err_body)[:300]}")
-                        cause_list = err_body.get("cause", [])
-                        err_msg = cause_list[0].get("message","") if cause_list else err_body.get("message","Error")
-                        results.append({"id": iid, "title": new_title, "ok": ok,
-                            "msg": "Publicado" if ok else err_msg})
-                    except Exception as ve:
-                        print(f"Error en variante: {ve}")
-                        results.append({"id": iid, "title": iid, "ok": False, "msg": str(ve)})
+                    if r.status_code == 200:
+                        item = r.json()
+                        variations = item.get("variations", [])
+                        if variations:
+                            # Crear un item por cada variante
+                            for v in variations:
+                                attrs = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
+                                # Buscar talle con cualquier key posible
+                                talle = (attrs.get("Talle") or attrs.get("Tamaño") or 
+                                        attrs.get("Size") or attrs.get("Talla") or
+                                        next((v for k,v in attrs.items() if "tall" in k.lower() or "size" in k.lower() or "tamaño" in k.lower()), ""))
+                                color = (attrs.get("Color") or 
+                                        next((v for k,v in attrs.items() if "color" in k.lower()), ""))
+                                print(f"Variante attrs: {attrs}, talle={talle}, color={color}")
+                                suffix = " - ".join(filter(None, [talle, color]))
+                                new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
+                                price = v.get("price") or item.get("price", 0)
+                                stock = v.get("available_quantity", item.get("available_quantity", 0))
+                                # Construir atributos — tomar del item original
+                                item_attrs = [a for a in (item.get("attributes") or []) 
+                                              if a.get("id") not in ("SIZE_GRID_ID", "SIZE", "COLOR")]
+                                # Agregar SIZE y COLOR de esta variante
+                                if talle:
+                                    item_attrs.append({"id": "SIZE", "value_name": talle})
+                                if color:
+                                    item_attrs.append({"id": "COLOR", "value_name": color})
+                                # Agregar family_name requerido por ML
+                                item_attrs.append({"id": "FAMILY_NAME", "value_name": item.get("title", "")[:60]})
+                                # Agregar SIZE_GRID_ID con override o el original
+                                orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
+                                dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
+                                if dest_chart_id:
+                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
+                                elif orig_chart_id:
+                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
+                                payload = {
+                                    "title": new_title,
+                                    "category_id": item.get("category_id"),
+                                    "price": price,
+                                    "currency_id": item.get("currency_id", "ARS"),
+                                    "available_quantity": stock,
+                                    "buying_mode": "buy_it_now",
+                                    "listing_type_id": item.get("listing_type_id", "gold_special"),
+                                    "condition": item.get("condition", "new"),
+                                    "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
+                                    "attributes": item_attrs,
+                                    "family_name": item.get("title","")
+                                }
+                                async with httpx.AsyncClient(timeout=30) as c2:
+                                    r2 = await c2.post(f"{ML_API}/items",
+                                        headers={"Authorization": f"Bearer {to_t}"},
+                                        json=payload)
+                                ok = r2.status_code in (200, 201)
+                                if not ok:
+                                    err_body = r2.json()
+                                    print(f"ML error {r2.status_code}: {json.dumps(err_body)[:500]}")
+                                results.append({"id": iid, "title": new_title, "ok": ok,
+                                    "msg": "Publicado" if ok else r2.json().get("cause",[{}])[0].get("message", r2.json().get("message","Error"))})
+                        else:
+                            new_item_ids.append(iid)
+                    else:
+                        new_item_ids.append(iid)
             except Exception as e:
-                print(f"Error en item {iid}: {e}")
                 results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
         # Los items sin variantes se procesan normal
         item_ids = new_item_ids
@@ -1427,6 +1377,113 @@ async def duplicate(req: Request, _=Depends(auth)):
                 results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
     save_state()
     return {"results": results}
+
+@app.post("/webhook/ml")
+async def webhook_ml(request: Request, background_tasks: BackgroundTasks):
+    """Recibir notificaciones de ML (ventas, cambios de stock)"""
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    topic = body.get("topic","") or request.query_params.get("topic","")
+    resource = body.get("resource","") or request.query_params.get("resource","")
+    user_id = body.get("user_id") or request.query_params.get("user_id")
+    print(f"Webhook ML: topic={topic} resource={resource} user_id={user_id}")
+    # Solo procesar órdenes
+    if topic in ("orders", "orders_v2"):
+        background_tasks.add_task(process_ml_order, resource, int(user_id) if user_id else None)
+    return {"status": "ok"}
+
+async def process_ml_order(resource: str, seller_uid: int):
+    """Procesar una orden de ML y sincronizar stock entre cuentas"""
+    try:
+        # Encontrar qué cuenta es
+        acc_idx = None
+        for i, acc in enumerate(ST.get("accounts", [])):
+            if int(acc.get("uid", 0)) == seller_uid:
+                acc_idx = i
+                break
+        if acc_idx is None:
+            print(f"Webhook: cuenta {seller_uid} no encontrada")
+            return
+        # Obtener detalle de la orden
+        token = await fresh_token(acc_idx)
+        order_id = resource.strip("/").split("/")[-1]
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"{ML_API}/orders/{order_id}",
+                headers={"Authorization": f"Bearer {token}"})
+            if r.status_code != 200:
+                print(f"Webhook: error obteniendo orden {order_id}: {r.status_code}")
+                return
+            order = r.json()
+        # Procesar cada item vendido
+        for order_item in order.get("order_items", []):
+            item_id = order_item.get("item", {}).get("id", "")
+            qty_sold = order_item.get("quantity", 0)
+            variation_id = order_item.get("item", {}).get("variation_id")
+            if not item_id or not qty_sold:
+                continue
+            print(f"Webhook: item {item_id} vendido x{qty_sold} en cuenta {acc_idx}")
+            # Extraer modelo del título
+            async with httpx.AsyncClient(timeout=10) as c:
+                ri = await c.get(f"{ML_API}/items/{item_id}?attributes=title,attributes",
+                    headers={"Authorization": f"Bearer {token}"})
+                if ri.status_code != 200:
+                    continue
+                item_data = ri.json()
+            title = item_data.get("title", "")
+            model = extract_model(title)
+            if not model:
+                print(f"Webhook: no se encontró modelo en '{title}'")
+                continue
+            print(f"Webhook: sincronizando modelo '{model}' x{qty_sold}")
+            # Descontar stock en las otras cuentas
+            await sync_stock_by_model(model, qty_sold, acc_idx, item_id)
+    except Exception as e:
+        print(f"Webhook error: {e}")
+
+def extract_model(title: str) -> str:
+    """Extraer número de modelo del título (ej: '15228', '2002')"""
+    import re
+    # Buscar números de 4+ dígitos que parecen modelos
+    matches = re.findall(r'\b(\d{4,6})\b', title)
+    return matches[0] if matches else ""
+
+async def sync_stock_by_model(model: str, qty_sold: int, sold_acc_idx: int, sold_item_id: str):
+    """Descontar stock en todas las cuentas que tienen el mismo modelo"""
+    for i, acc in enumerate(ST.get("accounts", [])):
+        if i == sold_acc_idx:
+            continue  # saltar la cuenta donde se vendió
+        try:
+            token = await fresh_token(i)
+            uid = acc.get("uid", "")
+            prods = get_cached_products(uid)
+            if not prods:
+                continue
+            # Buscar items con el mismo modelo
+            matching = [p for p in prods if extract_model(p.get("title","")) == model]
+            for prod in matching:
+                item_id = prod.get("id","")
+                current_stock = prod.get("available_quantity", 0)
+                new_stock = max(0, current_stock - qty_sold)
+                # Actualizar stock en ML
+                async with httpx.AsyncClient(timeout=10) as c:
+                    r = await c.put(f"{ML_API}/items/{item_id}",
+                        headers={"Authorization": f"Bearer {token}",
+                                 "Content-Type": "application/json"},
+                        json={"available_quantity": new_stock})
+                if r.status_code in (200, 201):
+                    print(f"Stock sync OK: {item_id} cuenta {i}: {current_stock} -> {new_stock}")
+                    # Actualizar cache local
+                    prod["available_quantity"] = new_stock
+                else:
+                    print(f"Stock sync ERROR: {item_id} cuenta {i}: {r.status_code} {r.text[:100]}")
+            if matching:
+                # Guardar cache actualizado
+                set_cached_products(uid, prods)
+        except Exception as e:
+            print(f"sync_stock_by_model error cuenta {i}: {e}")
+
 
 @app.get("/diag/prod_attrs/{i}")
 async def diag_prod_attrs(i: int, q: str = ""):
