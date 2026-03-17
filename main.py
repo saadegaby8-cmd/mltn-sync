@@ -444,6 +444,28 @@ async def add_link(req: Request, _=Depends(auth)):
     save_state()
     return {"ok": True}
 
+@app.post("/api/links/enrich")
+async def enrich_links(_=Depends(auth)):
+    """Enriquecer links viejos con títulos y nombres de cuenta"""
+    enriched = 0
+    for link in ST.get("links", []):
+        if link.get("ml_title"):
+            continue  # ya tiene título
+        try:
+            acc_idx = link.get("ml_account_index", 0)
+            token = await fresh_token(acc_idx)
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.get(f"{ML_API}/items/{link['ml_item_id']}?attributes=title",
+                    headers={"Authorization": f"Bearer {token}"})
+                if r.status_code == 200:
+                    link["ml_title"] = r.json().get("title", link["ml_item_id"])
+                    link["ml_account_name"] = ST["accounts"][acc_idx].get("name","ML") if acc_idx < len(ST["accounts"]) else "ML"
+                    enriched += 1
+        except Exception:
+            pass
+    save_state()
+    return {"enriched": enriched}
+
 @app.post("/api/links/remove")
 async def remove_link(req: Request, _=Depends(auth)):
     b = await req.json()
