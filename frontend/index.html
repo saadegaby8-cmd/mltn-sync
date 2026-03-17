@@ -744,13 +744,31 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
       <!-- ENLACES -->
       <div class="page" id="page-enlaces">
-        <div class="page-title">Mis enlaces ML ↔ TN</div>
+        <div class="page-title">Mis enlaces</div>
         <div class="panel">
-          <div class="panel-hd"><h3>Productos enlazados</h3><div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span><button class="btn btn-out btn-sm" onclick="enrichLinks()">↻ Actualizar nombres</button></div></div>
+          <div class="panel-hd">
+            <h3>Productos enlazados</h3>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span>
+              <button class="btn btn-out btn-sm" onclick="enrichLinks()">↻ Actualizar nombres</button>
+            </div>
+          </div>
+          <div style="padding:12px 18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e8ecf0">
+            <div class="s-wrap" style="min-width:200px;flex:1"><input type="text" id="links-q" placeholder="Buscar por nombre..." oninput="applyLinksFilter()" /></div>
+            <select id="links-filter-acc" onchange="applyLinksFilter()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif">
+              <option value="">Todas las cuentas</option>
+            </select>
+            <select id="links-sort" onchange="applyLinksFilter()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif">
+              <option value="fecha_desc">Más nuevos primero</option>
+              <option value="fecha_asc">Más viejos primero</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+          </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>CUENTA ML</th><th>PRODUCTO ML</th><th>PRODUCTO TN</th><th></th></tr></thead>
-              <tbody id="links-body"><tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr></tbody>
+              <thead><tr><th>CUENTA ML</th><th>PRODUCTO ML</th><th>DESTINO</th><th></th></tr></thead>
+              <tbody id="links-body"><tr><td colspan="4"><div class="empty"><div class="ei">🔗</div>Sin enlaces.</div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -973,19 +991,59 @@ function renderLog(){
 }
 
 function renderLinks(){
-  const links=appState.links||[];
-  document.getElementById('links-count').textContent=links.length+' enlaces';
-  if(!links.length){document.getElementById('links-body').innerHTML='<tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr>';return;}
-  document.getElementById('links-body').innerHTML=links.map(l=>{
+  const links = appState.links || [];
+  // Llenar filtro de cuentas
+  const accSel = document.getElementById('links-filter-acc');
+  if(accSel){
+    const accs = [...new Set(links.map(l=>l.ml_account_name||'ML').filter(Boolean))];
+    const curVal = accSel.value;
+    accSel.innerHTML = '<option value="">Todas las cuentas</option>' + accs.map(a=>`<option value="${a}" ${curVal===a?'selected':''}>${a}</option>`).join('');
+  }
+  document.getElementById('links-count').textContent = links.length + ' enlaces';
+  applyLinksFilter();
+}
+
+function applyLinksFilter(){
+  const links = appState.links || [];
+  const q = (document.getElementById('links-q')?.value||'').toLowerCase();
+  const acc = document.getElementById('links-filter-acc')?.value||'';
+  const sort = document.getElementById('links-sort')?.value||'fecha_desc';
+  
+  let filtered = links.filter(l=>{
+    const title = (l.ml_title||l.ml_item_id||'').toLowerCase();
+    const tnName = (l.tn_product_name||l.tn_product_id||'').toLowerCase();
+    const matchQ = !q || title.includes(q) || tnName.includes(q);
+    const matchAcc = !acc || (l.ml_account_name||'ML') === acc;
+    return matchQ && matchAcc;
+  });
+  
+  if(sort==='az') filtered.sort((a,b)=>(a.ml_title||'').localeCompare(b.ml_title||''));
+  else if(sort==='za') filtered.sort((a,b)=>(b.ml_title||'').localeCompare(a.ml_title||''));
+  else if(sort==='fecha_asc') filtered.sort((a,b)=>(a.created_at||0)-(b.created_at||0));
+  else filtered.sort((a,b)=>(b.created_at||0)-(a.created_at||0));
+  
+  const tbody = document.getElementById('links-body');
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="4"><div class="empty"><div class="ei">🔗</div>Sin enlaces.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(l=>{
     const mlName = l.ml_account_name || 'ML';
     const mlTitle = l.ml_title || l.ml_item_id;
     const mlVar = l.ml_variation_id ? ` · Var: ${l.ml_variation_id}` : '';
-    const tnName = l.tn_product_name || l.tn_product_id;
-    const tnVar = l.tn_variant_id ? ` · Var: ${l.tn_variant_id}` : '';
+    const destName = l.tn_product_name || l.tn_product_id;
+    const destSub = l.tn_product_id ? `TiendaNube · ID ${l.tn_product_id}` : '';
+    const date = l.created_at ? new Date(l.created_at*1000).toLocaleDateString('es-AR') : '';
     return `<tr>
       <td><span style="font-size:11px;background:#eef4ff;color:#4f9eff;padding:2px 7px;border-radius:4px;font-weight:600">${mlName}</span></td>
-      <td><div style="font-size:12px;font-weight:500">${mlTitle}</div><div style="font-size:10px;color:#7a8299">${l.ml_item_id}${mlVar}</div></td>
-      <td><div style="font-size:12px;font-weight:500">${tnName}</div><div style="font-size:10px;color:#7a8299">TiendaNube · ID ${l.tn_product_id}${tnVar}</div></td>
+      <td>
+        <div style="font-size:12px;font-weight:500">${mlTitle}</div>
+        <div style="font-size:10px;color:#7a8299">${l.ml_item_id}${mlVar}</div>
+      </td>
+      <td>
+        <div style="font-size:12px;font-weight:500">${destName}</div>
+        <div style="font-size:10px;color:#7a8299">${destSub}${date?' · '+date:''}</div>
+      </td>
       <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
     </tr>`;
   }).join('');
