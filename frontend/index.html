@@ -714,7 +714,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           </div>
 
           <!-- DIMENSIONES -->
-          <div id="dup-dims-wrap" style="display:none;border:1px solid #ffe58f;background:#fffbec;border-radius:8px;padding:16px;margin-bottom:14px">
+          <div id="dup-dims-wrap" style="display:block;border:1px solid #ffe58f;background:#fffbec;border-radius:8px;padding:16px;margin-bottom:14px">
             <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📦 Dimensiones</div>
             <div style="font-size:11px;color:#7a8299;margin-bottom:12px">Si el producto original ya las tiene, se copian automáticamente. Completá solo si son productos viejos sin dimensiones.</div>
             
@@ -1800,7 +1800,7 @@ function updateDupGrupoUI(){
   document.getElementById('lbl-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
   document.getElementById('lbl-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
   document.getElementById('lbl-grupo-explotar').style.borderColor=val==='explotar'?'#e17055':'#e8ecf0';
-  document.getElementById('dup-dims-wrap').style.display=val==='explotar'?'block':'none';
+  // dims siempre visibles
 }
 function detectarGrupos(ids){
   // Buscar en dupProds los items seleccionados y agrupar por MODEL
@@ -1912,7 +1912,7 @@ async function confirmDuplicate(){
   const grupoVal=document.querySelector('input[name="dup-grupo"]:checked')?.value||'no';
   const agrupar=grupoVal==='si';
   const explotar=grupoVal==='explotar';
-  const dims = explotar ? {
+  const dims = {
     h: parseFloat(document.getElementById('dup-dim-h')?.value)||0,
     w: parseFloat(document.getElementById('dup-dim-w')?.value)||0,
     l: parseFloat(document.getElementById('dup-dim-l')?.value)||0,
@@ -1921,7 +1921,7 @@ async function confirmDuplicate(){
     pw: parseFloat(document.getElementById('dup-prod-w')?.value)||0,
     pl: parseFloat(document.getElementById('dup-prod-l')?.value)||0,
     pp: parseFloat(document.getElementById('dup-prod-p')?.value)||0
-  } : null;
+  };
   // Guardar override manual si se ingresó un ID
   const manualChartId = document.getElementById('dup-chart-id-input')?.value?.trim();
   if(manualChartId){
