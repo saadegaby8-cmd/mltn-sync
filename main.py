@@ -996,6 +996,7 @@ async def duplicate(req: Request, _=Depends(auth)):
                                     "attributes": item_attrs,
                                     "family_name": item.get("title","")
                                 }
+                                await asyncio.sleep(1)  # evitar rate limit de ML
                                 async with httpx.AsyncClient(timeout=30) as c2:
                                     r2 = await c2.post(f"{ML_API}/items",
                                         headers={"Authorization": f"Bearer {to_t}"},
