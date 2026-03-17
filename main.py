@@ -1491,6 +1491,101 @@ async def sync_stock_by_model(model: str, qty_sold: int, sold_acc_idx: int, sold
         except Exception as e:
             print(f"sync_stock_by_model error cuenta {i}: {e}")
 
+async def process_ml_item_change(resource: str, seller_uid: int):
+    """Cuando cambia un item en LENCERIA, propagar precio/stock a las otras cuentas"""
+    try:
+        # Verificar que es LENCERIA (cuenta maestra = índice 0)
+        master_acc = ST.get("accounts", [{}])[0]
+        if int(master_acc.get("uid", 0)) != seller_uid:
+            return  # Solo propagar cambios de la cuenta maestra
+        
+        item_id = resource.strip("/").split("/")[-1]
+        token = await fresh_token(0)
+        
+        # Obtener datos actuales del item en LENCERIA
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"{ML_API}/items/{item_id}?attributes=title,price,available_quantity,attributes,variations",
+                headers={"Authorization": f"Bearer {token}"})
+            if r.status_code != 200:
+                return
+            item = r.json()
+        
+        title = item.get("title", "")
+        price = item.get("price", 0)
+        stock = item.get("available_quantity", 0)
+        model = extract_model(title)
+        
+        if not model:
+            return
+        
+        print(f"Item change: modelo '{model}' precio={price} stock={stock}")
+        
+        # Propagar a las otras cuentas ML
+        for i, acc in enumerate(ST.get("accounts", [])):
+            if i == 0:
+                continue  # saltar LENCERIA
+            try:
+                to_token = await fresh_token(i)
+                uid = acc.get("uid", "")
+                prods = get_cached_products(uid)
+                if not prods:
+                    continue
+                matching = [p for p in prods if extract_model(p.get("title","")) == model]
+                for prod in matching:
+                    pid = prod.get("id","")
+                    async with httpx.AsyncClient(timeout=10) as c:
+                        r = await c.put(f"{ML_API}/items/{pid}",
+                            headers={"Authorization": f"Bearer {to_token}",
+                                     "Content-Type": "application/json"},
+                            json={"price": price, "available_quantity": stock})
+                    if r.status_code in (200, 201):
+                        prod["price"] = price
+                        prod["available_quantity"] = stock
+                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock}")
+                    else:
+                        print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code}")
+                if matching:
+                    set_cached_products(uid, prods)
+            except Exception as e:
+                print(f"process_ml_item_change error cuenta {i}: {e}")
+        
+        # Propagar a TiendaNube si está conectada
+        if ST.get("tn", {}).get("store_id") and ST.get("tn", {}).get("token"):
+            await sync_item_to_tn(model, price, stock)
+    
+    except Exception as e:
+        print(f"process_ml_item_change error: {e}")
+
+async def sync_item_to_tn(model: str, price: float, stock: int):
+    """Sincronizar precio y stock con TiendaNube por modelo"""
+    try:
+        tn_store = ST["tn"]["store_id"]
+        tn_token = ST["tn"]["token"]
+        links = ST.get("links", [])
+        # Buscar en cache de productos de LENCERIA items con ese modelo
+        master_uid = ST.get("accounts", [{}])[0].get("uid","")
+        prods = get_cached_products(master_uid)
+        matching_ids = [p["id"] for p in (prods or []) if extract_model(p.get("title","")) == model]
+        # Buscar links que correspondan a esos items
+        for link in links:
+            if link.get("ml_item_id") in matching_ids:
+                tn_prod_id = link.get("tn_product_id")
+                tn_var_id = link.get("tn_variant_id")
+                if not tn_prod_id:
+                    continue
+                headers = {"Authentication": f"Bearer {tn_token}",
+                           "Content-Type": "application/json",
+                           "User-Agent": "MLTNSync/1.0"}
+                async with httpx.AsyncClient(timeout=10) as c:
+                    if tn_var_id:
+                        await c.put(f"https://api.tiendanube.com/v1/{tn_store}/products/{tn_prod_id}/variants/{tn_var_id}",
+                            headers=headers, json={"price": str(price), "stock": stock})
+                    else:
+                        await c.put(f"https://api.tiendanube.com/v1/{tn_store}/products/{tn_prod_id}",
+                            headers=headers, json={"price": str(price)})
+    except Exception as e:
+        print(f"sync_item_to_tn error: {e}")
+
 
 @app.get("/diag/prod_attrs/{i}")
 async def diag_prod_attrs(i: int, q: str = ""):
