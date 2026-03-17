@@ -746,10 +746,10 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <div class="page" id="page-enlaces">
         <div class="page-title">Mis enlaces ML ↔ TN</div>
         <div class="panel">
-          <div class="panel-hd"><h3>Productos enlazados</h3><span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span></div>
+          <div class="panel-hd"><h3>Productos enlazados</h3><div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span><button class="btn btn-out btn-sm" onclick="enrichLinks()">↻ Actualizar nombres</button></div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>PRODUCTO ML</th><th>VARIACIÓN ML</th><th>PRODUCTO TN</th><th>VARIANTE TN</th><th></th></tr></thead>
+              <thead><tr><th>CUENTA ML</th><th>PRODUCTO ML</th><th>PRODUCTO TN</th><th></th></tr></thead>
               <tbody id="links-body"><tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr></tbody>
             </table>
           </div>
@@ -976,13 +976,28 @@ function renderLinks(){
   const links=appState.links||[];
   document.getElementById('links-count').textContent=links.length+' enlaces';
   if(!links.length){document.getElementById('links-body').innerHTML='<tr><td colspan="5"><div class="empty"><div class="ei">🔗</div>Sin enlaces. Creálos desde el Panel de productos.</div></td></tr>';return;}
-  document.getElementById('links-body').innerHTML=links.map(l=>`<tr>
-    <td><b>${l.ml_item_id}</b></td>
-    <td>${l.ml_variation_id||'—'}</td>
-    <td>${l.tn_product_id}</td>
-    <td>${l.tn_variant_id||'—'}</td>
-    <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
-  </tr>`).join('');
+  document.getElementById('links-body').innerHTML=links.map(l=>{
+    const mlName = l.ml_account_name || 'ML';
+    const mlTitle = l.ml_title || l.ml_item_id;
+    const mlVar = l.ml_variation_id ? ` · Var: ${l.ml_variation_id}` : '';
+    const tnName = l.tn_product_name || l.tn_product_id;
+    const tnVar = l.tn_variant_id ? ` · Var: ${l.tn_variant_id}` : '';
+    return `<tr>
+      <td><span style="font-size:11px;background:#eef4ff;color:#4f9eff;padding:2px 7px;border-radius:4px;font-weight:600">${mlName}</span></td>
+      <td><div style="font-size:12px;font-weight:500">${mlTitle}</div><div style="font-size:10px;color:#7a8299">${l.ml_item_id}${mlVar}</div></td>
+      <td><div style="font-size:12px;font-weight:500">${tnName}</div><div style="font-size:10px;color:#7a8299">TiendaNube · ID ${l.tn_product_id}${tnVar}</div></td>
+      <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function enrichLinks(){
+  try{
+    const r = await fetch('/api/links/enrich',{method:'POST',headers:hdr()});
+    const d = await r.json();
+    await loadState();
+    if(d.enriched > 0) alert(`✓ Se actualizaron ${d.enriched} enlaces`);
+  }catch(e){alert('Error: '+e.message);}
 }
 
 function renderSyncInfo(){
@@ -2077,12 +2092,17 @@ async function saveLink(){
   if(!selectedTNProd){showMsg('msg-modal','⚠ Seleccioná un producto de TN.','err');return;}
   const tnVarId=document.getElementById('tn-var-sel').value||null;
   try{
+    const tnProdName = selectedTNProd.name?.es || selectedTNProd.name || String(selectedTNProd.id);
+    const mlAccName = appState.ml_accounts[modalML.acc_idx]?.name || 'ML';
     const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
       ml_item_id:modalML.item_id,
       ml_variation_id:modalML.var_id,
       ml_account_index:modalML.acc_idx,
+      ml_account_name:mlAccName,
+      ml_title:modalML.title,
       tn_product_id:String(selectedTNProd.id),
-      tn_variant_id:tnVarId
+      tn_variant_id:tnVarId,
+      tn_product_name:tnProdName
     })});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
