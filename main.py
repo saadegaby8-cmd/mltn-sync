@@ -1019,16 +1019,27 @@ async def duplicate(req: Request, _=Depends(auth)):
                                     "family_name": item.get("title","")
                                 }
                                 await asyncio.sleep(1)  # evitar rate limit de ML
-                                async with httpx.AsyncClient(timeout=30) as c2:
-                                    r2 = await c2.post(f"{ML_API}/items",
-                                        headers={"Authorization": f"Bearer {to_t}"},
-                                        json=payload)
-                                ok = r2.status_code in (200, 201)
+                                r2 = None
+                                for attempt in range(3):
+                                    async with httpx.AsyncClient(timeout=30) as c2:
+                                        r2 = await c2.post(f"{ML_API}/items",
+                                            headers={"Authorization": f"Bearer {to_t}"},
+                                            json=payload)
+                                    if r2.status_code == 429:
+                                        await asyncio.sleep((attempt+1) * 10)
+                                        continue
+                                    break
+                                ok = r2.status_code in (200, 201) if r2 else False
+                                try:
+                                    err_body = r2.json() if r2 else {}
+                                except:
+                                    err_body = {}
                                 if not ok:
-                                    err_body = r2.json()
-                                    print(f"ML error {r2.status_code}: {json.dumps(err_body)[:500]}")
+                                    print(f"ML error {r2.status_code if r2 else 'None'}: {json.dumps(err_body)[:300]}")
+                                cause_list = err_body.get("cause", [])
+                                err_msg = cause_list[0].get("message","") if cause_list else err_body.get("message","Error")
                                 results.append({"id": iid, "title": new_title, "ok": ok,
-                                    "msg": "Publicado" if ok else r2.json().get("cause",[{}])[0].get("message", r2.json().get("message","Error"))})
+                                    "msg": "Publicado" if ok else err_msg})
                         else:
                             new_item_ids.append(iid)
                     else:
@@ -1480,50 +1491,37 @@ def extract_model(title: str) -> str:
     return matches[0] if matches else ""
 
 async def sync_stock_by_model(model: str, qty_sold: int, sold_acc_idx: int, sold_item_id: str):
-    """Descontar stock en todas las cuentas que tienen el mismo modelo — consulta ML en tiempo real"""
+    """Descontar stock en todas las cuentas que tienen el mismo modelo"""
     for i, acc in enumerate(ST.get("accounts", [])):
         if i == sold_acc_idx:
-            continue
+            continue  # saltar la cuenta donde se vendió
         try:
             token = await fresh_token(i)
-            uid = str(acc.get("uid", ""))
-            # Buscar items del modelo en ML directamente (no cache)
-            async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.get(f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100",
-                    headers={"Authorization": f"Bearer {token}"})
-                if r.status_code != 200:
-                    continue
-                all_ids = r.json().get("results", [])
-            # Buscar en batches de 20
-            matching_ids = []
-            for batch_start in range(0, len(all_ids), 20):
-                batch = all_ids[batch_start:batch_start+20]
-                async with httpx.AsyncClient(timeout=15) as c:
-                    r = await c.get(f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title,available_quantity",
-                        headers={"Authorization": f"Bearer {token}"})
-                    if r.status_code != 200:
-                        continue
-                    for item in r.json():
-                        if item.get("code") == 200:
-                            b = item["body"]
-                            if extract_model(b.get("title","")) == model:
-                                matching_ids.append(b.get("id",""))
-            # Actualizar stock en los items que matchean
-            for item_id in matching_ids:
-                # Obtener stock actual de ML
-                async with httpx.AsyncClient(timeout=10) as c:
-                    ri = await c.get(f"{ML_API}/items/{item_id}?attributes=available_quantity",
-                        headers={"Authorization": f"Bearer {token}"})
-                    current_stock = ri.json().get("available_quantity", 0) if ri.status_code == 200 else 0
+            uid = acc.get("uid", "")
+            prods = get_cached_products(uid)
+            if not prods:
+                continue
+            # Buscar items con el mismo modelo
+            matching = [p for p in prods if extract_model(p.get("title","")) == model]
+            for prod in matching:
+                item_id = prod.get("id","")
+                current_stock = prod.get("available_quantity", 0)
                 new_stock = max(0, current_stock - qty_sold)
+                # Actualizar stock en ML
                 async with httpx.AsyncClient(timeout=10) as c:
                     r = await c.put(f"{ML_API}/items/{item_id}",
-                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                        headers={"Authorization": f"Bearer {token}",
+                                 "Content-Type": "application/json"},
                         json={"available_quantity": new_stock})
                 if r.status_code in (200, 201):
                     print(f"Stock sync OK: {item_id} cuenta {i}: {current_stock} -> {new_stock}")
+                    # Actualizar cache local
+                    prod["available_quantity"] = new_stock
                 else:
-                    print(f"Stock sync ERROR: {item_id} cuenta {i}: {r.status_code}")
+                    print(f"Stock sync ERROR: {item_id} cuenta {i}: {r.status_code} {r.text[:100]}")
+            if matching:
+                # Guardar cache actualizado
+                set_cached_products(uid, prods)
         except Exception as e:
             print(f"sync_stock_by_model error cuenta {i}: {e}")
 
@@ -1566,31 +1564,22 @@ async def process_ml_item_change(resource: str, seller_uid: int):
                 prods = get_cached_products(uid)
                 if not prods:
                     continue
-                # Buscar en ML directamente por modelo
-                async with httpx.AsyncClient(timeout=15) as c:
-                    rs = await c.get(f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100",
-                        headers={"Authorization": f"Bearer {to_token}"})
-                    all_ids = rs.json().get("results",[]) if rs.status_code==200 else []
-                for batch_start in range(0, len(all_ids), 20):
-                    batch = all_ids[batch_start:batch_start+20]
-                    async with httpx.AsyncClient(timeout=15) as c:
-                        rb = await c.get(f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title",
-                            headers={"Authorization": f"Bearer {to_token}"})
-                        if rb.status_code != 200:
-                            continue
-                        for item in rb.json():
-                            if item.get("code")==200:
-                                b = item["body"]
-                                if extract_model(b.get("title",""))==model:
-                                    pid = b.get("id","")
-                                    async with httpx.AsyncClient(timeout=10) as c2:
-                                        r = await c2.put(f"{ML_API}/items/{pid}",
-                                            headers={"Authorization": f"Bearer {to_token}","Content-Type":"application/json"},
-                                            json={"price": price, "available_quantity": stock})
-                                    if r.status_code in (200,201):
-                                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock}")
-                                    else:
-                                        print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code}")
+                matching = [p for p in prods if extract_model(p.get("title","")) == model]
+                for prod in matching:
+                    pid = prod.get("id","")
+                    async with httpx.AsyncClient(timeout=10) as c:
+                        r = await c.put(f"{ML_API}/items/{pid}",
+                            headers={"Authorization": f"Bearer {to_token}",
+                                     "Content-Type": "application/json"},
+                            json={"price": price, "available_quantity": stock})
+                    if r.status_code in (200, 201):
+                        prod["price"] = price
+                        prod["available_quantity"] = stock
+                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock}")
+                    else:
+                        print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code}")
+                if matching:
+                    set_cached_products(uid, prods)
             except Exception as e:
                 print(f"process_ml_item_change error cuenta {i}: {e}")
         
