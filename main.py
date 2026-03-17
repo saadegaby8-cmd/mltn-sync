@@ -217,6 +217,26 @@ def remove_ml(i: int, _=Depends(auth)):
     save_state()
     return {"ok": True}
 
+@app.get("/tn/authorize")
+async def tn_authorize(client_id: str, client_secret: str, code: str):
+    """Intercambiar code de TN por access_token automáticamente"""
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post("https://www.tiendanube.com/apps/authorize/token",
+                headers={"Content-Type": "application/json"},
+                json={"client_id": client_id, "client_secret": client_secret,
+                      "grant_type": "authorization_code", "code": code})
+            d = r.json()
+        if "access_token" in d:
+            ST["tn"]["store_id"] = str(d.get("user_id", ""))
+            ST["tn"]["token"] = d["access_token"]
+            save_state()
+            return RedirectResponse(url="/?success=tn_connected")
+        else:
+            return {"error": "No se obtuvo access_token", "response": d}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/api/tn/connect")
 async def connect_tn(req: Request, _=Depends(auth)):
     b = await req.json()
