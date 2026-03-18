@@ -490,7 +490,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-pub" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="try{openPubConfirm()}catch(e){alert('Error: '+e.message)}" id="btn-do-publish">🚀 Duplicar a Tienda Nube</button>
+              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Duplicar a Tienda Nube</button>
               <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
             </div>
           </div>
@@ -1716,8 +1716,7 @@ function openPubConfirm(){
   if(!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube en Conectar canales.','err');return;}
   document.getElementById('pub-confirm-count').textContent=pubSel.length;
   // Agrupar solo aplica a TN o ML destino (no x variante)
-  const grupoWrap=document.getElementById('pub-grupo-wrap');
-  grupoWrap.style.display='block';
+  // grupoWrap ya no existe, se reemplazó por opciones inline
   // Detectar grupos usando pubProds
   const selProds=pubProds.filter(p=>pubSel.includes(p.id));
   const grupos={};
