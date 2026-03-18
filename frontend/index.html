@@ -593,25 +593,18 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
             <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Cómo duplicar?</div>
             <div id="pub-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
-                <input type="radio" name="pub-grupo" value="si" onchange="updatePubGrupoUI()">
+              <label style="flex:1;min-width:140px;border:2px solid #4f9eff;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
+                <input type="radio" name="pub-grupo" value="si" checked onchange="updatePubGrupoUI()">
                 <div>
                   <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Agrupar por modelo</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">1 producto con todas las variantes</div>
-                </div>
-              </label>
-              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
-                <input type="radio" name="pub-grupo" value="no" checked onchange="updatePubGrupoUI()">
-                <div>
-                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 Uno por uno</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto por cada ítem</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Productos nuevos en ML — variantes ya unificadas</div>
                 </div>
               </label>
               <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-explotar">
-                <input type="radio" name="pub-grupo" value="explotar" onchange="updatePubGrupoUI()" onclick="updatePubGrupoUI()">
+                <input type="radio" name="pub-grupo" value="explotar_agrupar" onchange="updatePubGrupoUI()" onclick="updatePubGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#e17055">💥 Explotar variantes</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto por cada talle+color</div>
+                  <div style="font-weight:600;font-size:13px;color:#e17055">💥 Explotar y unificar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Productos viejos — explota variantes y las une en 1 producto TN</div>
                 </div>
               </label>
             </div>
@@ -1754,9 +1747,9 @@ function updatePubSyncUI(){
   if(no) no.style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
 }
 async function confirmPublish(){
-  const grupoVal = document.querySelector('input[name="pub-grupo"]:checked')?.value||'no';
+  const grupoVal = document.querySelector('input[name="pub-grupo"]:checked')?.value||'si';
   const agrupar = grupoVal==='si';
-  const explotar = grupoVal==='explotar';
+  const explotar = grupoVal==='explotar_agrupar';
   const sync = document.querySelector('input[name="pub-sync"]:checked')?.value==='si';
   const dims = {
     h: parseFloat(document.getElementById('pub-dim-h')?.value)||0,
