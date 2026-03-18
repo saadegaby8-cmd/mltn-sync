@@ -703,6 +703,8 @@ async def publish(req: Request, _=Depends(auth)):
                             seen_values.add(key)
                             unique_variants.append(vt)
                     print(f"Variantes antes: {len(variants)}, después dedup: {len(unique_variants)}")
+                    for vi, vt in enumerate(unique_variants[:3]):
+                        print(f"  Variante {vi}: values={vt.get('values')} price={vt.get('price')} stock={vt.get('stock')}")
                     variants = unique_variants if unique_variants else [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
                     payload = {
                         "name": {"es": title},
@@ -1851,6 +1853,47 @@ async def sync_item_to_tn(model: str, price: float, stock: int):
     except Exception as e:
         print(f"sync_item_to_tn error: {e}")
 
+
+@app.get("/diag/tn_variants/{i}/{item_id}")
+async def diag_tn_variants(i: int, item_id: str):
+    """Ver qué variantes se armarían para publicar en TN"""
+    try:
+        token = await fresh_token(i)
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {token}"})
+            item = r.json()
+        variations = item.get("variations", [])
+        result_variants = []
+        if variations:
+            for v in variations:
+                vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
+                talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
+                color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
+                values = []
+                if color: values.append({"es": color})
+                if talle: values.append({"es": talle})
+                result_variants.append({"values": values, "price": v.get("price") or item.get("price",0), "stock": v.get("available_quantity",0)})
+        else:
+            attrs = {a["id"]: a for a in (item.get("attributes") or [])}
+            color = attrs.get("COLOR",{}).get("value_name","")
+            size = attrs.get("SIZE",{}).get("value_name","")
+            values = []
+            if color: values.append({"es": color})
+            if size: values.append({"es": size})
+            result_variants.append({"values": values, "price": item.get("price",0), "stock": item.get("available_quantity",0)})
+        # Check duplicates
+        seen = set()
+        dupes = []
+        for v in result_variants:
+            key = tuple(sorted(x.get("es","") for x in v.get("values",[])))
+            if key in seen:
+                dupes.append(key)
+            seen.add(key)
+        return {"item_id": item_id, "title": item.get("title",""), 
+                "total_variants": len(result_variants), "duplicates": dupes,
+                "variants": result_variants}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/diag/prod_attrs/{i}")
 async def diag_prod_attrs(i: int, q: str = ""):
