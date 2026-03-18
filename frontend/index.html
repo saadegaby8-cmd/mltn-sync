@@ -1734,10 +1734,12 @@ function openPubConfirm(){
 function closePubConfirm(){document.getElementById('pub-confirm-modal').classList.remove('show');}
 function updatePubGrupoUI(){
   const val=document.querySelector('input[name="pub-grupo"]:checked')?.value;
-  document.getElementById('lbl-pub-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
-  document.getElementById('lbl-pub-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
-  const explEl = document.getElementById('lbl-pub-grupo-explotar');
-  if(explEl) explEl.style.borderColor=val==='explotar'?'#e17055':'#e8ecf0';
+  const si=document.getElementById('lbl-pub-grupo-si');
+  const no=document.getElementById('lbl-pub-grupo-no');
+  const expl=document.getElementById('lbl-pub-grupo-explotar');
+  if(si) si.style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  if(no) no.style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+  if(expl) expl.style.borderColor=(val==='explotar'||val==='explotar_agrupar')?'#e17055':'#e8ecf0';
 }
 function updatePubSyncUI(){
   const val=document.querySelector('input[name="pub-sync"]:checked')?.value;
