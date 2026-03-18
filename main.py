@@ -796,15 +796,21 @@ async def publish(req: Request, _=Depends(auth)):
             all_items = []
             for iid in item_ids:
                 try:
+                    await asyncio.sleep(1)
                     r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
+                    if r.status_code == 429:
+                        await asyncio.sleep(15)
+                        r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
                     item = r.json()
                     dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
                     item["_desc"] = dr.json().get("plain_text", item.get("title",""))
                     if "error" not in item:
                         all_items.append(item)
-                    await asyncio.sleep(0.3)
-                except Exception:
-                    pass
+                        print(f"Bajado item {iid}: {item.get('title','')[:40]}")
+                    else:
+                        print(f"Error item {iid}: {item.get('message','')}")
+                except Exception as e:
+                    print(f"Exception item {iid}: {e}")
 
             # Agrupar por MODEL
             grupos = {}
