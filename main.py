@@ -693,8 +693,15 @@ async def publish(req: Request, _=Depends(auth)):
                                   "stock": item.get("available_quantity",0)}
                             if values: vt["values"] = values
                             variants.append(vt)
-                    if not variants:
-                        variants = [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
+                    # Deduplicar variantes por combinación de valores
+                    seen_values = set()
+                    unique_variants = []
+                    for vt in variants:
+                        key = tuple(sorted(v.get("es","") for v in vt.get("values",[])))
+                        if key not in seen_values:
+                            seen_values.add(key)
+                            unique_variants.append(vt)
+                    variants = unique_variants if unique_variants else [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
                     payload = {
                         "name": {"es": title},
                         "description": {"es": title},
