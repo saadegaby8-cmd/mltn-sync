@@ -619,8 +619,109 @@ async def publish(req: Request, _=Depends(auth)):
     dims = b.get("dims", None)
     results = []
 
-    # Si explotar=True, expandir variantes como productos separados en TN
+    # Modo explotar_agrupar: explota variantes de items separados y crea 1 producto TN unificado
     if explotar:
+        # Agrupar todos los items por modelo
+        all_items_data = []
+        async with httpx.AsyncClient(timeout=20) as c:
+            for iid in item_ids:
+                await asyncio.sleep(1)
+                try:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
+                    item = r.json()
+                    if "error" not in item:
+                        all_items_data.append(item)
+                except Exception:
+                    pass
+        # Agrupar por modelo
+        grupos = {}
+        for item in all_items_data:
+            model_attr = next((a for a in (item.get("attributes") or []) if a.get("id") == "MODEL"), None)
+            key = model_attr.get("value_name", item["id"]) if model_attr else item["id"]
+            if key not in grupos:
+                grupos[key] = []
+            grupos[key].append(item)
+        # Para cada grupo, crear 1 producto TN con variantes explotadas
+        async with httpx.AsyncClient(timeout=30) as c:
+            for model_key, items_grupo in grupos.items():
+                try:
+                    base = items_grupo[0]
+                    _t = base.get("title","")
+                    _m = next((a.get("value_name","") for a in (base.get("attributes") or []) if a.get("id")=="MODEL"), "")
+                    if _m and _m in _t:
+                        title = _t[:_t.index(_m)+len(_m)].strip()
+                    elif " - " in _t:
+                        title = _t.rsplit(" - ", 1)[0].strip()
+                    else:
+                        title = _t
+                    # Construir variantes — una por cada item (o por cada variante interna)
+                    variants = []
+                    pics = []
+                    seen_pics = set()
+                    for item in items_grupo:
+                        # Fotos
+                        for p in (item.get("pictures") or [])[:2]:
+                            url = p.get("url","")
+                            if url and url not in seen_pics:
+                                pics.append({"src": url})
+                                seen_pics.add(url)
+                        # Variantes internas del item
+                        variations = item.get("variations", [])
+                        if variations:
+                            for v in variations:
+                                vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
+                                talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
+                                color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
+                                values = []
+                                if color: values.append({"es": color})
+                                if talle: values.append({"es": talle})
+                                vt = {"price": str(v.get("price") or item.get("price",0)),
+                                      "stock_management": True,
+                                      "stock": v.get("available_quantity", 0)}
+                                if values: vt["values"] = values
+                                variants.append(vt)
+                        else:
+                            # Item sin variantes — leer talle/color de los atributos
+                            attrs = {a["id"]: a for a in (item.get("attributes") or [])}
+                            color = attrs.get("COLOR",{}).get("value_name","")
+                            size = attrs.get("SIZE",{}).get("value_name","")
+                            values = []
+                            if color: values.append({"es": color})
+                            if size: values.append({"es": size})
+                            vt = {"price": str(item.get("price",0)),
+                                  "stock_management": True,
+                                  "stock": item.get("available_quantity",0)}
+                            if values: vt["values"] = values
+                            variants.append(vt)
+                    if not variants:
+                        variants = [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
+                    payload = {
+                        "name": {"es": title},
+                        "description": {"es": title},
+                        "published": True,
+                        "variants": variants,
+                        "images": pics[:10]
+                    }
+                    pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                                      headers=tn_hdrs, json=payload)
+                    ok = pr.status_code in (200, 201)
+                    tn_id = pr.json().get("id","") if ok else ""
+                    msg = f"✓ {len(variants)} variantes en 1 producto TN" if ok else pr.json().get("description","Error")
+                    if ok and auto_link and tn_id:
+                        for item in items_grupo:
+                            ST["links"].append({"ml_item_id": item["id"], "ml_account_index": idx,
+                                                "ml_account_name": ST["accounts"][idx].get("name","ML"),
+                                                "ml_title": title, "tn_product_id": str(tn_id),
+                                                "created_at": int(time.time())})
+                    results.append({"id": base["id"], "title": title, "ok": ok, "msg": msg})
+                    ST["log"].append({"ts":int(time.time()),"action":"publish_tn","product":title,"status":"ok" if ok else "error"})
+                except Exception as e:
+                    results.append({"id": model_key, "title": model_key, "ok": False, "msg": str(e)})
+        if auto_link: save_state()
+        return {"results": results}
+
+    # Modo explotar=True (legado) — productos separados en TN
+    if False:
         async with httpx.AsyncClient(timeout=30) as c:
             for iid in item_ids:
                 await asyncio.sleep(1)
