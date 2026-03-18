@@ -2208,6 +2208,27 @@ async def diag():
             except Exception as e:
                 detail["ml_error"] = str(e)
         result["accounts_detail"].append(detail)
+    # TN info
+    tn = ST.get("tn", {})
+    tn_store_id = tn.get("store_id","")
+    tn_token = tn.get("token","")
+    result["tn"] = {
+        "store_id": tn_store_id,
+        "token_preview": tn_token[:15]+"..." if tn_token else "EMPTY",
+        "connected": bool(tn_store_id and tn_token)
+    }
+    # Test TN connection
+    if tn_store_id and tn_token:
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                rt = await c.get(f"https://api.tiendanube.com/v1/{tn_store_id}/store",
+                    headers={"Authentication": f"bearer {tn_token}",
+                             "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"})
+                result["tn"]["api_status"] = rt.status_code
+                if rt.status_code == 200:
+                    result["tn"]["store_name"] = rt.json().get("name",{}).get("es","")
+        except Exception as e:
+            result["tn"]["api_error"] = str(e)
     return result
 
 fp = Path("frontend")
