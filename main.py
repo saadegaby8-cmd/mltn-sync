@@ -237,6 +237,32 @@ async def tn_authorize(client_id: str, client_secret: str, code: str):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/tn/callback")
+async def tn_callback(code: str = "", error: str = ""):
+    """Callback de TN — recibe el code y lo intercambia por access_token automáticamente"""
+    if error or not code:
+        return RedirectResponse(url="/?error=tn_auth_failed")
+    try:
+        TN_CLIENT_ID = os.getenv("TN_CLIENT_ID", "27952")
+        TN_CLIENT_SECRET = os.getenv("TN_CLIENT_SECRET", "fd7f9106bf5554ac68616444dd00d9e3362a3618460aaa61")
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post("https://www.tiendanube.com/apps/authorize/token",
+                headers={"Content-Type": "application/json"},
+                json={"client_id": TN_CLIENT_ID, "client_secret": TN_CLIENT_SECRET,
+                      "grant_type": "authorization_code", "code": code})
+            d = r.json()
+        if "access_token" in d:
+            ST["tn"]["store_id"] = str(d.get("user_id", ""))
+            ST["tn"]["token"] = d["access_token"]
+            save_state()
+            return RedirectResponse(url="/?success=tn_connected")
+        else:
+            print(f"TN callback error: {d}")
+            return RedirectResponse(url="/?error=tn_token_failed")
+    except Exception as e:
+        print(f"TN callback exception: {e}")
+        return RedirectResponse(url="/?error=tn_token_failed")
+
 @app.post("/api/tn/connect")
 async def connect_tn(req: Request, _=Depends(auth)):
     b = await req.json()
