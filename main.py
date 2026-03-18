@@ -707,13 +707,21 @@ async def publish(req: Request, _=Depends(auth)):
                     for vi, vt in enumerate(unique_variants[:3]):
                         print(f"  Variante {vi}: values={vt.get('values')} price={vt.get('price')} stock={vt.get('stock')}")
                     variants = unique_variants if unique_variants else [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
+                    # Determinar atributos del producto (Color, Talle)
+                    has_color = any(len(v.get("values",[])) > 0 for v in variants)
+                    has_talle = any(len(v.get("values",[])) > 1 for v in variants)
+                    product_attrs = []
+                    if has_color: product_attrs.append("Color")
+                    if has_talle: product_attrs.append("Talle")
                     payload = {
                         "name": {"es": title},
                         "description": {"es": title},
                         "published": True,
+                        "attributes": product_attrs,
                         "variants": variants,
                         "images": pics[:10]
                     }
+                    print(f"TN payload attrs={product_attrs} variants={len(variants)}")
                     pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
                                       headers=tn_hdrs, json=payload)
                     ok = pr.status_code in (200, 201)
