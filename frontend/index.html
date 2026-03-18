@@ -1711,12 +1711,10 @@ function renderPubMLDest(){
   if(appState.ml_accounts.length>1)sel.selectedIndex=1;
 }
 function openPubConfirm(){
-  const target=document.getElementById('pub-target').value;
+  const target='tn';
   if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados.','err');return;}
-  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
-  const destTxt=target==='ml'?(appState.ml_accounts[parseInt(document.getElementById('pub-ml-dest').value)]?.name||'ML'):'Tienda Nube';
+  if(!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube en Conectar canales.','err');return;}
   document.getElementById('pub-confirm-count').textContent=pubSel.length;
-  document.getElementById('pub-confirm-dest').textContent=destTxt;
   // Agrupar solo aplica a TN o ML destino (no x variante)
   const grupoWrap=document.getElementById('pub-grupo-wrap');
   grupoWrap.style.display='block';
