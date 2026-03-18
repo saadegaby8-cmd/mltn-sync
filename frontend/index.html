@@ -266,7 +266,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <div class="s-title" onclick="toggleSec('productos')">Productos <span id="arr-productos">▾</span></div>
       <div id="sec-productos">
         <div class="nav-sub active" onclick="showPage('productos')">Panel de productos</div>
-        <div class="nav-sub" onclick="showPage('publicar')">Publicar</div>
+        <div class="nav-sub" onclick="showPage('publicar')">Duplicar a TN</div>
         <div class="nav-sub" onclick="showPage('duplicar')">Duplicar entre cuentas</div>
       </div>
     </div>
@@ -461,23 +461,13 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
       <!-- PUBLICAR -->
       <div class="page" id="page-publicar">
-        <div class="page-title">Publicar</div>
+        <div class="page-title">Duplicar a Tienda Nube</div>
         <div class="panel">
-          <div class="panel-hd"><h3>Cuenta de ML origen</h3></div>
+          <div class="panel-hd"><h3>Cuenta ML origen</h3></div>
           <div class="panel-bd">
             <div class="acc-tabs" id="pub-tabs"></div>
-            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-              <div>
-                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Publicar en</label>
-                <select id="pub-target" onchange="togglePubTarget()" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif">
-                  <option value="tn">TiendaNube</option>
-                  <option value="ml">Otra cuenta ML</option>
-                </select>
-              </div>
-              <div id="pub-ml-dest-wrap" style="display:none">
-                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Cuenta ML destino</label>
-                <select id="pub-ml-dest" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif"></select>
-              </div>
+            <div style="margin-top:12px">
+              <span style="font-size:13px;color:#7a8299">Destino: <b style="color:#00b894">✓ TiendaNube</b> <span id="pub-tn-store" style="font-size:11px;color:#7a8299"></span></span>
             </div>
             <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none;margin-top:12px">Cargar productos →</button>
             <div id="msg-pub" class="msg"></div>
@@ -500,7 +490,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-pub" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
+              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Duplicar a Tienda Nube</button>
               <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
             </div>
           </div>
@@ -595,33 +585,73 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <div class="modal-bg" id="pub-confirm-modal">
         <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
           <button class="modal-close" onclick="closePubConfirm()">✕</button>
-          <h3>🚀 Confirmar publicación</h3>
-          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a publicar <b id="pub-confirm-count">0</b> producto(s) en <b id="pub-confirm-dest"></b>.</p>
+          <h3>🚀 Duplicar a Tienda Nube</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a duplicar <b id="pub-confirm-count">0</b> producto(s) a <b style="color:#00b894">TiendaNube</b>.</p>
 
-          <!-- AGRUPAR VARIANTES — solo para TN -->
-          <div id="pub-grupo-wrap" style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
-            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+          <!-- AGRUPAR VARIANTES -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Cómo duplicar?</div>
             <div id="pub-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
-            <div style="display:flex;gap:10px">
-              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
                 <input type="radio" name="pub-grupo" value="si" onchange="updatePubGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes</div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">1 producto con todas las variantes</div>
                 </div>
               </label>
-              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
                 <input type="radio" name="pub-grupo" value="no" checked onchange="updatePubGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 Uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto por cada ítem</div>
+                </div>
+              </label>
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-explotar">
+                <input type="radio" name="pub-grupo" value="explotar" onchange="updatePubGrupoUI()" onclick="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#e17055">💥 Explotar variantes</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto por cada talle+color</div>
                 </div>
               </label>
             </div>
           </div>
 
+          <!-- SINCRONIZAR -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Sincronización</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-pub-sync-si">
+                <input type="radio" name="pub-sync" value="si" onchange="updatePubSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🔗 Sí, enlazar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea enlace ML↔TN automático</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-pub-sync-no">
+                <input type="radio" name="pub-sync" value="no" checked onchange="updatePubSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">Solo duplicar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Sin enlace automático</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- DIMENSIONES -->
+          <div style="border:1px solid #ffe58f;background:#fffbec;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📦 Dimensiones (opcional)</div>
+            <div style="font-size:11px;color:#7a8299;margin-bottom:10px">Solo para productos viejos sin dimensiones.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div class="fg"><label>Alto pkg (cm)</label><input type="number" id="pub-dim-h" placeholder="ej: 10" min="1" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
+              <div class="fg"><label>Ancho pkg (cm)</label><input type="number" id="pub-dim-w" placeholder="ej: 20" min="1" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
+              <div class="fg"><label>Largo pkg (cm)</label><input type="number" id="pub-dim-l" placeholder="ej: 30" min="1" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
+              <div class="fg"><label>Peso pkg (kg)</label><input type="number" id="pub-dim-p" placeholder="ej: 0.5" min="0.01" step="0.01" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
+            </div>
+          </div>
+
           <div style="display:flex;gap:8px">
-            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Publicar ahora</button>
+            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Duplicar a TN ahora</button>
             <button class="btn btn-out" onclick="closePubConfirm()">Cancelar</button>
           </div>
         </div>
@@ -1588,7 +1618,8 @@ function renderPubTabs(){
   if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
   el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
   btn.style.display='inline-flex';
-  renderPubMLDest();
+  const tnStore = document.getElementById('pub-tn-store');
+  if(tnStore) tnStore.textContent = appState.tn_connected ? `· Store: ${appState.tn_store_id}` : '· No conectada';
 }
 function selPubAcc(i){pubAccIdx=i;renderPubTabs();document.getElementById('pub-prod-panel').style.display='none';}
 
@@ -1715,14 +1746,32 @@ function updatePubGrupoUI(){
   const val=document.querySelector('input[name="pub-grupo"]:checked')?.value;
   document.getElementById('lbl-pub-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
   document.getElementById('lbl-pub-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+  const explEl = document.getElementById('lbl-pub-grupo-explotar');
+  if(explEl) explEl.style.borderColor=val==='explotar'?'#e17055':'#e8ecf0';
+}
+function updatePubSyncUI(){
+  const val=document.querySelector('input[name="pub-sync"]:checked')?.value;
+  const si=document.getElementById('lbl-pub-sync-si');
+  const no=document.getElementById('lbl-pub-sync-no');
+  if(si) si.style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  if(no) no.style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
 }
 async function confirmPublish(){
-  const agrupar=document.querySelector('input[name="pub-grupo"]:checked')?.value==='si';
+  const grupoVal = document.querySelector('input[name="pub-grupo"]:checked')?.value||'no';
+  const agrupar = grupoVal==='si';
+  const explotar = grupoVal==='explotar';
+  const sync = document.querySelector('input[name="pub-sync"]:checked')?.value==='si';
+  const dims = {
+    h: parseFloat(document.getElementById('pub-dim-h')?.value)||0,
+    w: parseFloat(document.getElementById('pub-dim-w')?.value)||0,
+    l: parseFloat(document.getElementById('pub-dim-l')?.value)||0,
+    p: parseFloat(document.getElementById('pub-dim-p')?.value)||0
+  };
   closePubConfirm();
-  await doPublish(agrupar);
+  await doPublish(agrupar, explotar, sync, dims);
 }
-async function doPublish(agrupar=false){
-  const target=document.getElementById('pub-target').value;
+async function doPublish(agrupar=false, explotar=false, sync=false, dims=null){
+  const target='tn';
   if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
   if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
   document.getElementById('pub-prog-panel').style.display='block';
@@ -1731,8 +1780,7 @@ async function doPublish(agrupar=false){
   document.getElementById('pub-pt').textContent=`Publicando ${pubSel.length} producto(s) en ${target==='ml'?'otra cuenta ML':'Tienda Nube'}...`;
   hideMsg('msg-pub-res');
   try{
-    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar};
-    if(target==='ml')payload.target_ml_index=parseInt(document.getElementById('pub-ml-dest').value);
+    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar,explotar,auto_link:sync,dims};
     const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify(payload)});
     const d=await r.json();const results=d.results||[];
     document.getElementById('pub-pf').style.width='100%';
