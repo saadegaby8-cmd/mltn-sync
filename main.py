@@ -660,8 +660,8 @@ async def publish(req: Request, _=Depends(auth)):
                     pics = []
                     seen_pics = set()
                     for item in items_grupo:
-                        # Fotos
-                        for p in (item.get("pictures") or [])[:2]:
+                        # Fotos — todas las del item
+                        for p in (item.get("pictures") or []):
                             url = p.get("url","")
                             if url and url not in seen_pics:
                                 pics.append({"src": url})
@@ -719,7 +719,7 @@ async def publish(req: Request, _=Depends(auth)):
                         "published": True,
                         "attributes": product_attrs,
                         "variants": variants,
-                        "images": pics[:10]
+                        "images": pics
                     }
                     print(f"TN payload attrs={product_attrs} variants={len(variants)}")
                     pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
@@ -862,7 +862,7 @@ async def publish(req: Request, _=Depends(auth)):
                         "description": {"es": desc},
                         "published": True,
                         "variants": variants,
-                        "images": pics[:10],
+                        "images": pics,
                     }
                     pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
                                       headers=tn_hdrs, json=payload)
