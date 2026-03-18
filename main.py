@@ -850,17 +850,32 @@ async def publish(req: Request, _=Depends(auth)):
                     pics = []
                     seen = set()
                     for item in items_grupo:
-                        for p in (item.get("pictures") or [])[:2]:
+                        for p in (item.get("pictures") or []):
                             url = p.get("url","")
                             if url and url not in seen:
                                 pics.append({"src": url})
                                 seen.add(url)
-                        if len(pics) >= 10: break
 
+                    # Deduplicar variantes
+                    seen_vals = set()
+                    unique_variants = []
+                    for vt in variants:
+                        key = tuple(sorted(x.get("es","") for x in vt.get("values",[])))
+                        if key not in seen_vals:
+                            seen_vals.add(key)
+                            unique_variants.append(vt)
+                    variants = unique_variants or variants
+                    # Definir atributos
+                    has_color = any(len(v.get("values",[])) > 0 for v in variants)
+                    has_talle = any(len(v.get("values",[])) > 1 for v in variants)
+                    product_attrs = []
+                    if has_color: product_attrs.append("Color")
+                    if has_talle: product_attrs.append("Talle")
                     payload = {
                         "name": {"es": title},
                         "description": {"es": desc},
                         "published": True,
+                        "attributes": product_attrs,
                         "variants": variants,
                         "images": pics,
                     }
