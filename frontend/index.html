@@ -490,7 +490,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-pub" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Duplicar a Tienda Nube</button>
+              <button class="btn btn-green btn-sm" onclick="try{openPubConfirm()}catch(e){alert('Error: '+e.message)}" id="btn-do-publish">🚀 Duplicar a Tienda Nube</button>
               <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
             </div>
           </div>
