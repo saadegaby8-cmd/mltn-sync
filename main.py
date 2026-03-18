@@ -702,6 +702,7 @@ async def publish(req: Request, _=Depends(auth)):
                         if key not in seen_values:
                             seen_values.add(key)
                             unique_variants.append(vt)
+                    print(f"Variantes antes: {len(variants)}, después dedup: {len(unique_variants)}")
                     variants = unique_variants if unique_variants else [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
                     payload = {
                         "name": {"es": title},
@@ -713,6 +714,7 @@ async def publish(req: Request, _=Depends(auth)):
                     pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
                                       headers=tn_hdrs, json=payload)
                     ok = pr.status_code in (200, 201)
+                    print(f"TN POST status={pr.status_code} body={pr.text[:300]}")
                     tn_id = pr.json().get("id","") if ok else ""
                     msg = f"✓ {len(variants)} variantes en 1 producto TN" if ok else pr.json().get("description","Error")
                     if ok and auto_link and tn_id:
