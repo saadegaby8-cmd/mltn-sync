@@ -617,6 +617,7 @@ async def publish(req: Request, _=Depends(auth)):
     explotar = b.get("explotar", False)
     auto_link = b.get("auto_link", False)
     dims = b.get("dims", None)
+    print(f"Publish TN: items={item_ids} agrupar={agrupar} explotar={explotar}")
     results = []
 
     # Modo explotar_agrupar: explota variantes de items separados y crea 1 producto TN unificado
