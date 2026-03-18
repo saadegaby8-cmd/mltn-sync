@@ -614,7 +614,58 @@ async def publish(req: Request, _=Depends(auth)):
     tn = ST["tn"]
     tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
     agrupar = b.get("agrupar", False)
+    explotar = b.get("explotar", False)
+    auto_link = b.get("auto_link", False)
+    dims = b.get("dims", None)
     results = []
+
+    # Si explotar=True, expandir variantes como productos separados en TN
+    if explotar:
+        async with httpx.AsyncClient(timeout=30) as c:
+            for iid in item_ids:
+                await asyncio.sleep(1)
+                try:
+                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
+                    item = r.json()
+                    if "error" in item:
+                        results.append({"id": iid, "title": iid, "ok": False, "msg": item.get("message","Error")})
+                        continue
+                    variations = item.get("variations", [])
+                    if not variations:
+                        # Sin variantes — publicar tal cual
+                        variants = [{"price": str(item.get("price",0)), "stock_management": True, "stock": item.get("available_quantity",0)}]
+                        dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
+                        desc = dr.json().get("plain_text", item.get("title",""))
+                        payload = {"name":{"es":item["title"]},"description":{"es":desc},"published":True,
+                                   "variants":variants,"images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:5]]}
+                        pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products", headers=tn_hdrs, json=payload)
+                        ok = pr.status_code in (200,201)
+                        results.append({"id":iid,"title":item.get("title",""),"ok":ok,"msg":"Publicado" if ok else pr.json().get("description","Error")})
+                    else:
+                        for v in variations:
+                            vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
+                            talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
+                            color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
+                            suffix = " - ".join(filter(None, [talle.replace("/","-") if talle else "", color]))
+                            new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
+                            price = v.get("price") or item.get("price", 0)
+                            stock = v.get("available_quantity", item.get("available_quantity", 0))
+                            variants = [{"price": str(price), "stock_management": True, "stock": stock}]
+                            payload = {"name":{"es":new_title},"description":{"es":item.get("title","")},"published":True,
+                                       "variants":variants,"images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:3]]}
+                            await asyncio.sleep(0.5)
+                            pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products", headers=tn_hdrs, json=payload)
+                            ok = pr.status_code in (200,201)
+                            tn_id = pr.json().get("id","") if ok else ""
+                            if ok and auto_link and tn_id:
+                                ST["links"].append({"ml_item_id":iid,"ml_variation_id":str(v.get("id","")),"ml_account_index":idx,
+                                                    "ml_account_name":ST["accounts"][idx].get("name","ML"),"ml_title":new_title,
+                                                    "tn_product_id":str(tn_id),"created_at":int(time.time())})
+                            results.append({"id":iid,"title":new_title,"ok":ok,"msg":"Publicado" if ok else pr.json().get("description","Error")})
+                except Exception as e:
+                    results.append({"id":iid,"title":iid,"ok":False,"msg":str(e)})
+        if auto_link: save_state()
+        return {"results": results}
 
     async with httpx.AsyncClient(timeout=20) as c:
 
