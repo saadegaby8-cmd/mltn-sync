@@ -673,22 +673,23 @@ async def publish(req: Request, _=Depends(auth)):
                                 vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
                                 talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
                                 color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
+                                # TN necesita valores separados por atributo
+                                # Primer valor = Color, Segundo valor = Talle
                                 values = []
                                 if color: values.append({"es": color})
-                                if talle: values.append({"es": talle})
+                                if talle and talle != color: values.append({"es": talle})
                                 vt = {"price": str(v.get("price") or item.get("price",0)),
                                       "stock_management": True,
                                       "stock": v.get("available_quantity", 0)}
                                 if values: vt["values"] = values
                                 variants.append(vt)
                         else:
-                            # Item sin variantes — leer talle/color de los atributos
                             attrs = {a["id"]: a for a in (item.get("attributes") or [])}
                             color = attrs.get("COLOR",{}).get("value_name","")
                             size = attrs.get("SIZE",{}).get("value_name","")
                             values = []
                             if color: values.append({"es": color})
-                            if size: values.append({"es": size})
+                            if size and size != color: values.append({"es": size})
                             vt = {"price": str(item.get("price",0)),
                                   "stock_management": True,
                                   "stock": item.get("available_quantity",0)}
