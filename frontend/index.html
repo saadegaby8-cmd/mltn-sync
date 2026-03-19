@@ -2478,7 +2478,10 @@ async function iaChatWithAI(userMsg) {
       // Detectar si el asistente dice LISTO
       const readyWords = ['LISTO', 'listo para publicar', 'podemos publicar', 'todo listo', 'ya tenemos todo'];
       if (readyWords.some(w => d.reply.toLowerCase().includes(w.toLowerCase()))) {
+        iaShowPublishButton();
       }
+      // Extract data from AI reply
+      iaExtractContextFromAIReply(d.reply);
     } else {
       iaAddBotMessage('[Error] Error: ' + d.error);
     }
@@ -2561,6 +2564,27 @@ function iaUpdatePublishButton() {
     + '</div>';
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
+}
+
+function iaExtractContextFromAIReply(reply) {
+  // Extract price if mentioned
+  const priceMatch = reply.match(/\$\s*([\d.,]+)/);
+  if (priceMatch && !iaContext.precio) {
+    const p = parseFloat(priceMatch[1].replace(/\./g,'').replace(',','.'));
+    if (p > 100) iaContext.precio = p;
+  }
+  // Extract colors if listed
+  const colorSection = reply.match(/colores?[:\s]+([^\n.]+)/i);
+  if (colorSection && !iaContext.colores?.length) {
+    const colors = colorSection[1].split(/[,;\/]+/).map(s=>s.trim().replace(/^[-*\s]+/,'')).filter(s=>s.length>1 && s.length<25);
+    if (colors.length > 1) { iaContext.colores = colors; iaRenderVariantsGrid(); }
+  }
+  // Extract sizes
+  const sizeSection = reply.match(/talles?[:\s]+([^\n.]+)/i);
+  if (sizeSection && !iaContext.talles?.length) {
+    const sizes = sizeSection[1].split(/[,;\/]+/).map(s=>s.trim()).filter(s=>s.length>1 && s.length<15);
+    if (sizes.length > 0) iaContext.talles = sizes;
+  }
 }
 
 function iaShowPublishButton() {
@@ -2802,7 +2826,14 @@ async function iaPublish() {
     const r = await fetch('/api/ai/publish_product', {
       method: 'POST', headers: hdr(),
       body: JSON.stringify({
-        product: iaContext,
+        product: {
+          ...iaContext,
+          titulo: iaContext.titulo_sugerido || iaContext.titulo || '',
+          colores: iaContext.colores || [],
+          talles: iaContext.talles || iaContext.talles_sugeridos || [],
+          precio: iaContext.precio || 0,
+          stock_por_variante: iaContext.stock || 100,
+        },
         channels: [...iaSelectedChannels],
         images_base64: allImages,
         images_by_color: iaGeneratedPhotos,
