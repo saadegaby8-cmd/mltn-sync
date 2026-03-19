@@ -1868,10 +1868,14 @@ CONTEXTO ACTUAL DEL PRODUCTO:
 
 INSTRUCCIONES:
 1. Hacé UNA pregunta a la vez, la más importante que falta
-2. Cuando tengas toda la info, decí "LISTO" y mostrá un resumen completo
+2. Cuando tengas toda la info, decí exactamente "LISTO para publicar" y mostrá un resumen completo
 3. Si el vendedor dice algo ambiguo, pedí aclaración
 4. Siempre pensá en qué necesita ML para publicar correctamente
-5. Respondé en español, tono amigable y profesional"""
+5. Respondé en español, tono amigable y profesional
+6. Si ya tenés titulo, precio, colores y talles, decí "LISTO para publicar" aunque falten otros datos opcionales
+7. Si el vendedor corrige algo o agrega info, respondé brevemente y volvé a decir "LISTO para publicar" al final
+8. Si hay un error en la publicación, explicalo claramente y preguntá qué falta para corregirlo
+9. Si el usuario completa algo que faltaba, decí "LISTO para publicar" inmediatamente con el resumen actualizado"""
 
         response = await httpx.AsyncClient(timeout=30).post(
             "https://api.anthropic.com/v1/messages",
