@@ -229,7 +229,25 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
   .prod-grid{grid-template-columns:1fr}
   .pub-grid{grid-template-columns:1fr}
   .panel{width:100%;box-sizing:border-box;overflow:hidden}
-}</style>
+}
+.ia-msg { display: flex; flex-direction: column; }
+.ia-msg-bot { align-items: flex-start; }
+.ia-msg-user { align-items: flex-end; }
+.ia-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ia-msg-bot .ia-bubble { background: #f0f2f6; color: #1a1a2e; border-bottom-left-radius: 4px; }
+.ia-msg-user .ia-bubble { background: #4f9eff; color: #fff; border-bottom-right-radius: 4px; }
+.ia-typing { display: flex; gap: 4px; padding: 10px 14px; background: #f0f2f6; border-radius: 16px; width: fit-content; border-bottom-left-radius: 4px; }
+.ia-dot { width: 6px; height: 6px; border-radius: 50%; background: #7a8299; animation: iaBounce .6s infinite alternate; }
+.ia-dot:nth-child(2) { animation-delay: .2s; }
+.ia-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes iaBounce { to { transform: translateY(-4px); opacity: 0.5; } }
+</style>
 </head>
 <body>
 
@@ -266,8 +284,9 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <div class="s-title" onclick="toggleSec('productos')">Productos <span id="arr-productos">▾</span></div>
       <div id="sec-productos">
         <div class="nav-sub active" onclick="showPage('productos')">Panel de productos</div>
-        <div class="nav-sub" onclick="showPage('publicar')">Duplicar a TN</div>
+        <div class="nav-sub" onclick="showPage('publicar')">Publicar</div>
         <div class="nav-sub" onclick="showPage('duplicar')">Duplicar entre cuentas</div>
+        <div class="nav-sub" onclick="showPage('ia-publicar')">✦ Publicar con IA</div>
       </div>
     </div>
     <div class="s-section">
@@ -461,13 +480,23 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
       <!-- PUBLICAR -->
       <div class="page" id="page-publicar">
-        <div class="page-title">Duplicar a Tienda Nube</div>
+        <div class="page-title">Publicar</div>
         <div class="panel">
-          <div class="panel-hd"><h3>Cuenta ML origen</h3></div>
+          <div class="panel-hd"><h3>Cuenta de ML origen</h3></div>
           <div class="panel-bd">
             <div class="acc-tabs" id="pub-tabs"></div>
-            <div style="margin-top:12px">
-              <span style="font-size:13px;color:#7a8299">Destino: <b style="color:#00b894">✓ TiendaNube</b> <span id="pub-tn-store" style="font-size:11px;color:#7a8299"></span></span>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Publicar en</label>
+                <select id="pub-target" onchange="togglePubTarget()" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif">
+                  <option value="tn">TiendaNube</option>
+                  <option value="ml">Otra cuenta ML</option>
+                </select>
+              </div>
+              <div id="pub-ml-dest-wrap" style="display:none">
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Cuenta ML destino</label>
+                <select id="pub-ml-dest" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif"></select>
+              </div>
             </div>
             <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none;margin-top:12px">Cargar productos →</button>
             <div id="msg-pub" class="msg"></div>
@@ -490,7 +519,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
           <div class="panel-bd" style="padding-bottom:0">
             <div id="ab-pub" class="action-bar" style="display:none">
               <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
-              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Duplicar a Tienda Nube</button>
+              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
               <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
             </div>
           </div>
@@ -585,66 +614,33 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <div class="modal-bg" id="pub-confirm-modal">
         <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
           <button class="modal-close" onclick="closePubConfirm()">✕</button>
-          <h3>🚀 Duplicar a Tienda Nube</h3>
-          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a duplicar <b id="pub-confirm-count">0</b> producto(s) a <b style="color:#00b894">TiendaNube</b>.</p>
+          <h3>🚀 Confirmar publicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a publicar <b id="pub-confirm-count">0</b> producto(s) en <b id="pub-confirm-dest"></b>.</p>
 
-          <!-- AGRUPAR VARIANTES -->
-          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
-            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Cómo duplicar?</div>
+          <!-- AGRUPAR VARIANTES — solo para TN -->
+          <div id="pub-grupo-wrap" style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
             <div id="pub-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <label style="flex:1;min-width:140px;border:2px solid #4f9eff;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
-                <input type="radio" name="pub-grupo" value="si" checked onchange="updatePubGrupoUI()">
-                <div>
-                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Agrupar por modelo</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Productos nuevos en ML — variantes ya unificadas</div>
-                </div>
-              </label>
-              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-explotar">
-                <input type="radio" name="pub-grupo" value="explotar_agrupar" onchange="updatePubGrupoUI()" onclick="updatePubGrupoUI()">
-                <div>
-                  <div style="font-weight:600;font-size:13px;color:#e17055">💥 Explotar y unificar</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Productos viejos — explota variantes y las une en 1 producto TN</div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- SINCRONIZAR -->
-          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
-            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Sincronización</div>
             <div style="display:flex;gap:10px">
-              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-pub-sync-si">
-                <input type="radio" name="pub-sync" value="si" onchange="updatePubSyncUI()">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
+                <input type="radio" name="pub-grupo" value="si" onchange="updatePubGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🔗 Sí, enlazar</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea enlace ML↔TN automático</div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes</div>
                 </div>
               </label>
-              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-pub-sync-no">
-                <input type="radio" name="pub-sync" value="no" checked onchange="updatePubSyncUI()">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
+                <input type="radio" name="pub-grupo" value="no" checked onchange="updatePubGrupoUI()">
                 <div>
-                  <div style="font-weight:600;font-size:13px;color:#7a8299">Solo duplicar</div>
-                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Sin enlace automático</div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
                 </div>
               </label>
-            </div>
-          </div>
-
-          <!-- DIMENSIONES -->
-          <div style="border:1px solid #ffe58f;background:#fffbec;border-radius:8px;padding:16px;margin-bottom:14px">
-            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📦 Dimensiones (opcional)</div>
-            <div style="font-size:11px;color:#7a8299;margin-bottom:10px">Solo para productos viejos sin dimensiones.</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg"><label>Alto pkg (cm)</label><input type="number" id="pub-dim-h" placeholder="ej: 10" min="1" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
-              <div class="fg"><label>Ancho pkg (cm)</label><input type="number" id="pub-dim-w" placeholder="ej: 20" min="1" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
-              <div class="fg"><label>Largo pkg (cm)</label><input type="number" id="pub-dim-l" placeholder="ej: 30" min="1" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
-              <div class="fg"><label>Peso pkg (kg)</label><input type="number" id="pub-dim-p" placeholder="ej: 0.5" min="0.01" step="0.01" style="padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;width:100%" /></div>
             </div>
           </div>
 
           <div style="display:flex;gap:8px">
-            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Duplicar a TN ahora</button>
+            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Publicar ahora</button>
             <button class="btn btn-out" onclick="closePubConfirm()">Cancelar</button>
           </div>
         </div>
@@ -826,6 +822,74 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
         </div>
       </div>
 
+      <!-- IA PUBLICAR -->
+      <div class="page" id="page-ia-publicar">
+        <div class="page-title">✦ Publicar con IA</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;height:calc(100vh - 140px)">
+          
+          <!-- PANEL IZQUIERDO: Upload + Preview -->
+          <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+            
+            <!-- Upload -->
+            <div class="panel" id="ia-upload-panel">
+              <div class="panel-hd"><h3>📸 Foto del producto</h3></div>
+              <div class="panel-bd">
+                <div id="ia-dropzone" style="border:2px dashed #dde1e9;border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;position:relative" 
+                     ondragover="event.preventDefault();this.style.borderColor='#4f9eff'" 
+                     ondragleave="this.style.borderColor='#dde1e9'"
+                     ondrop="iaDrop(event)">
+                  <input type="file" accept="image/*" id="ia-file-input" style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="iaHandleFile(this)">
+                  <div style="font-size:32px;margin-bottom:8px">📸</div>
+                  <div style="font-weight:600;margin-bottom:4px">Subí una foto</div>
+                  <div style="font-size:12px;color:#7a8299">JPG, PNG o WEBP</div>
+                </div>
+                <div id="ia-img-preview" style="display:none;margin-top:12px">
+                  <img id="ia-preview-img" style="width:100%;max-height:280px;object-fit:contain;border-radius:10px;border:1px solid #e8ecf0">
+                  <button class="btn btn-blue btn-sm" style="width:100%;margin-top:10px" onclick="iaAnalyze()" id="ia-analyze-btn">✦ Analizar con IA</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fotos generadas -->
+            <div class="panel" id="ia-photos-panel" style="display:none">
+              <div class="panel-hd"><h3>🎨 Fotos generadas por IA</h3><button class="btn btn-blue btn-sm" onclick="iaGenerateAllPhotos()">Generar todas</button></div>
+              <div class="panel-bd">
+                <div id="ia-photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+              </div>
+            </div>
+
+            <!-- Canales -->
+            <div class="panel" id="ia-channels-panel" style="display:none">
+              <div class="panel-hd"><h3>📡 Publicar en</h3></div>
+              <div class="panel-bd" id="ia-channels-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+
+          </div>
+
+          <!-- PANEL DERECHO: Chat -->
+          <div style="display:flex;flex-direction:column;background:#fff;border-radius:10px;border:1px solid #e8ecf0;overflow:hidden">
+            <div style="padding:14px 18px;border-bottom:1px solid #e8ecf0;background:#f9fafb;display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c6cfc,#fc6cc8);display:flex;align-items:center;justify-content:center;font-size:14px">✦</div>
+              <div>
+                <div style="font-weight:600;font-size:13px">Asistente Publicador IA</div>
+                <div style="font-size:11px;color:#7a8299">Experto en MercadoLibre Argentina</div>
+              </div>
+            </div>
+            <div id="ia-chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div class="ia-msg ia-msg-bot">
+                <div class="ia-bubble">¡Hola! Soy tu asistente publicador. Subí una foto del producto y te ayudo a crear la publicación perfecta para ML y TN. 📸</div>
+              </div>
+            </div>
+            <div style="padding:12px;border-top:1px solid #e8ecf0;display:flex;gap:8px">
+              <input type="text" id="ia-chat-input" placeholder="Escribí tu respuesta..." 
+                     style="flex:1;padding:10px 14px;border:1px solid #dde1e9;border-radius:20px;font-size:13px;outline:none;font-family:Inter,sans-serif"
+                     onkeydown="if(event.key==='Enter')iaSendMessage()">
+              <button class="btn btn-blue" style="border-radius:20px;padding:10px 16px" onclick="iaSendMessage()">→</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SINCRONIZAR -->
       <div class="page" id="page-sincronizar">
         <div class="page-title">Sincronizar stock y precios</div>
@@ -894,7 +958,7 @@ let selectedTNProd=null;
 
 function hdr(){return {'Content-Type':'application/json','X-Session-Token':SESSION}}
 
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
+// -- LOGIN ---------------------------------------------------------------------
 async function doLogin(){
   const email=document.getElementById('li-email').value.trim();
   const pw=document.getElementById('li-pw').value;
@@ -1099,7 +1163,7 @@ async function connectTN(){
   catch(e){showMsg('msg-tn','❌ '+e.message,'err');}
 }
 
-// ── PROD TABLE ─────────────────────────────────────────────────────────────────
+// -- PROD TABLE -----------------------------------------------------------------
 let prodSoloSinUnir = false;
 
 let prodOrden='default';
@@ -1516,7 +1580,7 @@ function clearProdSel(){prodSel=[];renderProdT();}
 function pProd(d){prodPg+=d;renderProdT();}
 function goPublishSelected(){pubSel=[...prodSel];showPage('publicar');}
 
-// ── UNIR MODAL ─────────────────────────────────────────────────────────────────
+// -- UNIR MODAL -----------------------------------------------------------------
 let unirItems=[];
 let unirSearchProds=[];
 
@@ -1589,7 +1653,7 @@ async function guardarUnion(){
 
 function closeUnirModal(){document.getElementById('unir-modal').classList.remove('show');}
 
-// ── CANAL CARD STYLES (CSS dinámico) ──────────────────────────────────────────
+// -- CANAL CARD STYLES (CSS dinámico) ------------------------------------------
 (function addCanalStyles(){
   const s=document.createElement('style');
   s.textContent=`
@@ -1605,14 +1669,13 @@ function closeUnirModal(){document.getElementById('unir-modal').classList.remove
   document.head.appendChild(s);
 })();
 
-// ── PUB TABLE ──────────────────────────────────────────────────────────────────
+// -- PUB TABLE ------------------------------------------------------------------
 function renderPubTabs(){
   const el=document.getElementById('pub-tabs');const btn=document.getElementById('load-pub-btn');
   if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
   el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
   btn.style.display='inline-flex';
-  const tnStore = document.getElementById('pub-tn-store');
-  if(tnStore) tnStore.textContent = appState.tn_connected ? `· Store: ${appState.tn_store_id}` : '· No conectada';
+  renderPubMLDest();
 }
 function selPubAcc(i){pubAccIdx=i;renderPubTabs();document.getElementById('pub-prod-panel').style.display='none';}
 
@@ -1704,12 +1767,15 @@ function renderPubMLDest(){
   if(appState.ml_accounts.length>1)sel.selectedIndex=1;
 }
 function openPubConfirm(){
-  const target='tn';
+  const target=document.getElementById('pub-target').value;
   if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados.','err');return;}
-  if(!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube en Conectar canales.','err');return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  const destTxt=target==='ml'?(appState.ml_accounts[parseInt(document.getElementById('pub-ml-dest').value)]?.name||'ML'):'Tienda Nube';
   document.getElementById('pub-confirm-count').textContent=pubSel.length;
+  document.getElementById('pub-confirm-dest').textContent=destTxt;
   // Agrupar solo aplica a TN o ML destino (no x variante)
-  // grupoWrap ya no existe, se reemplazó por opciones inline
+  const grupoWrap=document.getElementById('pub-grupo-wrap');
+  grupoWrap.style.display='block';
   // Detectar grupos usando pubProds
   const selProds=pubProds.filter(p=>pubSel.includes(p.id));
   const grupos={};
@@ -1734,36 +1800,16 @@ function openPubConfirm(){
 function closePubConfirm(){document.getElementById('pub-confirm-modal').classList.remove('show');}
 function updatePubGrupoUI(){
   const val=document.querySelector('input[name="pub-grupo"]:checked')?.value;
-  const si=document.getElementById('lbl-pub-grupo-si');
-  const no=document.getElementById('lbl-pub-grupo-no');
-  const expl=document.getElementById('lbl-pub-grupo-explotar');
-  if(si) si.style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
-  if(no) no.style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
-  if(expl) expl.style.borderColor=(val==='explotar'||val==='explotar_agrupar')?'#e17055':'#e8ecf0';
-}
-function updatePubSyncUI(){
-  const val=document.querySelector('input[name="pub-sync"]:checked')?.value;
-  const si=document.getElementById('lbl-pub-sync-si');
-  const no=document.getElementById('lbl-pub-sync-no');
-  if(si) si.style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
-  if(no) no.style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+  document.getElementById('lbl-pub-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-pub-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
 }
 async function confirmPublish(){
-  const grupoVal = document.querySelector('input[name="pub-grupo"]:checked')?.value||'si';
-  const agrupar = grupoVal==='si';
-  const explotar = grupoVal==='explotar_agrupar';
-  const sync = document.querySelector('input[name="pub-sync"]:checked')?.value==='si';
-  const dims = {
-    h: parseFloat(document.getElementById('pub-dim-h')?.value)||0,
-    w: parseFloat(document.getElementById('pub-dim-w')?.value)||0,
-    l: parseFloat(document.getElementById('pub-dim-l')?.value)||0,
-    p: parseFloat(document.getElementById('pub-dim-p')?.value)||0
-  };
+  const agrupar=document.querySelector('input[name="pub-grupo"]:checked')?.value==='si';
   closePubConfirm();
-  await doPublish(agrupar, explotar, sync, dims);
+  await doPublish(agrupar);
 }
-async function doPublish(agrupar=false, explotar=false, sync=false, dims=null){
-  const target='tn';
+async function doPublish(agrupar=false){
+  const target=document.getElementById('pub-target').value;
   if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
   if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
   document.getElementById('pub-prog-panel').style.display='block';
@@ -1772,7 +1818,8 @@ async function doPublish(agrupar=false, explotar=false, sync=false, dims=null){
   document.getElementById('pub-pt').textContent=`Publicando ${pubSel.length} producto(s) en ${target==='ml'?'otra cuenta ML':'Tienda Nube'}...`;
   hideMsg('msg-pub-res');
   try{
-    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar,explotar,auto_link:sync,dims};
+    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar};
+    if(target==='ml')payload.target_ml_index=parseInt(document.getElementById('pub-ml-dest').value);
     const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify(payload)});
     const d=await r.json();const results=d.results||[];
     document.getElementById('pub-pf').style.width='100%';
@@ -1786,7 +1833,7 @@ async function doPublish(agrupar=false, explotar=false, sync=false, dims=null){
   }catch(e){showMsg('msg-pub-res','❌ Error: '+e.message,'err');}
 }
 
-// ── DUPLICAR ───────────────────────────────────────────────────────────────────
+// -- DUPLICAR -------------------------------------------------------------------
 function renderDupAccs(){
   const opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
   document.getElementById('dup-from').innerHTML=opts;
@@ -1972,9 +2019,7 @@ async function loadChartsForConfirm(toAccount){
       list.innerHTML = '<span style="font-size:12px;color:#e17055">No hay guías en la cuenta destino.</span>';
       return;
     }
-    const opts = charts.map(ch =>
-      '<option value="'+ch.id+'">'+(ch.name||'Sin nombre')+' — '+ch.sizes.filter(Boolean).join(', ')+'</option>'
-    ).join('');
+    const opts = charts.map(ch => '<option value="'+ch.id+'">'+(ch.name||'Sin nombre')+' - '+ch.sizes.filter(Boolean).join(', ')+'</option>').join('');
     list.innerHTML = prodsConGuia.map(p =>
       '<div style="margin-bottom:10px">'+
         '<div style="font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
@@ -2030,7 +2075,7 @@ async function confirmDuplicate(){
   closeDupConfirm();
   await doDuplicate(estado,sync,agrupar,explotar,dims);
 }
-// ── DUPLICAR ──────────────────────────────────────────────────────────────────
+// -- DUPLICAR ------------------------------------------------------------------
 let chartOverride = {};
 let pendingDupArgs = null;
 let selectedChartId = null;
@@ -2138,7 +2183,7 @@ function closeChartModal(){
   document.getElementById('chart-modal').classList.remove('show');
 }
 
-// ── LINK MODAL ─────────────────────────────────────────────────────────────────
+// -- LINK MODAL -----------------------------------------------------------------
 async function openModal(itemId, varId, accIdx, title){
   modalML={item_id:itemId,var_id:varId,acc_idx:accIdx,title};
   selectedTNProd=null;
@@ -2218,7 +2263,7 @@ async function removeLink(mlId,mlVarId){
 
 function closeModal(){document.getElementById('link-modal').classList.remove('show');}
 
-// ── SYNC ───────────────────────────────────────────────────────────────────────
+// -- SYNC -----------------------------------------------------------------------
 async function doSync(){
   if(!appState.tn_connected){showMsg('msg-sync','⚠ Primero conectá Tienda Nube.','err');return;}
   const btn=document.getElementById('sync-btn');
@@ -2240,6 +2285,287 @@ async function doSync(){
     await loadState();
   }catch(e){showMsg('msg-sync','❌ Error: '+e.message,'err');}
   btn.innerHTML='🔄 Sincronizar ahora';btn.disabled=false;
+}
+
+// -- IA PUBLICAR --------------------------------------------------------------
+let iaImageBase64 = '';
+let iaImageType = 'image/jpeg';
+let iaContext = {};
+let iaChatHistory = [];
+let iaGeneratedPhotos = {};
+let iaSelectedChannels = new Set([0]); // LENCERIA por defecto
+
+function iaDrop(e) {
+  e.preventDefault();
+  document.getElementById('ia-dropzone').style.borderColor = '#dde1e9';
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) iaProcessFile(file);
+}
+
+function iaHandleFile(input) {
+  if (input.files[0]) iaProcessFile(input.files[0]);
+}
+
+function iaProcessFile(file) {
+  iaImageType = file.type;
+  const reader = new FileReader();
+  reader.onload = e => {
+    iaImageBase64 = e.target.result.split(',')[1];
+    document.getElementById('ia-preview-img').src = e.target.result;
+    document.getElementById('ia-img-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function iaAnalyze() {
+  if (!iaImageBase64) return;
+  const btn = document.getElementById('ia-analyze-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analizando...';
+  iaAddBotMessage('Analizando tu imagen... dame un momento 🔍');
+  try {
+    const r = await fetch('/api/ai/analyze', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({image_base64: iaImageBase64, image_type: iaImageType})
+    });
+    const d = await r.json();
+    if (d.ok && d.analysis) {
+      iaContext = d.analysis;
+      // Mostrar panel de canales
+      iaRenderChannels();
+      document.getElementById('ia-channels-panel').style.display = 'block';
+      document.getElementById('ia-photos-panel').style.display = 'block';
+      // Primer mensaje del asistente
+      await iaChatWithAI("El vendedor subió una imagen. Iniciá la conversación presentándote brevemente y hacé la primera pregunta más importante para completar la publicación.");
+    } else {
+      iaAddBotMessage('❌ Error al analizar: ' + (d.error || 'desconocido'));
+    }
+  } catch(e) {
+    iaAddBotMessage('❌ Error: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '✦ Re-analizar';
+}
+
+function iaRenderChannels() {
+  const el = document.getElementById('ia-channels-list');
+  const channels = [
+    ...appState.ml_accounts.map((a, i) => ({label: a.name, key: i, color: '#ffe135', text: '#333'})),
+    ...(appState.tn_connected ? [{label: 'TiendaNube', key: 'tn', color: '#e91e63', text: '#fff'}] : [])
+  ];
+  el.innerHTML = channels.map(ch => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:2px solid ${iaSelectedChannels.has(ch.key)?'#4f9eff':'#e8ecf0'};cursor:pointer;transition:all .15s"
+         id="ia-ch-${ch.key}" onclick="iaToggleChannel('${ch.key}', this)">
+      <div style="width:28px;height:28px;border-radius:50%;background:${ch.color};color:${ch.text};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${ch.label[0]}</div>
+      <span style="font-size:13px;font-weight:500;flex:1">${ch.label}</span>
+      <div style="width:18px;height:18px;border-radius:50%;${iaSelectedChannels.has(ch.key)?'background:#4f9eff':'border:2px solid #dde1e9'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">${iaSelectedChannels.has(ch.key)?'✓':''}</div>
+    </div>`).join('');
+}
+
+function iaToggleChannel(key, el) {
+  const k = isNaN(key) ? key : parseInt(key);
+  if (iaSelectedChannels.has(k)) iaSelectedChannels.delete(k);
+  else iaSelectedChannels.add(k);
+  iaRenderChannels();
+}
+
+function iaAddBotMessage(text) {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.innerHTML = '<div class="ia-bubble">' + text.replace(/\n/g,'<br>') + '</div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaAddUserMessage(text) {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-user';
+  div.innerHTML = `<div class="ia-bubble">${text}</div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaShowTyping() {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.id = 'ia-typing';
+  div.innerHTML = '<div class="ia-typing"><div class="ia-dot"></div><div class="ia-dot"></div><div class="ia-dot"></div></div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaHideTyping() {
+  const t = document.getElementById('ia-typing');
+  if (t) t.remove();
+}
+
+async function iaChatWithAI(userMsg) {
+  if (userMsg !== "__INIT__") {
+    iaChatHistory.push({role: 'user', content: userMsg});
+  }
+  iaShowTyping();
+  try {
+    const r = await fetch('/api/ai/chat', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({messages: iaChatHistory, context: iaContext})
+    });
+    const d = await r.json();
+    iaHideTyping();
+    if (d.ok) {
+      iaChatHistory.push({role: 'assistant', content: d.reply});
+      iaAddBotMessage(d.reply);
+      // Detectar si el asistente dice LISTO
+      if (d.reply.includes('LISTO') || d.reply.includes('listo para publicar')) {
+        iaShowPublishButton();
+      }
+    } else {
+      iaAddBotMessage('❌ Error: ' + d.error);
+    }
+  } catch(e) {
+    iaHideTyping();
+    iaAddBotMessage('❌ Error: ' + e.message);
+  }
+}
+
+async function iaSendMessage() {
+  const input = document.getElementById('ia-chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  iaAddUserMessage(text);
+  // Actualizar contexto con la respuesta
+  iaContext._last_user_msg = text;
+  await iaChatWithAI(text);
+}
+
+function iaShowPublishButton() {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.innerHTML = `<button class="btn btn-green" style="margin-top:8px;border-radius:20px" onclick="iaPublish()">🚀 Publicar ahora en los canales seleccionados</button>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+// Prompt base guardado
+const IA_PROMPT_BASE = "1-Fotografia hiperrealista en formato 4k estilo Instagram y turista real, tomada al azar en exteriores. Poses naturales, espontaneas y realistas, como si la modelo estuviera disfrutando el momento sin produccion: postura relajada, sonrisa autentica, cabello movido por el viento, gestos casuales y no posados. La modelo tiene proporciones humanas reales y rasgos anatomicos naturales: piel con textura visible, poros, reflejos y sombras suaves, musculos sutiles marcados por la luz del sol. Mirada coherente con ojos bien alineados, expresion fresca y genuina, boca natural, enfoque super profesional en la cara. "
+  + "Iluminacion 100% ambiental, nitidez suprema, propia de un dia soleado. Estetica tipica de Instagram: colores equilibrados, sensacion de foto real. Parametros fotograficos reales: ISO 100, apertura f8, velocidad 1-1000s, lente 85mm. Fondo ligeramente desenfocado con profundidad de campo real. Calidad DSLR realista pero con vibra natural. Maxima nitidez en cara, cuerpo y ojos. "
+  + "2-1 mujer adulta joven de 21 anos morocha de pelo negro largo y lacio bronceada con pecas y alta, modelo de tiktok, expresiones reales no rigidas. "
+  + "3-3 imagenes con el mismo formato pero distintas poses estilo Instagram, casuales, relajadas, muy reales, de cuerpo entero de pies a cabeza. Poses distintas: frente, perfil, sentada o de espalda. "
+  + "4-estan en un estudio-habitacion sobre una pared marmolada gris muy moderno, con luz solar natural. "
+  + "5-hay realismo y mucha iluminacion. 6-es un dia claro y el sol ilumina el estudio. "
+  + "7-la estampa de la prenda es nitida y clara. 9-imagenes de cuerpo entero. "
+  + "10-sin infringir nada, personas ficticias no reales, imagenes para venta de articulos de lenceria, todas las imagenes son creadas por inteligencia artificial ninguna es real"
+
+async function iaGenerateAllPhotos() {
+  const colors = iaContext.colores || iaContext.colores_detectados || iaContext.colores_sugeridos || [];
+  if (!colors.length) {
+    iaAddBotMessage('Primero completá los colores del producto en la conversación.');
+    return;
+  }
+  const fotosTotal = colors.length; // 1 llamada por color (imagen 21:9 que se corta en 3)
+  const costoEst = (fotosTotal * 0.045).toFixed(2);
+  
+  // Mostrar modal de confirmación con prompt editable
+  const prenda = iaContext.tipo_prenda || iaContext.titulo_sugerido || 'prenda';
+  const promptSugerido = IA_PROMPT_BASE + "\n8-es " + prenda + " de color [COLOR], " + (iaContext.descripcion || '') + " la estampa es como en la foto de referencia";
+  
+  // Crear panel de confirmación
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.id = 'ia-gen-confirm';
+  div.innerHTML = `
+    <div class="ia-bubble" style="max-width:100%;width:100%">
+      <div style="font-weight:600;margin-bottom:8px">🎨 Generación de imágenes</div>
+      <div style="font-size:12px;color:#7a8299;margin-bottom:10px">
+        ${colors.length} colores · 1 imagen 21:9 por color → 3 fotos cortadas = <b>${colors.length*3} fotos</b> · Costo estimado: <b style="color:#e17055">~$${costoEst} USD</b>
+      </div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Colores: ${colors.join(' · ')}</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px">Ambiente:</div>
+      <select id="ia-ambiente" style="width:100%;padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;margin-bottom:8px">
+        <option value="estudio">Estudio/habitación marmolada (por defecto)</option>
+        <option value="exterior">Exterior casual Instagram</option>
+        <option value="blanco">Fondo blanco profesional</option>
+        <option value="custom">Personalizado</option>
+      </select>
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px">Prompt (editá si querés):</div>
+      <textarea id="ia-prompt-edit" style="width:100%;height:120px;padding:8px;border:1px solid #dde1e9;border-radius:6px;font-size:11px;font-family:Inter,sans-serif;resize:vertical">${promptSugerido}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-green btn-sm" style="flex:1" onclick="iaConfirmGenerate()">✅ Confirmar y generar (~$${costoEst})</button>
+        <button class="btn btn-out btn-sm" onclick="document.getElementById('ia-gen-confirm').remove()">Cancelar</button>
+      </div>
+    </div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function iaConfirmGenerate() {
+  const colors = iaContext.colores || iaContext.colores_detectados || iaContext.colores_sugeridos || [];
+  const promptBase = document.getElementById('ia-prompt-edit')?.value || IA_PROMPT_BASE;
+  document.getElementById('ia-gen-confirm')?.remove();
+  
+  const grid = document.getElementById('ia-photos-grid');
+  grid.innerHTML = '';
+  
+  for (const color of colors) {
+    const prompt = promptBase.replace('[COLOR]', color);
+    const card = document.createElement('div');
+    card.style = 'border-radius:8px;overflow:hidden;border:1px solid #e8ecf0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#f9fafb;position:relative';
+    card.innerHTML = "<div style='font-size:11px;color:#7a8299;text-align:center;padding:8px'>⏳ Generando<br>"+color+"...</div>";
+    grid.appendChild(card);
+    try {
+      const r = await fetch('/api/ai/generate_image', {
+        method: 'POST', headers: hdr(),
+        body: JSON.stringify({prompt, reference_base64: iaImageBase64, reference_type: iaImageType})
+      });
+      const d = await r.json();
+      if (d.ok && d.images_base64 && d.images_base64.length) {
+        iaGeneratedPhotos[color] = d.images_base64;
+        // Mostrar las 3 fotos cortadas
+        card.style = 'border-radius:8px;overflow:hidden;border:1px solid #e8ecf0;background:#f9fafb;padding:6px;grid-column:span 3';
+        card.innerHTML = "<div style='font-size:11px;font-weight:600;margin-bottom:6px;color:#4f9eff'>"+color+" ("+d.count+" fotos)</div><div style='display:grid;grid-template-columns:repeat("+d.count+",1fr);gap:4px'>"
+          + d.images_base64.map((img,i) => "<div style='position:relative;aspect-ratio:1;overflow:hidden;border-radius:6px'><img src='data:image/jpeg;base64,"+img+"' style='width:100%;height:100%;object-fit:cover'><div style='position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px'>📸 "+(i+1)+"</div></div>").join('')
+          + "</div>";
+        // Quitar el span 3 para los siguientes
+        card.style.gridColumn = 'span 3';
+      } else {
+        card.innerHTML = "<div style='font-size:11px;color:#e17055;text-align:center;padding:8px'>❌ Error<br>"+color+"<br><small>"+(d.error||'')+"</small></div>";
+      }
+    } catch(e) {
+      card.innerHTML = "<div style='font-size:11px;color:#e17055;padding:8px'>❌ "+color+"</div>";
+    }
+  }
+  const genCount = Object.keys(iaGeneratedPhotos).length;
+  iaAddBotMessage("✅ Fotos generadas para "+genCount+" colores. Revisalas y cuando estés listo publicá.");
+}
+
+async function iaPublish() {
+  iaAddBotMessage('⏳ Publicando en los canales seleccionados...');
+  try {
+    const images = Object.values(iaGeneratedPhotos);
+    const r = await fetch('/api/ai/publish_product', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({
+        product: iaContext,
+        channels: [...iaSelectedChannels],
+        images_base64: images
+      })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const ok = d.results.filter(r=>r.ok).length;
+      const lines = d.results.map(r=>(r.ok?"✅":"❌")+" "+r.channel+": "+r.msg).join("\n");
+      iaAddBotMessage("Listo! "+ok+"/"+d.results.length+" publicaciones exitosas:\n"+lines);
+    } else {
+      iaAddBotMessage('❌ Error: ' + d.error);
+    }
+  } catch(e) {
+    iaAddBotMessage('❌ Error: ' + e.message);
+  }
 }
 
 loadState();
