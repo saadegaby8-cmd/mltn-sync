@@ -1971,6 +1971,18 @@ IMPORTANTE: Generá UNA SOLA imagen en formato panorámico 21:9 (muy ancha) que 
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+async def _upload_pic(token: str, img_b64: str) -> str:
+    """Subir una foto a ML y devolver el ID"""
+    try:
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.post(f"{ML_API}/pictures/items/upload",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={"source": f"data:image/jpeg;base64,{img_b64}"})
+            if r.status_code in (200,201):
+                return r.json().get("id","")
+    except: pass
+    return ""
+
 @app.post("/api/ai/publish_product")
 async def ai_publish_product(req: Request, _=Depends(auth)):
     """Publicar producto generado por IA en los canales seleccionados"""
@@ -2010,65 +2022,77 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
         model_num = product.get("modelo", "")
         desc = product.get("descripcion", title)
         
-        # Construir variantes
-        variations = []
-        for color in colors:
-            for size in sizes:
-                variations.append({
-                    "attribute_combinations": [
-                        {"id": "COLOR", "value_name": color},
-                        {"id": "SIZE", "value_name": size}
-                    ],
-                    "price": price,
-                    "available_quantity": stock
-                })
-        
-        # Atributos ML
-        attrs = [
-            {"id": "GENDER", "value_name": product.get("genero", "Mujer")},
-        ]
-        if brand: attrs.append({"id": "BRAND", "value_name": brand})
-        if model_num: attrs.append({"id": "MODEL", "value_name": model_num})
-        
-        # Publicar en cuentas ML
+        # Atributos ML base
+        base_attrs = [{"id": "GENDER", "value_name": product.get("genero", "Mujer")}]
+        if brand: base_attrs.append({"id": "BRAND", "value_name": brand})
+        if model_num: base_attrs.append({"id": "MODEL", "value_name": model_num})
+        if product.get("dims"):
+            dims = product["dims"]
+            if dims.get("h"): base_attrs.append({"id": "SELLER_PACKAGE_HEIGHT", "value_name": f"{int(dims['h'])} cm"})
+            if dims.get("w"): base_attrs.append({"id": "SELLER_PACKAGE_WIDTH", "value_name": f"{int(dims['w'])} cm"})
+            if dims.get("l"): base_attrs.append({"id": "SELLER_PACKAGE_LENGTH", "value_name": f"{int(dims['l'])} cm"})
+            if dims.get("p"): base_attrs.append({"id": "SELLER_PACKAGE_WEIGHT", "value_name": f"{int(float(dims['p'])*1000)} g"})
+
+        # Publicar en cuentas ML — 1 item por combinación talle+color
+        ml_published_ids = []
         for ch_idx in [c for c in channels if isinstance(c, int)]:
             try:
                 token = await fresh_token(ch_idx)
-                payload = {
-                    "title": title,
-                    "category_id": product.get("category_id", "MLA109255"),
-                    "price": price,
-                    "currency_id": "ARS",
-                    "available_quantity": stock,
-                    "buying_mode": "buy_it_now",
-                    "listing_type_id": "gold_special",
-                    "condition": "new",
-                    "pictures": ml_picture_ids or [{"source": ""}],
-                    "attributes": attrs,
-                    "variations": variations,
-                    "family_name": title[:60]
-                }
-                if product.get("dims"):
-                    dims = product["dims"]
-                    payload["attributes"] += [
-                        {"id": "SELLER_PACKAGE_HEIGHT", "value_name": f"{dims.get('h',0)} cm"},
-                        {"id": "SELLER_PACKAGE_WIDTH", "value_name": f"{dims.get('w',0)} cm"},
-                        {"id": "SELLER_PACKAGE_LENGTH", "value_name": f"{dims.get('l',0)} cm"},
-                        {"id": "SELLER_PACKAGE_WEIGHT", "value_name": f"{int(float(dims.get('p',0))*1000)} g"},
-                    ]
-                async with httpx.AsyncClient(timeout=30) as c:
-                    r = await c.post(f"{ML_API}/items",
-                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                        json=payload)
-                ok = r.status_code in (200, 201)
-                new_id = r.json().get("id","") if ok else ""
-                results.append({"channel": ST["accounts"][ch_idx].get("name","ML"), "ok": ok,
-                                 "msg": "Publicado" if ok else r.json().get("message","Error"),
-                                 "new_id": new_id})
+                ch_ok = 0
+                ch_err = ""
+                for color in (colors or [""]):
+                    for size in (sizes or [""]):
+                        # Título con talle y color
+                        suffix_parts = [s for s in [color, size] if s]
+                        item_title = f"{title} - {' - '.join(suffix_parts)}" if suffix_parts else title
+                        item_title = item_title[:60]
+                        # Atributos específicos de esta variante
+                        item_attrs = list(base_attrs)
+                        if color: item_attrs.append({"id": "COLOR", "value_name": color})
+                        if size: item_attrs.append({"id": "SIZE", "value_name": size})
+                        # Fotos de este color si están disponibles
+                        color_photos = b.get("images_by_color", {}).get(color, [])
+                        if color_photos:
+                            pics = [{"id": pid} for pid in [
+                                await _upload_pic(token, img) for img in color_photos[:5]
+                            ] if pid]
+                        else:
+                            pics = ml_picture_ids[:5] or []
+                        payload = {
+                            "title": item_title,
+                            "category_id": product.get("category_id", "MLA109255"),
+                            "price": price,
+                            "currency_id": "ARS",
+                            "available_quantity": stock,
+                            "buying_mode": "buy_it_now",
+                            "listing_type_id": "gold_special",
+                            "condition": "new",
+                            "pictures": pics or [{"source": "https://http.cat/404"}],
+                            "attributes": item_attrs,
+                        }
+                        await asyncio.sleep(1)
+                        async with httpx.AsyncClient(timeout=30) as c:
+                            r = await c.post(f"{ML_API}/items",
+                                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                                json=payload)
+                        ok_item = r.status_code in (200, 201)
+                        try: rb = r.json()
+                        except: rb = {}
+                        if ok_item:
+                            ch_ok += 1
+                            ml_published_ids.append({"id": rb.get("id",""), "channel": ST["accounts"][ch_idx].get("name","ML"), "ch_idx": ch_idx})
+                        else:
+                            cause = rb.get("cause",[])
+                            ch_err = cause[0].get("message","") if cause else rb.get("message","Error")
+                            print(f"ML item error: {json.dumps(rb)[:200]}")
+                total = len(colors or [""]) * len(sizes or [""])
+                results.append({"channel": ST["accounts"][ch_idx].get("name","ML"), "ok": ch_ok>0,
+                                 "msg": f"{ch_ok}/{total} items publicados" if ch_ok>0 else ch_err,
+                                 "new_id": ml_published_ids[0]["id"] if ml_published_ids else ""})
             except Exception as e:
                 results.append({"channel": f"cuenta_{ch_idx}", "ok": False, "msg": str(e)})
-        
-        # Publicar en TN
+
+# Publicar en TN
         if "tn" in channels and ST.get("tn", {}).get("store_id"):
             try:
                 tn = ST["tn"]
