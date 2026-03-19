@@ -987,7 +987,7 @@ async function doLogin(){
     SESSION=d.token;
     localStorage.setItem('session_token',SESSION);
     showApp();
-  }catch(e){err.textContent='Error de conexión.';err.classList.add('show');}
+  }catch(e){err.textContent='Error de conexion.';err.classList.add('show');}
 }
 
 async function doLogout(){
@@ -1016,15 +1016,15 @@ window.addEventListener('load',()=>{
 function checkURLParams(){
   const p=new URLSearchParams(window.location.search);
   const b=document.getElementById('app-alert');
-  if(p.get('success')==='connected'){b.textContent='✅ Cuenta de MercadoLibre conectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
-  else if(p.get('success')==='reconnected'){b.textContent='✅ Cuenta reconectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
-  else if(p.get('error')){const m={auth_failed:'Error al autenticar.',token_failed:'Error de token.',max_accounts:'Máximo 4 cuentas.'};b.textContent='❌ '+(m[p.get('error')]||'Error.');b.className='alert err show';}
+  if(p.get('success')==='connected'){b.textContent='[OK] Cuenta de MercadoLibre conectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
+  else if(p.get('success')==='reconnected'){b.textContent='[OK] Cuenta reconectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
+  else if(p.get('error')){const m={auth_failed:'Error al autenticar.',token_failed:'Error de token.',max_accounts:'Maximo 4 cuentas.'};b.textContent='[Error] '+(m[p.get('error')]||'Error.');b.className='alert err show';}
   if(p.toString())window.history.replaceState({},'','/');
 }
 
 function toggleSec(id){
   const el=document.getElementById('sec-'+id),arr=document.getElementById('arr-'+id);
-  if(el.style.display==='none'){el.style.display='';arr.textContent='▾';}else{el.style.display='none';arr.textContent='▸';}
+  if(el.style.display==='none'){el.style.display='';arr.textContent='v';}else{el.style.display='none';arr.textContent='>';}
 }
 
 function showPage(name){
@@ -1061,7 +1061,7 @@ function updateUI(){
   const n=appState.ml_accounts.length;
   document.getElementById('d-canales').textContent=n;
   document.getElementById('d-can-bar').style.width=(n/4*100)+'%';
-  document.getElementById('d-tn').textContent=appState.tn_connected?'✓':'✗';
+  document.getElementById('d-tn').textContent=appState.tn_connected?'OK':'ERR';
   document.getElementById('d-tn').style.color=appState.tn_connected?'#00a381':'#e17055';
   document.getElementById('d-tn-sub').textContent=appState.tn_connected?'Conectada (ID: '+appState.tn_store_id+')':'No conectada';
   document.getElementById('d-acc').textContent=appState.sync_log.length;
@@ -1069,13 +1069,13 @@ function updateUI(){
   // icons
   document.getElementById('d-ch-icons').innerHTML=appState.ml_accounts.map(a=>`<div title="${a.name}" style="width:30px;height:30px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">${a.name[0].toUpperCase()}</div>`).join('');
   // sidebar channels
-  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showCanal(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
+  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showCanal(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">!</span>':''}</div>`).join('');
   // ML cards
   const cards=document.getElementById('ml-cards');
   if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
-  else{cards.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="ch-card"><div class="ch-logo">${a.name[0].toUpperCase()}</div><div class="ch-info"><div class="ch-name">${a.name}</div><div class="ch-sub">MercadoLibre · ID ${a.user_id}${!a.token_ok?' · <span style="color:#d68000">Token vencido — reconectá</span>':''}</div></div><button class="btn btn-red btn-sm" onclick="removeML(${i})">Quitar</button></div>`).join('');}
-  if(appState.tn_connected){document.getElementById('tn-cur').innerHTML=`<span style="color:#00a381;font-weight:600">✓ Conectada</span> — Store ID: <b>${appState.tn_store_id}</b>`;}
-  // dup selects — solo init si vacios
+  else{cards.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="ch-card"><div class="ch-logo">${a.name[0].toUpperCase()}</div><div class="ch-info"><div class="ch-name">${a.name}</div><div class="ch-sub">MercadoLibre - ID ${a.user_id}${!a.token_ok?' - <span style="color:#d68000">Token vencido - reconecta</span>':''}</div></div><button class="btn btn-red btn-sm" onclick="removeML(${i})">Quitar</button></div>`).join('');}
+  if(appState.tn_connected){document.getElementById('tn-cur').innerHTML=`<span style="color:#00a381;font-weight:600">OK Conectada</span> - Store ID: <b>${appState.tn_store_id}</b>`;}
+  // dup selects - solo init si vacios
   const _df=document.getElementById('dup-from');
   if(!_df.options.length){
     const _opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
@@ -1088,7 +1088,7 @@ function updateUI(){
 
 function renderLog(){
   const logs=[...(appState.sync_log||[])].reverse().slice(0,80);
-  const html=logs.length?logs.map(l=>{const d=new Date(l.ts*1000);const t=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<div class="log-row"><span class="lts">${t}</span><span class="lbadge ${l.action}">${l.action}</span><span class="ltitle">${l.product}</span><span class="lstatus ${l.status}">${l.status==='ok'?'✓':'✗'}</span></div>`;}).join(''):'<div class="empty"><div class="ei">📋</div>Sin actividad aún.</div>';
+  const html=logs.length?logs.map(l=>{const d=new Date(l.ts*1000);const t=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<div class="log-row"><span class="lts">${t}</span><span class="lbadge ${l.action}">${l.action}</span><span class="ltitle">${l.product}</span><span class="lstatus ${l.status}">${l.status==='ok'?'OK':'ERR'}</span></div>`;}).join(''):'<div class="empty"><div class="ei"></div>Sin actividad todavia.</div>';
   document.getElementById('d-log').innerHTML=html;
   document.getElementById('full-log').innerHTML=html;
 }
@@ -1127,15 +1127,15 @@ function applyLinksFilter(){
   
   const tbody = document.getElementById('links-body');
   if(!filtered.length){
-    tbody.innerHTML='<tr><td colspan="4"><div class="empty"><div class="ei">🔗</div>Sin enlaces.</div></td></tr>';
+    tbody.innerHTML='<tr><td colspan="4"><div class="empty"><div class="ei"></div>Sin enlaces.</div></td></tr>';
     return;
   }
   tbody.innerHTML = filtered.map(l=>{
     const mlName = l.ml_account_name || 'ML';
     const mlTitle = l.ml_title || l.ml_item_id;
-    const mlVar = l.ml_variation_id ? ` · Var: ${l.ml_variation_id}` : '';
+    const mlVar = l.ml_variation_id ? ` . Var: ${l.ml_variation_id}` : '';
     const destName = l.tn_product_name || l.tn_product_id;
-    const destSub = l.tn_product_id ? `TiendaNube · ID ${l.tn_product_id}` : '';
+    const destSub = l.tn_product_id ? `TiendaNube . ID ${l.tn_product_id}` : '';
     const date = l.created_at ? new Date(l.created_at*1000).toLocaleDateString('es-AR') : '';
     return `<tr>
       <td><span style="font-size:11px;background:#eef4ff;color:#4f9eff;padding:2px 7px;border-radius:4px;font-weight:600">${mlName}</span></td>
@@ -1145,9 +1145,9 @@ function applyLinksFilter(){
       </td>
       <td>
         <div style="font-size:12px;font-weight:500">${destName}</div>
-        <div style="font-size:10px;color:#7a8299">${destSub}${date?' · '+date:''}</div>
+        <div style="font-size:10px;color:#7a8299">${destSub}${date?' . '+date:''}</div>
       </td>
-      <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
+      <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">x</button></td>
     </tr>`;
   }).join('');
 }
@@ -1157,26 +1157,26 @@ async function enrichLinks(){
     const r = await fetch('/api/links/enrich',{method:'POST',headers:hdr()});
     const d = await r.json();
     await loadState();
-    if(d.enriched > 0) alert(`✓ Se actualizaron ${d.enriched} enlaces`);
+    if(d.enriched > 0) alert(`OK Se actualizaron ${d.enriched} enlaces`);
   }catch(e){alert('Error: '+e.message);}
 }
 
 function renderSyncInfo(){
   const n=(appState.links||[]).length;
-  document.getElementById('sync-links-info').innerHTML=n?`<span style="color:#00a381;font-weight:600">✓ ${n} enlace(s) configurado(s)</span>`:'<span style="color:#e17055">⚠ No hay enlaces configurados. Creálos desde el Panel de productos.</span>';
+  document.getElementById('sync-links-info').innerHTML=n?`<span style="color:#00a381;font-weight:600">OK ${n} enlace(s) configurado(s)</span>`:'<span style="color:#e17055">! No hay enlaces configurados. Crealos desde el Panel de productos.</span>';
 }
 
 function showMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg;el.className='msg show '+(type==='info'?'inf':type);}
 function hideMsg(id){document.getElementById(id).className='msg';}
 
-async function removeML(i){if(!confirm('¿Quitar esta cuenta?'))return;await fetch('/api/ml/'+i,{method:'DELETE',headers:hdr()});await loadState();}
+async function removeML(i){if(!confirm('Quitar esta cuenta?'))return;await fetch('/api/ml/'+i,{method:'DELETE',headers:hdr()});await loadState();}
 
 async function connectTN(){
   const sid=document.getElementById('tn-sid').value.trim();
   const tok=document.getElementById('tn-tok').value.trim();
-  if(!sid||!tok){showMsg('msg-tn','⚠️ Completá ambos campos.','err');return;}
-  try{const r=await fetch('/api/tn/connect',{method:'POST',headers:hdr(),body:JSON.stringify({store_id:sid,token:tok})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');showMsg('msg-tn','✓ Tienda Nube conectada.','ok');await loadState();}
-  catch(e){showMsg('msg-tn','❌ '+e.message,'err');}
+  if(!sid||!tok){showMsg('msg-tn','! Completa ambos campos.','err');return;}
+  try{const r=await fetch('/api/tn/connect',{method:'POST',headers:hdr(),body:JSON.stringify({store_id:sid,token:tok})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');showMsg('msg-tn','OK Tienda Nube conectada.','ok');await loadState();}
+  catch(e){showMsg('msg-tn','[Error] '+e.message,'err');}
 }
 
 // -- PROD TABLE -----------------------------------------------------------------
@@ -1193,11 +1193,11 @@ function setOrden(val){
   prodOrden=val;
   document.querySelectorAll('.ord-opt').forEach(el=>el.classList.toggle('active',el.dataset.ord===val));
   const labels={
-    'default':'','fecha_desc':'Más nuevos','fecha_asc':'Más viejos',
+    'default':'','fecha_desc':'Mas nuevos','fecha_asc':'Mas viejos',
     'stock_desc':'Mayor stock','stock_asc':'Menor stock',
     'precio_desc':'Mayor precio','precio_asc':'Menor precio'
   };
-  document.getElementById('ordenar-label').textContent=labels[val]?'· '+labels[val]:'';
+  document.getElementById('ordenar-label').textContent=labels[val]?'. '+labels[val]:'';
   document.getElementById('ordenar-panel').style.display='none';
   applyProdF();
 }
@@ -1233,7 +1233,7 @@ function renderProdTabs(preserveProducts=false){
   const wrap=document.getElementById('prod-canales-wrap');
   const resync=document.getElementById('resync-prod-btn');
   if(!appState.ml_accounts.length){
-    wrap.innerHTML=`<div class="panel"><div class="panel-bd"><div class="empty"><div class="ei">🔗</div>Conectá cuentas en <b>Canales</b> para ver productos</div></div></div>`;
+    wrap.innerHTML=`<div class="panel"><div class="panel-bd"><div class="empty"><div class="ei"></div>Conecta cuentas en <b>Canales</b> para ver productos</div></div></div>`;
     return;
   }
   resync.style.display='inline-flex';
@@ -1251,23 +1251,23 @@ function renderProdTabs(preserveProducts=false){
       <div class="canal-header" onclick="toggleCanal(${i})" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none">
         <div class="canal-av" style="background:#ffe135;color:#333;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">${a.name[0].toUpperCase()}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px">${a.name}${!a.token_ok?' <span style="color:#d68000;font-size:11px">⚠ token vencido</span>':''}</div>
+          <div style="font-weight:600;font-size:13px">${a.name}${!a.token_ok?' <span style="color:#d68000;font-size:11px">! token vencido</span>':''}</div>
           <div style="font-size:11px;color:#4f9eff;margin-top:1px">
             ${prodCount!==null?`${prodCount} productos`:'MercadoLibre'}
-            ${sinUnirCount>0?` · <span style="color:#e17055;cursor:pointer" onclick="event.stopPropagation();selProdAcc(${i});filtrarSinUnir()">${sinUnirCount} sin unir</span>`:''}
+            ${sinUnirCount>0?` . <span style="color:#e17055;cursor:pointer" onclick="event.stopPropagation();selProdAcc(${i});filtrarSinUnir()">${sinUnirCount} sin unir</span>`:''}
           </div>
         </div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
           <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();selProdAcc(${i});loadProdProds()" id="load-prod-btn-${i}">
-            ${i===prodAccIdx&&prodProds.length>0?'↻ Recargar':'Cargar'}
+            ${i===prodAccIdx&&prodProds.length>0?'^ Recargar':'Cargar'}
           </button>
-          <span style="color:#b0b7c9;font-size:16px;transition:transform .2s" id="canal-arrow-${i}">${isOpen?'▾':'▸'}</span>
+          <span style="color:#b0b7c9;font-size:16px;transition:transform .2s" id="canal-arrow-${i}">${isOpen?'v':'>'}</span>
         </div>
       </div>
 
       <!-- TABLA DESPLEGABLE -->
       <div id="canal-body-${i}" style="display:${isOpen?'block':'none'};border-top:1px solid #e8ecf0">
-        ${i===prodAccIdx&&prodProds.length>0?renderCanalTablaHTML(i):'<div class="empty" style="padding:24px"><div class="ei">📦</div>Apretá "Cargar" para ver productos</div>'}
+        ${i===prodAccIdx&&prodProds.length>0?renderCanalTablaHTML(i):'<div class="empty" style="padding:24px"><div class="ei"></div>Apreta "Cargar" para ver productos</div>'}
       </div>
     </div>`;
   });
@@ -1277,14 +1277,14 @@ function renderProdTabs(preserveProducts=false){
     html+=`<div class="panel" style="margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:12px;padding:14px 18px">
         <div style="width:36px;height:36px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">TN</div>
-        <div style="flex:1"><div style="font-weight:600;font-size:13px">TiendaNube</div><div style="font-size:11px;color:#7a8299">Store ID: ${appState.tn_store_id} · ${links.length} enlaces</div></div>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">TiendaNube</div><div style="font-size:11px;color:#7a8299">Store ID: ${appState.tn_store_id} . ${links.length} enlaces</div></div>
       </div>
     </div>`;
   }
 
   wrap.innerHTML=html;
 
-  // Si hay productos cargados y venimos de un refresh automático, re-renderizar la tabla
+  // Si hay productos cargados y venimos de un refresh automatico, re-renderizar la tabla
   if(preserveProducts && prodProds.length>0){
     const cb=document.getElementById('canal-body-'+prodAccIdx);
     if(cb){
@@ -1292,7 +1292,7 @@ function renderProdTabs(preserveProducts=false){
       cb.style.display='block';
     }
     const ar=document.getElementById('canal-arrow-'+prodAccIdx);
-    if(ar)ar.textContent='▾';
+    if(ar)ar.textContent='v';
     // Re-renderizar productos sin resetear filtros
     renderProdT();
   }
@@ -1307,10 +1307,10 @@ function toggleCanal(i){
   const arrow=document.getElementById('canal-arrow-'+i);
   if(body.style.display==='none'){
     body.style.display='block';
-    arrow.textContent='▾';
+    arrow.textContent='v';
   } else {
     body.style.display='none';
-    arrow.textContent='▸';
+    arrow.textContent='>';
   }
 }
 
@@ -1326,14 +1326,14 @@ function renderCanalTablaHTML(i){
       <thead><tr>
         <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
         <th></th>
-        <th>TÍTULO</th>
+        <th>TITULO</th>
         <th>CANALES</th>
         <th>STOCK</th>
         <th>VARIACIONES</th>
         <th>ESTADO</th>
         <th></th>
       </tr></thead>
-      <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">⏳</div>Cargando...</div></td></tr></tbody>
+      <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">...</div>Cargando...</div></td></tr></tbody>
     </table>
   </div>
   <div class="pagination" style="padding:10px 18px">
@@ -1342,9 +1342,9 @@ function renderCanalTablaHTML(i){
       <span style="font-size:12px;color:#7a8299">Listar</span>
       <select class="per-sel" id="prod-pp" onchange="renderProdT()"><option>10</option><option>25</option><option>50</option></select>
       <div class="pag-btns">
-        <button class="pb" onclick="pProd(-1)">‹</button>
+        <button class="pb" onclick="pProd(-1)"><</button>
         <span id="prod-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
-        <button class="pb" onclick="pProd(1)">›</button>
+        <button class="pb" onclick="pProd(1)">></button>
       </div>
     </div>
   </div>`;
@@ -1358,18 +1358,18 @@ function selProdAcc(i){
 
 let syncPollInterval=null;
 async function loadProdProds(){
-  // Buscar el botón del canal activo
+  // Buscar el boton del canal activo
   const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
   if(btn){btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;}
   hideMsg('msg-prod');
 
-  // Asegurar que el cuerpo del canal esté abierto con la tabla
+  // Asegurar que el cuerpo del canal este abierto con la tabla
   const canalBody=document.getElementById('canal-body-'+prodAccIdx);
   const arrow=document.getElementById('canal-arrow-'+prodAccIdx);
   if(canalBody){
     canalBody.innerHTML=renderCanalTablaHTML(prodAccIdx);
     canalBody.style.display='block';
-    if(arrow)arrow.textContent='▾';
+    if(arrow)arrow.textContent='v';
   }
 
   try{
@@ -1377,7 +1377,7 @@ async function loadProdProds(){
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
     if(!d.synced){
-      showMsg('msg-prod','⏳ Sin sync previo. Iniciando sincronización...','info');
+      showMsg('msg-prod','... Sin sync previo. Iniciando sincronizacion...','info');
       if(btn){btn.innerHTML='Cargar';btn.disabled=false;}
       await startMLSync();
       return;
@@ -1390,18 +1390,18 @@ async function loadProdProds(){
     const cb=document.getElementById('canal-body-'+prodAccIdx);
     if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
     const ar=document.getElementById('canal-arrow-'+prodAccIdx);
-    if(ar)ar.textContent='▾';
+    if(ar)ar.textContent='v';
     // Sin unir
     const links=appState.links||[];
     const sinUnir=prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length;
     const sinUnirEl=document.getElementById('prod-sin-unir');
     if(sinUnirEl)sinUnirEl.textContent=sinUnir>0?`${sinUnir} sin unir`:'';
     applyProdF();
-    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
+    showMsg('msg-prod',`[OK] ${d.total} productos cargados`,'ok');
     setTimeout(()=>hideMsg('msg-prod'),3000);
-  }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
+  }catch(e){showMsg('msg-prod','[Error] '+e.message,'err');}
   const btn2=document.getElementById('load-prod-btn-'+prodAccIdx);
-  if(btn2){btn2.innerHTML='↻ Recargar';btn2.disabled=false;}
+  if(btn2){btn2.innerHTML='^ Recargar';btn2.disabled=false;}
 }
 
 async function startMLSync(){
@@ -1410,8 +1410,8 @@ async function startMLSync(){
     const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error al iniciar');
-    showMsg('msg-prod','⏳ Sincronizando con MercadoLibre...','info');
-    if(btn){btn.innerHTML='⏳ Sync...';btn.disabled=true;}
+    showMsg('msg-prod','... Sincronizando con MercadoLibre...','info');
+    if(btn){btn.innerHTML='... Sync...';btn.disabled=true;}
     if(syncPollInterval) clearInterval(syncPollInterval);
     syncPollInterval=setInterval(async()=>{
       try{
@@ -1421,7 +1421,7 @@ async function startMLSync(){
         if(st.status==='done'||(!sd.running&&st.status&&st.status.startsWith('error'))){
           clearInterval(syncPollInterval);syncPollInterval=null;
           if(st.status==='done'){
-            showMsg('msg-prod',`✅ Sync completo — ${st.total} productos`,'ok');
+            showMsg('msg-prod',`[OK] Sync completo - ${st.total} productos`,'ok');
             const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
             const pd=await pr.json();
             prodProds=pd.products;prodSel=[];prodPg=0;
@@ -1430,20 +1430,20 @@ async function startMLSync(){
             if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
             applyProdF();
           }else{
-            showMsg('msg-prod','❌ Error: '+st.status,'err');
+            showMsg('msg-prod','[Error] Error: '+st.status,'err');
           }
           const b=document.getElementById('load-prod-btn-'+prodAccIdx);
-          if(b){b.innerHTML='↻ Recargar';b.disabled=false;}
+          if(b){b.innerHTML='^ Recargar';b.disabled=false;}
         }else{
           const fetched=st.fetched||0;const total=st.total||0;
           const txt=st.status==='fetching_ids'?'Obteniendo publicaciones...':
             `Descargando: ${fetched}${total?' / '+total:''} productos...`;
-          showMsg('msg-prod','⏳ '+txt,'info');
+          showMsg('msg-prod','... '+txt,'info');
         }
       }catch(e){}
     },5000);
   }catch(e){
-    showMsg('msg-prod','❌ '+e.message,'err');
+    showMsg('msg-prod','[Error] '+e.message,'err');
     const b=document.getElementById('load-prod-btn-'+prodAccIdx);
     if(b){b.innerHTML='Cargar';b.disabled=false;}
   }
@@ -1487,28 +1487,28 @@ function renderProdT(){
   const total=prodFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
   if(prodPg>=pages)prodPg=pages-1;
   const start=prodPg*pp;const slice=prodFilt.slice(start,start+pp);
-  document.getElementById('prod-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('prod-pag-info').textContent=total?`${start+1}-${Math.min(start+pp,total)} de ${total}`:'';
   document.getElementById('prod-pag-cur').textContent=`${prodPg+1}/${pages}`;
   const links=appState.links||[];
   const tbody=document.getElementById('prod-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div>${prodProds.length?'Sin resultados.':'Apretá "Cargar productos".'}</div></td></tr>`;return;}
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei"></div>${prodProds.length?'Sin resultados.':'Apreta "Cargar productos".'}</div></td></tr>`;return;}
   let rows='';
   slice.forEach(p=>{
     const sel=prodSel.includes(p.id);
     const img=p.pictures?.[0]?.url||p.thumbnail||'';
-    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph"></div>`;
     const stk=p.available_quantity>0?`<span style="font-weight:600">${p.available_quantity} U.</span>`:`<span class="stock-0">Sin stock!</span>`;
     const stDot=p.status==='active'?'#00a381':p.status==='paused'?'#d68000':'#e17055';
     const hasVar=p._has_variations;
-    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} Var</span>`:'<span style="font-size:11px;color:#b0b7c9">—</span>';
+    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} Var</span>`:'<span style="font-size:11px;color:#b0b7c9">-</span>';
     const linked=links.find(l=>l.ml_item_id===p.id);
-    // Iconos de canales donde está publicado
+    // Iconos de canales donde esta publicado
     const accName=appState.ml_accounts[prodAccIdx]?.name||'ML';
     const canalIcons=`<div style="display:flex;align-items:center;gap:3px">
       <div title="${accName}" style="width:20px;height:20px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${accName[0]}</div>
       ${linked?`<div title="TiendaNube" style="width:20px;height:20px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">TN</div>`:''}
     </div>`;
-    const expBtn=hasVar?`<button class="expand-btn" onclick="event.stopPropagation();toggleVars('${p.id}',this)">▶</button>`:'';
+    const expBtn=hasVar?`<button class="expand-btn" onclick="event.stopPropagation();toggleVars('${p.id}',this)">></button>`:'';
     rows+=`<tr class="${sel?'sel':''}" data-id="${p.id}" onclick="toggleProdRow('${p.id}',this)">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleProdRow('${p.id}',this.closest('tr'))" /></td>
       <td>${imgH}</td>
@@ -1527,7 +1527,7 @@ function renderProdT(){
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
           ${linked
-            ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">✏ TN</button>`
+            ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">Edit TN</button>`
             :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">+ TN</button>`}
         </div>
       </td>
@@ -1536,20 +1536,20 @@ function renderProdT(){
       rows+=`<tr id="vars-${p.id}" style="display:none"><td colspan="8" style="padding:0;background:#fafbff">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#f0f4ff">
-            <td style="padding:6px 12px 6px 52px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">VARIACIÓN</td>
+            <td style="padding:6px 12px 6px 52px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">VARIACION</td>
             <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">STOCK</td>
             <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">PRECIO</td>
             <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">ENLACE TN</td>
           </tr></thead>
           <tbody>
           ${(p.variations||[]).map(v=>{
-            const vatrs=Object.entries(v._attrs||{}).map(([k,val])=>`${k}: ${val}`).join(' / ')||'Variación '+v.id;
+            const vatrs=Object.entries(v._attrs||{}).map(([k,val])=>`${k}: ${val}`).join(' / ')||'Variacion '+v.id;
             const vprice=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(v.price||p.price||0);
             const vstk=v.available_quantity>0?v.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
             const vlinked=links.find(l=>l.ml_item_id===p.id&&l.ml_variation_id==v.id);
             const vlBtn=vlinked
-              ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">✏ Enlace</button>`
-              :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
+              ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} - ${vatrs.replace(/'/g,"\\'")}')">Edit Enlace</button>`
+              :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} - ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
             return `<tr class="var-row"><td style="padding:6px 12px 6px 52px;font-size:12px">${vatrs}</td><td style="padding:6px 12px;font-size:12px">${vstk}</td><td style="padding:6px 12px;font-size:12px;font-weight:600">${vprice}</td><td style="padding:6px 12px" onclick="event.stopPropagation()">${vlBtn}</td></tr>`;
           }).join('')}
           </tbody>
@@ -1566,10 +1566,10 @@ function toggleVars(id,btn){
   if(!row)return;
   if(row.style.display==='none'||!row.style.display){
     row.style.display='';
-    btn.textContent='▼';
+    btn.textContent='';
   } else {
     row.style.display='none';
-    btn.textContent='▶';
+    btn.textContent='>';
     // scroll back to parent row
     const parentRow=document.querySelector(`tr[data-id="${id}"]`);
     if(parentRow)parentRow.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -1601,7 +1601,7 @@ let unirItems=[];
 let unirSearchProds=[];
 
 function openUnirModal(){
-  if(!prodSel.length){alert('Seleccioná al menos un producto');return;}
+  if(!prodSel.length){alert('Selecciona al menos un producto');return;}
   // Arrancar con los seleccionados del canal actual
   unirItems=prodSel.map(id=>{
     const p=prodProds.find(x=>x.id===id);
@@ -1625,7 +1625,7 @@ function renderUnirItems(){
         <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.title}</div>
         <div style="font-size:10px;color:#7a8299">${it.accName}</div>
       </div>
-      <button onclick="removeUnirItem(${i})" style="background:none;border:none;cursor:pointer;color:#b0b7c9;font-size:14px">✕</button>
+      <button onclick="removeUnirItem(${i})" style="background:none;border:none;cursor:pointer;color:#b0b7c9;font-size:14px">x</button>
     </div>`).join('');
 }
 
@@ -1638,7 +1638,7 @@ async function buscarParaUnir(){
     const d=await r.json();
     unirSearchProds=(d.products||[]).map(p=>({...p,_accIdx:accIdx,_accName:appState.ml_accounts[accIdx]?.name||'ML'}));
     filtrarUnirSearch();
-  }catch(e){showMsg('msg-unir','❌ '+e.message,'err');}
+  }catch(e){showMsg('msg-unir','[Error] '+e.message,'err');}
 }
 
 function filtrarUnirSearch(){
@@ -1660,16 +1660,16 @@ function agregarUnirItem(id,title,accIdx,accName){
 }
 
 async function guardarUnion(){
-  if(unirItems.length<2){showMsg('msg-unir','⚠ Necesitás al menos 2 publicaciones para unir.','err');return;}
+  if(unirItems.length<2){showMsg('msg-unir','! Necesitas al menos 2 publicaciones para unir.','err');return;}
   // Guardar como enlaces entre las publicaciones
-  // Por ahora guardamos en appState.links los primeros dos como ML↔TN si hay TN, sino como nota
-  showMsg('msg-unir','✓ Unión guardada (próximamente sincronización automática entre cuentas ML).','ok');
+  // Por ahora guardamos en appState.links los primeros dos como ML<>TN si hay TN, sino como nota
+  showMsg('msg-unir','OK Union guardada (proximamente sincronizacion automatica entre cuentas ML).','ok');
   setTimeout(closeUnirModal,1500);
 }
 
 function closeUnirModal(){document.getElementById('unir-modal').classList.remove('show');}
 
-// -- CANAL CARD STYLES (CSS dinámico) ------------------------------------------
+// -- CANAL CARD STYLES (CSS dinamico) ------------------------------------------
 (function addCanalStyles(){
   const s=document.createElement('style');
   s.textContent=`
@@ -1688,7 +1688,7 @@ function closeUnirModal(){document.getElementById('unir-modal').classList.remove
 // -- PUB TABLE ------------------------------------------------------------------
 function renderPubTabs(){
   const el=document.getElementById('pub-tabs');const btn=document.getElementById('load-pub-btn');
-  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
+  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conecta cuentas primero.</span>';btn.style.display='none';return;}
   el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
   btn.style.display='inline-flex';
   renderPubMLDest();
@@ -1701,7 +1701,7 @@ async function loadPubProds(){
   try{
     const r=await fetch('/api/ml/'+pubAccIdx+'/products?limit=9999',{headers:hdr()});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error. Token vencido — reconectá la cuenta.');
+    if(!r.ok)throw new Error(d.detail||'Error. Token vencido - reconecta la cuenta.');
     pubProds=d.products;
     if(pubSel.length){}
     pubPg=0;pubSF='todas';
@@ -1710,8 +1710,8 @@ async function loadPubProds(){
     applyPubF();
     document.getElementById('pub-prod-panel').style.display='block';
     document.getElementById('pub-prog-panel').style.display='none';
-  }catch(e){showMsg('msg-pub','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar productos →';btn.disabled=false;
+  }catch(e){showMsg('msg-pub','[Error] '+e.message,'err');}
+  btn.innerHTML='Cargar productos >';btn.disabled=false;
 }
 
 function setPubF(val,el){pubSF=val;pubPg=0;document.querySelectorAll('#page-publicar .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyPubF();}
@@ -1726,14 +1726,14 @@ function renderPubT(){
   const total=pubFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
   if(pubPg>=pages)pubPg=pages-1;
   const start=pubPg*pp;const slice=pubFilt.slice(start,start+pp);
-  document.getElementById('pub-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('pub-pag-info').textContent=total?`${start+1}-${Math.min(start+pp,total)} de ${total}`:'';
   document.getElementById('pub-pag-cur').textContent=`${pubPg+1}/${pages}`;
   const tbody=document.getElementById('pub-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>${pubProds.length?'Sin resultados.':'Cargá los productos primero.'}</div></td></tr>`;return;}
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei"></div>${pubProds.length?'Sin resultados.':'Carga los productos primero.'}</div></td></tr>`;return;}
   tbody.innerHTML=slice.map(p=>{
     const sel=pubSel.includes(p.id);
     const img=p.pictures?.[0]?.url||p.thumbnail||'';
-    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph"></div>`;
     const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
     const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
     const st=p.status==='active'?'active':p.status==='paused'?'paused':'closed';
@@ -1774,7 +1774,7 @@ function togglePubTarget(){
   const target=document.getElementById('pub-target').value;
   document.getElementById('pub-ml-dest-wrap').style.display=target==='ml'?'block':'none';
   const btn=document.getElementById('btn-do-publish');
-  btn.textContent=target==='ml'?'📋 Publicar en cuenta ML':'🚀 Publicar en Tienda Nube';
+  btn.textContent=target==='ml'?' Publicar en cuenta ML':' Publicar en Tienda Nube';
   if(target==='ml')renderPubMLDest();
 }
 function renderPubMLDest(){
@@ -1784,8 +1784,8 @@ function renderPubMLDest(){
 }
 function openPubConfirm(){
   const target=document.getElementById('pub-target').value;
-  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados.','err');return;}
-  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  if(!pubSel.length){showMsg('msg-pub','! No hay productos seleccionados.','err');return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','! Primero conecta Tienda Nube.','err');return;}
   const destTxt=target==='ml'?(appState.ml_accounts[parseInt(document.getElementById('pub-ml-dest').value)]?.name||'ML'):'Tienda Nube';
   document.getElementById('pub-confirm-count').textContent=pubSel.length;
   document.getElementById('pub-confirm-dest').textContent=destTxt;
@@ -1804,7 +1804,7 @@ function openPubConfirm(){
   const nGrupos=Object.keys(grupos).length;
   const preview=document.getElementById('pub-grupos-preview');
   if(nGrupos<pubSel.length){
-    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    const lines=Object.entries(grupos).map(([k,v])=>`. Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
     preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
     preview.style.display='block';
   } else {
@@ -1826,8 +1826,8 @@ async function confirmPublish(){
 }
 async function doPublish(agrupar=false){
   const target=document.getElementById('pub-target').value;
-  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
-  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  if(!pubSel.length){showMsg('msg-pub','! No hay productos seleccionados. Selecciona al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','! Primero conecta Tienda Nube.','err');return;}
   document.getElementById('pub-prog-panel').style.display='block';
   document.getElementById('pub-res').innerHTML='';
   document.getElementById('pub-pf').style.width='0%';
@@ -1842,11 +1842,11 @@ async function doPublish(agrupar=false){
     const ok=results.filter(r=>r.ok).length;const fail=results.length-ok;
     document.getElementById('pub-pt').textContent=`Listo: ${ok} publicados, ${fail} con error.`;
     const list=document.getElementById('pub-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
-    if(ok>0)showMsg('msg-pub-res',`✓ ${ok} publicado(s).`,'ok');
-    if(fail>0)showMsg('msg-pub-res',`⚠ ${fail} con error.`,'err');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'[OK]':'[Error]'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
+    if(ok>0)showMsg('msg-pub-res',`OK ${ok} publicado(s).`,'ok');
+    if(fail>0)showMsg('msg-pub-res',`! ${fail} con error.`,'err');
     await loadState();
-  }catch(e){showMsg('msg-pub-res','❌ Error: '+e.message,'err');}
+  }catch(e){showMsg('msg-pub-res','[Error] Error: '+e.message,'err');}
 }
 
 // -- DUPLICAR -------------------------------------------------------------------
@@ -1870,8 +1870,8 @@ async function loadDupProds(){
     applyDupF();
     document.getElementById('dup-prod-panel').style.display='block';
     document.getElementById('dup-prog-panel').style.display='none';
-  }catch(e){showMsg('msg-dup','❌ '+e.message,'err');}
-  btn.innerHTML='Cargar productos →';btn.disabled=false;
+  }catch(e){showMsg('msg-dup','[Error] '+e.message,'err');}
+  btn.innerHTML='Cargar productos >';btn.disabled=false;
 }
 function applyDupF(){
   const q=document.getElementById('dup-q').value.toLowerCase();
@@ -1895,14 +1895,14 @@ function renderDupT(){
   const total=dupFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
   if(dupPg>=pages)dupPg=pages-1;
   const start=dupPg*pp;const slice=dupFilt.slice(start,start+pp);
-  document.getElementById('dup-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('dup-pag-info').textContent=total?`${start+1}-${Math.min(start+pp,total)} de ${total}`:'';
   document.getElementById('dup-pag-cur').textContent=`${dupPg+1}/${pages}`;
   const tbody=document.getElementById('dup-body');
-  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>Sin resultados.</div></td></tr>`;return;}
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei"></div>Sin resultados.</div></td></tr>`;return;}
   tbody.innerHTML=slice.map(p=>{
     const sel=dupSel.includes(p.id);
     const img=p.pictures?.[0]?.url||p.thumbnail||'';
-    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph"></div>`;
     const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
     const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
     const st=p.status==='active'?'ba':p.status==='paused'?'bp':'bc';
@@ -1916,9 +1916,9 @@ function renderDupT(){
       const savedChart = dupChartMap[origChartId] || '';
       if(destCharts.length){
         const opts = destCharts.map(ch=>`<option value="${ch.id}" ${savedChart===ch.id?'selected':''}>${ch.name||ch.id} (${ch.sizes.filter(Boolean).slice(0,3).join(',')}...)</option>`).join('');
-        chartCell = `<td onclick="event.stopPropagation()"><select style="font-size:11px;padding:3px 6px;border:1px solid #dde1e9;border-radius:5px;max-width:160px" onchange="setDupChart('${origChartId}',this.value)"><option value="">— Automático —</option>${opts}</select></td>`;
+        chartCell = `<td onclick="event.stopPropagation()"><select style="font-size:11px;padding:3px 6px;border:1px solid #dde1e9;border-radius:5px;max-width:160px" onchange="setDupChart('${origChartId}',this.value)"><option value="">- Automatico -</option>${opts}</select></td>`;
       } else {
-        chartCell = `<td><span style="font-size:11px;color:#7a8299">📏 Cargando...</span></td>`;
+        chartCell = `<td><span style="font-size:11px;color:#7a8299"> Cargando...</span></td>`;
       }
     }
     return `<tr class="${sel?'sel':''}" onclick="toggleDupRow('${p.id}',this)">
@@ -1978,8 +1978,8 @@ function detectarGrupos(ids){
 function openDupConfirm(){
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
-  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
-  if(!dupSel.length){showMsg('msg-dup','⚠ Seleccioná al menos un producto.','err');return;}
+  if(from===to){showMsg('msg-dup','! Origen y destino deben ser distintos.','err');return;}
+  if(!dupSel.length){showMsg('msg-dup','! Selecciona al menos un producto.','err');return;}
   const destName=appState.ml_accounts[to]?.name||'cuenta destino';
   document.getElementById('dup-confirm-count').textContent=dupSel.length;
   document.getElementById('dup-confirm-dest').textContent=destName;
@@ -1988,7 +1988,7 @@ function openDupConfirm(){
   const nGrupos=Object.keys(grupos).length;
   const preview=document.getElementById('dup-grupos-preview');
   if(nGrupos<dupSel.length){
-    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    const lines=Object.entries(grupos).map(([k,v])=>`. Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
     preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
     preview.style.display='block';
   } else {
@@ -1996,13 +1996,13 @@ function openDupConfirm(){
   }
   updateDupEstadoUI();updateDupSyncUI();updateDupGrupoUI();
   document.getElementById('dup-confirm-modal').classList.add('show');
-  // Cargar guías de la cuenta destino
+  // Cargar guias de la cuenta destino
   loadChartsForConfirm(to);
 }
 function closeDupConfirm(){document.getElementById('dup-confirm-modal').classList.remove('show');}
 
 async function loadChartsForConfirm(toAccount){
-  // Detectar qué productos seleccionados tienen SIZE_GRID_ID
+  // Detectar que productos seleccionados tienen SIZE_GRID_ID
   const selProds = dupProds.filter(p => dupSel.includes(p.id));
   const prodsConGuia = [];
   const seenCharts = new Set();
@@ -2026,13 +2026,13 @@ async function loadChartsForConfirm(toAccount){
     return;
   }
   wrap.style.display = 'block';
-  list.innerHTML = '<span style="font-size:12px;color:#7a8299">Cargando guías disponibles...</span>';
+  list.innerHTML = '<span style="font-size:12px;color:#7a8299">Cargando guias disponibles...</span>';
   try{
     const r = await fetch('/api/ml/'+toAccount+'/charts', {headers:hdr()});
     const d = await r.json();
     const charts = d.charts || [];
     if(!charts.length){
-      list.innerHTML = '<span style="font-size:12px;color:#e17055">No hay guías en la cuenta destino.</span>';
+      list.innerHTML = '<span style="font-size:12px;color:#e17055">No hay guias en la cuenta destino.</span>';
       return;
     }
     const opts = charts.map(ch => '<option value="'+ch.id+'">'+(ch.name||'Sin nombre')+' - '+ch.sizes.filter(Boolean).join(', ')+'</option>').join('');
@@ -2040,7 +2040,7 @@ async function loadChartsForConfirm(toAccount){
       '<div style="margin-bottom:10px">'+
         '<div style="font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
         '<select data-origid="'+p.origId+'" style="width:100%;padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif" onchange="setDupChart(this.dataset.origid,this.value)">'+
-          '<option value="">— Automático —</option>'+opts+
+          '<option value="">- Automatico -</option>'+opts+
         '</select>'+
       '</div>'
     ).join('');
@@ -2081,7 +2081,7 @@ async function confirmDuplicate(){
     pl: parseFloat(document.getElementById('dup-prod-l')?.value)||0,
     pp: parseFloat(document.getElementById('dup-prod-p')?.value)||0
   };
-  // Guardar override manual si se ingresó un ID
+  // Guardar override manual si se ingreso un ID
   const manualChartId = document.getElementById('dup-chart-id-input')?.value?.trim();
   if(manualChartId){
     // Guardar para todos los productos seleccionados (no sabemos el orig_chart_id, usamos "manual")
@@ -2105,13 +2105,13 @@ async function doDuplicate(estado, sync, agrupar, explotar, dims){
   dims = dims || null;
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
-  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
+  if(from===to){showMsg('msg-dup','! Origen y destino deben ser distintos.','err');return;}
   document.getElementById('dup-prog-panel').style.display='block';
   document.getElementById('dup-res').innerHTML='';
   document.getElementById('dup-pf').style.width='0%';
   document.getElementById('dup-pt').textContent=agrupar?'Agrupando variantes y duplicando...':'Duplicando '+dupSel.length+' producto(s)...';
   try{
-    // Guardar overrides de guías seleccionadas
+    // Guardar overrides de guias seleccionadas
     if(Object.keys(dupChartMap).length){
       await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:dupChartMap})});
     }
@@ -2123,7 +2123,7 @@ async function doDuplicate(estado, sync, agrupar, explotar, dims){
     const results=d.results||[];
     document.getElementById('dup-pf').style.width='100%';
     const ok=results.filter(function(x){return x.ok;}).length;
-    document.getElementById('dup-pt').textContent='Listo: '+ok+'/'+results.length+' duplicados.'+(sync?' · Links creados':'');
+    document.getElementById('dup-pt').textContent='Listo: '+ok+'/'+results.length+' duplicados.'+(sync?' . Links creados':'');
     const list=document.getElementById('dup-res');
     list.innerHTML='';
     let shownChartBtn=false;
@@ -2131,7 +2131,7 @@ async function doDuplicate(estado, sync, agrupar, explotar, dims){
       const div=document.createElement('div');
       div.className='ri '+(res.ok?'ok':'fail');
       const isChartErr=!res.ok && res.msg && (res.msg.indexOf('u') >= 0);
-      let html='<span>'+(res.ok?'✅':'❌')+'</span><span class="rt">'+(res.title||res.id)+'</span><span class="rm">'+(res.msg||'')+'</span>';
+      let html='<span>'+(res.ok?'[OK]':'[Error]')+'</span><span class="rt">'+(res.title||res.id)+'</span><span class="rm">'+(res.msg||'')+'</span>';
       if(isChartErr && !shownChartBtn){
         shownChartBtn=true;
         div.dataset.origChartId=res.orig_chart_id||'';
@@ -2139,13 +2139,13 @@ async function doDuplicate(estado, sync, agrupar, explotar, dims){
         div.dataset.dupEstado=estado;
         div.dataset.dupSync=sync?'1':'0';
         div.dataset.dupAgrupar=agrupar?'1':'0';
-        html+='<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartFromBtn(this)">📏 Elegir guía de talles</button>';
+        html+='<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartFromBtn(this)"> Elegir guia de talles</button>';
       }
       div.innerHTML=html;
       list.appendChild(div);
     });
     await loadState();
-  }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
+  }catch(e){document.getElementById('dup-pt').textContent='[Error] Error: '+e.message;}
 }
 
 function openChartFromBtn(btn){
@@ -2159,20 +2159,20 @@ function openChartFromBtn(btn){
 async function openChartModal(origChartId, toAccount){
   selectedChartId=null;
   document.getElementById('chart-modal-confirm').disabled=true;
-  document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#7a8299">Cargando guías...</div>';
+  document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#7a8299">Cargando guias...</div>';
   document.getElementById('chart-modal').classList.add('show');
   try{
     const r=await fetch('/api/ml/'+toAccount+'/charts',{headers:hdr()});
     const d=await r.json();
     const charts=d.charts||[];
     if(!charts.length){
-      document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#e17055">No hay guías en esta cuenta. <a href="https://www.mercadolibre.com.ar/moda/talles/" target="_blank">Creá una en ML</a></div>';
+      document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#e17055">No hay guias en esta cuenta. <a href="https://www.mercadolibre.com.ar/moda/talles/" target="_blank">Crea una en ML</a></div>';
       return;
     }
     document.getElementById('chart-modal-list').innerHTML=charts.map(function(ch){
       return '<div class="tn-prod-item" data-id="'+ch.id+'" onclick="selectChart(this.dataset.id,this)">'+
         '<div style="font-weight:600;font-size:13px">'+(ch.name||'Sin nombre')+' <span style="font-size:11px;color:#7a8299">#'+ch.id+'</span></div>'+
-        '<div style="font-size:11px;color:#7a8299;margin-top:3px">Dominio: '+ch.domain+' · Talles: '+(ch.sizes.filter(Boolean).join(', ')||'—')+'</div>'+
+        '<div style="font-size:11px;color:#7a8299;margin-top:3px">Dominio: '+ch.domain+' . Talles: '+(ch.sizes.filter(Boolean).join(', ')||'-')+'</div>'+
         '</div>';
     }).join('');
   }catch(e){
@@ -2208,14 +2208,14 @@ async function openModal(itemId, varId, accIdx, title){
   document.getElementById('modal-var-sel').style.display='none';
   document.getElementById('msg-modal').className='msg';
   document.getElementById('link-modal').classList.add('show');
-  document.getElementById('tn-prod-list').innerHTML='<div class="empty"><div class="ei">⏳</div>Cargando...</div>';
+  document.getElementById('tn-prod-list').innerHTML='<div class="empty"><div class="ei">...</div>Cargando...</div>';
   try{
     const r=await fetch('/api/tn/products',{headers:hdr()});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'TN no conectada');
     tnProds=d.products||[];tnProdsFilt=[...tnProds];
     renderTNProdList();
-  }catch(e){document.getElementById('tn-prod-list').innerHTML=`<div class="empty"><div class="ei">❌</div>${e.message}</div>`;}
+  }catch(e){document.getElementById('tn-prod-list').innerHTML=`<div class="empty"><div class="ei">[Error]</div>${e.message}</div>`;}
 }
 
 function filterTNProds(){
@@ -2226,14 +2226,14 @@ function filterTNProds(){
 
 function renderTNProdList(){
   const el=document.getElementById('tn-prod-list');
-  if(!tnProdsFilt.length){el.innerHTML='<div class="empty"><div class="ei">🔍</div>Sin resultados</div>';return;}
+  if(!tnProdsFilt.length){el.innerHTML='<div class="empty"><div class="ei"></div>Sin resultados</div>';return;}
   el.innerHTML=tnProdsFilt.slice(0,50).map(p=>{
     const name=p.name?.es||p.name||'ID '+p.id;
     const variants=p.variants||[];
     const sel=selectedTNProd?.id===p.id;
     return `<div class="tn-prod-item ${sel?'sel':''}" onclick="selectTNProd(${p.id})" data-id="${p.id}">
       <div class="tpn">${name}</div>
-      <div class="tpv">${variants.length} variante(s) · ID ${p.id}</div>
+      <div class="tpv">${variants.length} variante(s) . ID ${p.id}</div>
     </div>`;
   }).join('');
 }
@@ -2243,12 +2243,12 @@ function selectTNProd(id){
   document.querySelectorAll('.tn-prod-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.id)===id));
   const variants=selectedTNProd?.variants||[];
   const varSel=document.getElementById('tn-var-sel');
-  varSel.innerHTML='<option value="">— Sin variante específica —</option>'+variants.map(v=>`<option value="${v.id}">${(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id}</option>`).join('');
+  varSel.innerHTML='<option value="">- Sin variante especifica -</option>'+variants.map(v=>`<option value="${v.id}">${(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id}</option>`).join('');
   document.getElementById('modal-var-sel').style.display=variants.length>0?'block':'none';
 }
 
 async function saveLink(){
-  if(!selectedTNProd){showMsg('msg-modal','⚠ Seleccioná un producto de TN.','err');return;}
+  if(!selectedTNProd){showMsg('msg-modal','! Selecciona un producto de TN.','err');return;}
   const tnVarId=document.getElementById('tn-var-sel').value||null;
   try{
     const tnProdName = selectedTNProd.name?.es || selectedTNProd.name || String(selectedTNProd.id);
@@ -2265,14 +2265,14 @@ async function saveLink(){
     })});
     const d=await r.json();
     if(!r.ok)throw new Error(d.detail||'Error');
-    showMsg('msg-modal','✓ Enlace guardado.','ok');
+    showMsg('msg-modal','OK Enlace guardado.','ok');
     await loadState();
     setTimeout(closeModal,800);
-  }catch(e){showMsg('msg-modal','❌ '+e.message,'err');}
+  }catch(e){showMsg('msg-modal','[Error] '+e.message,'err');}
 }
 
 async function removeLink(mlId,mlVarId){
-  if(!confirm('¿Eliminar este enlace?'))return;
+  if(!confirm('Eliminar este enlace?'))return;
   await fetch('/api/links/remove',{method:'POST',headers:hdr(),body:JSON.stringify({ml_item_id:mlId,ml_variation_id:mlVarId||null})});
   await loadState();
 }
@@ -2281,7 +2281,7 @@ function closeModal(){document.getElementById('link-modal').classList.remove('sh
 
 // -- SYNC -----------------------------------------------------------------------
 async function doSync(){
-  if(!appState.tn_connected){showMsg('msg-sync','⚠ Primero conectá Tienda Nube.','err');return;}
+  if(!appState.tn_connected){showMsg('msg-sync','! Primero conecta Tienda Nube.','err');return;}
   const btn=document.getElementById('sync-btn');
   btn.innerHTML='<span class="spinner"></span> Sincronizando...';btn.disabled=true;
   hideMsg('msg-sync');
@@ -2296,11 +2296,11 @@ async function doSync(){
     const ok=results.filter(r=>r.ok).length;
     document.getElementById('sync-pt').textContent=d.msg||`Listo: ${ok}/${results.length} actualizados.`;
     const list=document.getElementById('sync-res');
-    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'⚠️'}</span><span class="rt">${r.title}</span><span class="rm">${r.action}</span>`;list.appendChild(item);});
-    showMsg('msg-sync',`✓ Sync completa: ${ok} actualizados.`,'ok');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'[OK]':'!'}</span><span class="rt">${r.title}</span><span class="rm">${r.action}</span>`;list.appendChild(item);});
+    showMsg('msg-sync',`OK Sync completa: ${ok} actualizados.`,'ok');
     await loadState();
-  }catch(e){showMsg('msg-sync','❌ Error: '+e.message,'err');}
-  btn.innerHTML='🔄 Sincronizar ahora';btn.disabled=false;
+  }catch(e){showMsg('msg-sync','[Error] Error: '+e.message,'err');}
+  btn.innerHTML=' Sincronizar ahora';btn.disabled=false;
 }
 
 // -- IA PUBLICAR --------------------------------------------------------------
@@ -2337,8 +2337,8 @@ async function iaAnalyze() {
   if (!iaImageBase64) return;
   const btn = document.getElementById('ia-analyze-btn');
   btn.disabled = true;
-  btn.textContent = '⏳ Analizando...';
-  iaAddBotMessage('Analizando tu imagen... dame un momento 🔍');
+  btn.textContent = '... Analizando...';
+  iaAddBotMessage('Analizando tu imagen... dame un momento ');
   try {
     const r = await fetch('/api/ai/analyze', {
       method: 'POST', headers: hdr(),
@@ -2354,15 +2354,15 @@ async function iaAnalyze() {
       document.getElementById('ia-photos-panel').style.display = 'block';
       iaRenderVariantsGrid();
       // Primer mensaje del asistente
-      await iaChatWithAI("El vendedor subió una imagen. Iniciá la conversación presentándote brevemente y hacé la primera pregunta más importante para completar la publicación.");
+      await iaChatWithAI("El vendedor subio una imagen. Inicia la conversacion presentandote brevemente y hace la primera pregunta mas importante para completar la publicacion.");
     } else {
-      iaAddBotMessage('❌ Error al analizar: ' + (d.error || 'desconocido') + ' | respuesta: ' + JSON.stringify(d));
+      iaAddBotMessage('[Error] Error al analizar: ' + (d.error || 'desconocido') + ' | respuesta: ' + JSON.stringify(d));
     }
   } catch(e) {
-    iaAddBotMessage('❌ Error: ' + e.message);
+    iaAddBotMessage('[Error] Error: ' + e.message);
   }
   btn.disabled = false;
-  btn.textContent = '✦ Re-analizar';
+  btn.textContent = '* Re-analizar';
 }
 
 async function iaAnalyzeUrl() {
@@ -2416,7 +2416,7 @@ function iaRenderChannels() {
          id="ia-ch-${ch.key}" onclick="iaToggleChannel('${ch.key}', this)">
       <div style="width:28px;height:28px;border-radius:50%;background:${ch.color};color:${ch.text};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${ch.label[0]}</div>
       <span style="font-size:13px;font-weight:500;flex:1">${ch.label}</span>
-      <div style="width:18px;height:18px;border-radius:50%;${iaSelectedChannels.has(ch.key)?'background:#4f9eff':'border:2px solid #dde1e9'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">${iaSelectedChannels.has(ch.key)?'✓':''}</div>
+      <div style="width:18px;height:18px;border-radius:50%;${iaSelectedChannels.has(ch.key)?'background:#4f9eff':'border:2px solid #dde1e9'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">${iaSelectedChannels.has(ch.key)?'OK':''}</div>
     </div>`).join('');
 }
 
@@ -2476,15 +2476,15 @@ async function iaChatWithAI(userMsg) {
       iaChatHistory.push({role: 'assistant', content: d.reply});
       iaAddBotMessage(d.reply);
       // Detectar si el asistente dice LISTO
-      if (d.reply.includes('LISTO') || d.reply.includes('listo para publicar')) {
-        iaShowPublishButton();
+      const readyWords = ['LISTO', 'listo para publicar', 'podemos publicar', 'todo listo', 'ya tenemos todo'];
+      if (readyWords.some(w => d.reply.toLowerCase().includes(w.toLowerCase()))) {
       }
     } else {
-      iaAddBotMessage('❌ Error: ' + d.error);
+      iaAddBotMessage('[Error] Error: ' + d.error);
     }
   } catch(e) {
     iaHideTyping();
-    iaAddBotMessage('❌ Error: ' + e.message);
+    iaAddBotMessage('[Error] Error: ' + e.message);
   }
 }
 
@@ -2494,31 +2494,98 @@ async function iaSendMessage() {
   if (!text) return;
   input.value = '';
   iaAddUserMessage(text);
-  // Actualizar contexto con la respuesta
-  iaContext._last_user_msg = text;
+  // Intentar extraer datos del mensaje del usuario
+  iaExtractContextFromUserMsg(text);
   await iaChatWithAI(text);
 }
 
-function iaShowPublishButton() {
+function iaExtractContextFromUserMsg(text) {
+  // Extraer precio
+  const priceMatch = text.match(/\$?\s*(\d[\d.,]*\d)/);
+  if (priceMatch && !iaContext.precio) {
+    const p = parseFloat(priceMatch[1].replace(/\./g,'').replace(',','.'));
+    if (p > 100) { iaContext.precio = p; }
+  }
+  // Extraer colores si los menciona
+  const colorWords = text.split(/[,;\/-]+/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 30);
+  if (colorWords.length > 1 && !iaContext.colores?.length) {
+    iaContext.colores = colorWords;
+    iaRenderVariantsGrid();
+  }
+  // Extraer modelo
+  const modelMatch = text.match(/(\d{4,6})/);
+  if (modelMatch && !iaContext.modelo) iaContext.modelo = modelMatch[1];
+}
+
+function iaExtractContextFromReply(reply) {
+  // Si el asistente menciona que falta algo, actualizamos el estado
+  const missingWords = ['falta', 'necesito', 'me faltan', 'todavia no', 'aun no', 'sin precio', 'sin modelo'];
+  const hasMissing = missingWords.some(w => reply.toLowerCase().includes(w));
+  if (!hasMissing) {
+    // Actualizar boton de publicar si ya hay suficiente info
+    iaUpdatePublishButton();
+  }
+}
+
+function iaUpdatePublishButton() {
+  // Remover boton anterior si existe
+  const old = document.getElementById('ia-publish-btn-wrap');
+  if (old) old.remove();
+  // Verificar si tenemos lo minimo
+  const hasMin = iaContext.titulo_sugerido && iaContext.precio > 0;
+  if (!hasMin) return;
   const el = document.getElementById('ia-chat-messages');
   const div = document.createElement('div');
   div.className = 'ia-msg ia-msg-bot';
-  div.innerHTML = '<div class="ia-bubble" style="max-width:100%">'
-    + '<div style="font-weight:600;margin-bottom:10px">🚀 Listo para publicar</div>'
-    + '<div style="margin-bottom:10px">'
-    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px;border:1px solid #e8ecf0;border-radius:8px;margin-bottom:8px">'
-    + '<input type="checkbox" id="ia-sync-check" checked style="width:16px;height:16px"> '
-    + '<div><div style="font-size:13px;font-weight:600">🔗 Sincronizar entre cuentas</div>'
-    + '<div style="font-size:11px;color:#7a8299">Crea enlaces ML↔ML para descontar stock automáticamente cuando se vende</div></div>'
-    + '</label>'
-    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px;border:1px solid #e8ecf0;border-radius:8px">'
-    + '<input type="checkbox" id="ia-sync-tn-check" checked style="width:16px;height:16px"> '
-    + '<div><div style="font-size:13px;font-weight:600">🔗 Sincronizar con TiendaNube</div>'
-    + '<div style="font-size:11px;color:#7a8299">Crea enlaces ML↔TN para sincronizar stock y precio</div></div>'
-    + '</label>'
+  div.id = 'ia-publish-btn-wrap';
+  // Mostrar resumen de lo que tiene
+  const colors = (iaContext.colores||[]).join(', ') || 'sin colores';
+  const sizes = (iaContext.talles||[]).join(', ') || 'sin talles';
+  div.innerHTML = '<div class="ia-bubble" style="max-width:100%;background:#f0fff4;border:1px solid #86efac">'
+    + '<div style="font-size:12px;margin-bottom:8px">'
+    + '<b>Resumen del producto:</b><br>'
+    + '<span style="color:#7a8299">Titulo:</span> ' + (iaContext.titulo_sugerido||'-') + '<br>'
+    + '<span style="color:#7a8299">Precio:</span> $' + (iaContext.precio||0) + '<br>'
+    + '<span style="color:#7a8299">Colores:</span> ' + colors + '<br>'
+    + '<span style="color:#7a8299">Talles:</span> ' + sizes
     + '</div>'
-    + '<button class="btn btn-green" style="width:100%;border-radius:8px" onclick="iaPublish()">🚀 Publicar ahora</button>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border:1px solid #e8ecf0;border-radius:8px;margin-bottom:6px;background:#fff">'
+    + '<input type="checkbox" id="ia-sync-check" checked style="width:14px;height:14px">'
+    + '<span style="font-size:12px"><b>Sincronizar entre cuentas ML</b></span>'
+    + '</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border:1px solid #e8ecf0;border-radius:8px;margin-bottom:10px;background:#fff">'
+    + '<input type="checkbox" id="ia-sync-tn-check" checked style="width:14px;height:14px">'
+    + '<span style="font-size:12px"><b>Sincronizar con TiendaNube</b></span>'
+    + '</label>'
+    + '<button class="btn btn-green" style="width:100%" onclick="iaPublish()">Publicar ahora</button>'
     + '</div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaShowPublishButton() {
+  // Remove previous publish button if exists
+  const old = document.getElementById("ia-publish-btn-wrap");
+  if (old) old.remove();
+  const el = document.getElementById("ia-chat-messages");
+  const div = document.createElement("div");
+  div.className = "ia-msg ia-msg-bot";
+  div.id = "ia-publish-btn-wrap";
+  const colors = (iaContext.colores||[]).join(", ") || "sin definir";
+  const sizes = (iaContext.talles||[]).join(", ") || "sin definir";
+  const precio = iaContext.precio ? "$" + iaContext.precio : "sin definir";
+  div.innerHTML = "<div class=\"ia-bubble\" style=\"max-width:100%;background:#f0fff4;border:1px solid #86efac\">"
+    + "<div style=\"font-size:12px;margin-bottom:10px\">"
+    + "<b>Resumen:</b> " + (iaContext.titulo_sugerido||"sin titulo") + " | " + precio + " | " + colors + " | talles: " + sizes
+    + "</div>"
+    + "<label style=\"display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px\">"
+    + "<input type=\"checkbox\" id=\"ia-sync-check\" checked> <span>Sincronizar entre cuentas ML</span>"
+    + "</label>"
+    + "<label style=\"display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px\">"
+    + "<input type=\"checkbox\" id=\"ia-sync-tn-check\" checked> <span>Sincronizar con TiendaNube</span>"
+    + "</label>"
+    + "<button class=\"btn btn-green\" style=\"width:100%\" onclick=\"iaPublish()\">Publicar ahora</button>"
+    + "</div>";
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
@@ -2539,7 +2606,7 @@ function iaRenderVariantsGrid() {
   if (!grid) return;
   grid.innerHTML = '';
   if (!colors.length) {
-    grid.innerHTML = '<div style="font-size:12px;color:#7a8299">Completá los colores en el chat primero.</div>';
+    grid.innerHTML = '<div style="font-size:12px;color:#7a8299">Completa los colores en el chat primero.</div>';
     return;
   }
   colors.forEach(color => {
@@ -2552,7 +2619,7 @@ function iaRenderVariantsGrid() {
         <div style="font-weight:600;font-size:13px">${color}</div>
         <div style="display:flex;gap:6px">
           <span id="variant-count-${color.replace(/\s/g,'_')}" style="font-size:11px;color:#7a8299">0 fotos</span>
-          <button class="btn btn-out btn-sm" onclick="iaGenerateColor('${color}')">✦ IA</button>
+          <button class="btn btn-out btn-sm" onclick="iaGenerateColor('${color}')">* IA</button>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="variant-photos-${color.replace(/\s/g,'_')}">
@@ -2591,7 +2658,7 @@ function iaAddVariantThumb(color, b64, mime) {
   const thumb = document.createElement('div');
   thumb.style = 'position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid #e8ecf0';
   const removeBtn = document.createElement('button');
-  removeBtn.textContent = '✕';
+  removeBtn.textContent = 'x';
   removeBtn.style = 'position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer';
   removeBtn.onclick = () => { iaGeneratedPhotos[color].splice(idx,1); iaRenderVariantsGrid(); };
   const img = document.createElement('img');
@@ -2617,7 +2684,7 @@ function iaRemoveVariantPhoto(color, idx) {
 async function iaGenerateColor(color) {
   const key = color.replace(/\s/g,'_');
   const countEl = document.getElementById('variant-count-'+key);
-  if (countEl) countEl.textContent = '⏳ Generando...';
+  if (countEl) countEl.textContent = '... Generando...';
   const prenda = iaContext.tipo_prenda || iaContext.titulo_sugerido || 'prenda';
   const prompt = IA_PROMPT_BASE + "\n8-es " + prenda + " de color " + color + ". La estampa es como en la foto de referencia. IMPORTANTE: imagen panoramica 21:9 con 3 poses distintas lado a lado.";
   try {
@@ -2634,50 +2701,50 @@ async function iaGenerateColor(color) {
       });
       if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
     } else {
-      if (countEl) countEl.textContent = '❌ Error';
+      if (countEl) countEl.textContent = '[Error] Error';
       iaAddBotMessage('Error generando ' + color + ': ' + (d.error||'desconocido'));
     }
   } catch(e) {
-    if (countEl) countEl.textContent = '❌ Error';
+    if (countEl) countEl.textContent = '[Error] Error';
   }
 }
 
 async function iaGenerateAllPhotos() {
   const colors = iaContext.colores || iaContext.colores_detectados || iaContext.colores_sugeridos || [];
   if (!colors.length) {
-    iaAddBotMessage('Primero completá los colores del producto en la conversación.');
+    iaAddBotMessage('Primero completa los colores del producto en la conversacion.');
     return;
   }
   const fotosTotal = colors.length; // 1 llamada por color (imagen 21:9 que se corta en 3)
   const costoEst = (fotosTotal * 0.045).toFixed(2);
   
-  // Mostrar modal de confirmación con prompt editable
+  // Mostrar modal de confirmacion con prompt editable
   const prenda = iaContext.tipo_prenda || iaContext.titulo_sugerido || 'prenda';
   const promptSugerido = IA_PROMPT_BASE + "\n8-es " + prenda + " de color [COLOR], " + (iaContext.descripcion || '') + " la estampa es como en la foto de referencia";
   
-  // Crear panel de confirmación
+  // Crear panel de confirmacion
   const el = document.getElementById('ia-chat-messages');
   const div = document.createElement('div');
   div.className = 'ia-msg ia-msg-bot';
   div.id = 'ia-gen-confirm';
   div.innerHTML = `
     <div class="ia-bubble" style="max-width:100%;width:100%">
-      <div style="font-weight:600;margin-bottom:8px">🎨 Generación de imágenes</div>
+      <div style="font-weight:600;margin-bottom:8px"> Generacion de imagenes</div>
       <div style="font-size:12px;color:#7a8299;margin-bottom:10px">
-        ${colors.length} colores · 1 imagen 21:9 por color → 3 fotos cortadas = <b>${colors.length*3} fotos</b> · Costo estimado: <b style="color:#e17055">~$${costoEst} USD</b>
+        ${colors.length} colores . 1 imagen 21:9 por color > 3 fotos cortadas = <b>${colors.length*3} fotos</b> . Costo estimado: <b style="color:#e17055">~$${costoEst} USD</b>
       </div>
-      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Colores: ${colors.join(' · ')}</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Colores: ${colors.join(' . ')}</div>
       <div style="font-size:11px;font-weight:600;margin-bottom:4px">Ambiente:</div>
       <select id="ia-ambiente" style="width:100%;padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;margin-bottom:8px">
-        <option value="estudio">Estudio/habitación marmolada (por defecto)</option>
+        <option value="estudio">Estudio/habitacion marmolada (por defecto)</option>
         <option value="exterior">Exterior casual Instagram</option>
         <option value="blanco">Fondo blanco profesional</option>
         <option value="custom">Personalizado</option>
       </select>
-      <div style="font-size:11px;font-weight:600;margin-bottom:4px">Prompt (editá si querés):</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px">Prompt (edita si queres):</div>
       <textarea id="ia-prompt-edit" style="width:100%;height:120px;padding:8px;border:1px solid #dde1e9;border-radius:6px;font-size:11px;font-family:Inter,sans-serif;resize:vertical">${promptSugerido}</textarea>
       <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-green btn-sm" style="flex:1" onclick="iaConfirmGenerate()">✅ Confirmar y generar (~$${costoEst})</button>
+        <button class="btn btn-green btn-sm" style="flex:1" onclick="iaConfirmGenerate()">[OK] Confirmar y generar (~$${costoEst})</button>
         <button class="btn btn-out btn-sm" onclick="document.getElementById('ia-gen-confirm').remove()">Cancelar</button>
       </div>
     </div>`;
@@ -2697,7 +2764,7 @@ async function iaConfirmGenerate() {
     const prompt = promptBase.replace('[COLOR]', color);
     const card = document.createElement('div');
     card.style = 'border-radius:8px;overflow:hidden;border:1px solid #e8ecf0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#f9fafb;position:relative';
-    card.innerHTML = "<div style='font-size:11px;color:#7a8299;text-align:center;padding:8px'>⏳ Generando<br>"+color+"...</div>";
+    card.innerHTML = "<div style='font-size:11px;color:#7a8299;text-align:center;padding:8px'>... Generando<br>"+color+"...</div>";
     grid.appendChild(card);
     try {
       const r = await fetch('/api/ai/generate_image', {
@@ -2710,25 +2777,25 @@ async function iaConfirmGenerate() {
         // Mostrar las 3 fotos cortadas
         card.style = 'border-radius:8px;overflow:hidden;border:1px solid #e8ecf0;background:#f9fafb;padding:6px;grid-column:span 3';
         card.innerHTML = "<div style='font-size:11px;font-weight:600;margin-bottom:6px;color:#4f9eff'>"+color+" ("+d.count+" fotos)</div><div style='display:grid;grid-template-columns:repeat("+d.count+",1fr);gap:4px'>"
-          + d.images_base64.map((img,i) => "<div style='position:relative;aspect-ratio:1;overflow:hidden;border-radius:6px'><img src='data:image/jpeg;base64,"+img+"' style='width:100%;height:100%;object-fit:cover'><div style='position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px'>📸 "+(i+1)+"</div></div>").join('')
+          + d.images_base64.map((img,i) => "<div style='position:relative;aspect-ratio:1;overflow:hidden;border-radius:6px'><img src='data:image/jpeg;base64,"+img+"' style='width:100%;height:100%;object-fit:cover'><div style='position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px'> "+(i+1)+"</div></div>").join('')
           + "</div>";
         // Quitar el span 3 para los siguientes
         card.style.gridColumn = 'span 3';
       } else {
-        card.innerHTML = "<div style='font-size:11px;color:#e17055;text-align:center;padding:8px'>❌ Error<br>"+color+"<br><small>"+(d.error||'')+"</small></div>";
+        card.innerHTML = "<div style='font-size:11px;color:#e17055;text-align:center;padding:8px'>[Error] Error<br>"+color+"<br><small>"+(d.error||'')+"</small></div>";
       }
     } catch(e) {
-      card.innerHTML = "<div style='font-size:11px;color:#e17055;padding:8px'>❌ "+color+"</div>";
+      card.innerHTML = "<div style='font-size:11px;color:#e17055;padding:8px'>[Error] "+color+"</div>";
     }
   }
   const genCount = Object.keys(iaGeneratedPhotos).length;
-  iaAddBotMessage("✅ Fotos generadas para "+genCount+" colores. Revisalas y cuando estés listo publicá.");
+  iaAddBotMessage("[OK] Fotos generadas para "+genCount+" colores. Revisalas y cuando estes listo publica.");
 }
 
 async function iaPublish() {
   const syncML = document.getElementById('ia-sync-check')?.checked !== false;
   const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
-  iaAddBotMessage('⏳ Publicando en los canales seleccionados...');
+  iaAddBotMessage('... Publicando en los canales seleccionados...');
   try {
     // Flatten all photos from all variants
     const allImages = Object.values(iaGeneratedPhotos).flat();
@@ -2746,13 +2813,13 @@ async function iaPublish() {
     const d = await r.json();
     if (d.ok) {
       const ok = d.results.filter(r=>r.ok).length;
-      const lines = d.results.map(r=>(r.ok?"✅":"❌")+" "+r.channel+": "+r.msg).join("\n");
+      const lines = d.results.map(r=>(r.ok?"[OK]":"[Error]")+" "+r.channel+": "+r.msg).join("\n");
       iaAddBotMessage("Listo! "+ok+"/"+d.results.length+" publicaciones exitosas:\n"+lines);
     } else {
-      iaAddBotMessage('❌ Error: ' + d.error);
+      iaAddBotMessage('[Error] Error: ' + d.error);
     }
   } catch(e) {
-    iaAddBotMessage('❌ Error: ' + e.message);
+    iaAddBotMessage('[Error] Error: ' + e.message);
   }
 }
 
@@ -2771,7 +2838,7 @@ setInterval(async function(){
       const names = vencidas.map(a=>a.name).join(', ');
       const b = document.getElementById('app-alert');
       if(b && !b.classList.contains('show')){
-        b.textContent = '⚠️ Token vencido en: ' + names + ' — reconectá desde Conectar canales';
+        b.textContent = '! Token vencido en: ' + names + ' - reconecta desde Conectar canales';
         b.className = 'alert err show';
       }
     }
@@ -2797,7 +2864,7 @@ async function showCanal(idx) {
   document.getElementById('canal-av').textContent = acc.name[0].toUpperCase();
   document.getElementById('canal-name').textContent = acc.name;
   document.getElementById('canal-stats').textContent = 'Cargando publicaciones...';
-  document.getElementById('canal-body').innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">⏳ Cargando...</td></tr>';
+  document.getElementById('canal-body').innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">... Cargando...</td></tr>';
 
   try {
     const r = await fetch(`/api/ml/${idx}/products?limit=9999`, {headers: hdr()});
@@ -2805,10 +2872,10 @@ async function showCanal(idx) {
     const items = data.items || data.products || [];
     canalItems = items;
     canalPage = 1;
-    const syncMsg = data.synced === false ? ' · ⚠️ No sincronizado — ir a Sincronizar' : '';
+    const syncMsg = data.synced === false ? ' . ! No sincronizado - ir a Sincronizar' : '';
     document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg} (total: ${data.total||0})`;
     filterCanalItems();
-    // Cargar health de la primera página en background
+    // Cargar health de la primera pagina en background
     loadCanalHealth(idx, canalItems.slice(0, 20));
   } catch(e) {
     document.getElementById('canal-body').innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#e74c3c">Error: ${e.message}</td></tr>`;
@@ -2857,40 +2924,40 @@ function renderCanalPage(items) {
   tbody.innerHTML = pageItems.map(item => {
     const statusColor = item.status === 'active' ? '#00a381' : item.status === 'paused' ? '#d68000' : '#e74c3c';
     const statusLabel = item.status === 'active' ? 'Activa' : item.status === 'paused' ? 'Pausada' : 'Cerrada';
-    const price = item.price ? `$ ${Number(item.price).toLocaleString('es-AR')}` : '—';
-    const stock = item.available_quantity ?? '—';
+    const price = item.price ? `$ ${Number(item.price).toLocaleString('es-AR')}` : '-';
+    const stock = item.available_quantity ?? '-';
     const thumb = item.thumbnail ? `<img src="${item.thumbnail.replace('http://','https://')}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '<div style="width:48px;height:48px;background:#f0f2f6;border-radius:6px;flex-shrink:0"></div>';
     const health = item.health ? Math.round(item.health * 100) : null;
     const healthColor = health >= 80 ? '#00a381' : health >= 50 ? '#d68000' : '#e74c3c';
-    const healthEl = health !== null ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:36px;height:36px;border-radius:50%;border:3px solid ${healthColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${healthColor}">${health}</div></div>` : '<span style="color:#bbb;font-size:12px">—</span>';
+    const healthEl = health !== null ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:36px;height:36px;border-radius:50%;border:3px solid ${healthColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${healthColor}">${health}</div></div>` : '<span style="color:#bbb;font-size:12px">-</span>';
 
     return `<tr style="border-bottom:1px solid #f0f2f6;transition:background .1s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
       <td style="padding:10px 14px">
         <div style="display:flex;align-items:center;gap:10px">
           ${thumb}
           <div style="min-width:0">
-            <div style="font-size:13px;font-weight:500;color:#1a1a2e;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">${item.title || '—'}</div>
-            <div style="font-size:11px;color:#7a8299">#${item.id} · Stock: ${stock}</div>
+            <div style="font-size:13px;font-weight:500;color:#1a1a2e;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">${item.title || '-'}</div>
+            <div style="font-size:11px;color:#7a8299">#${item.id} . Stock: ${stock}</div>
           </div>
         </div>
       </td>
       <td style="padding:10px 14px;text-align:right;font-weight:600;white-space:nowrap">${price}</td>
       <td style="padding:10px 14px;font-size:12px;color:#7a8299">
-        ${item.listing_type_id === 'gold_special' ? '<span style="color:#00a381;font-size:11px">✓ Clásica</span>' : item.listing_type_id === 'gold_pro' ? '<span style="color:#9b59b6;font-size:11px">★ Premium</span>' : '<span style="font-size:11px">Básica</span>'}
+        ${item.listing_type_id === 'gold_special' ? '<span style="color:#00a381;font-size:11px">OK Clasica</span>' : item.listing_type_id === 'gold_pro' ? '<span style="color:#9b59b6;font-size:11px"> Premium</span>' : '<span style="font-size:11px">Basica</span>'}
       </td>
       <td style="padding:10px 14px;text-align:right;font-weight:500">${stock}</td>
       <td style="padding:10px 14px;text-align:center">${healthEl}</td>
-      <td style="padding:10px 14px"><span style="color:${statusColor};font-weight:500;font-size:12px">● ${statusLabel}</span></td>
+      <td style="padding:10px 14px"><span style="color:${statusColor};font-weight:500;font-size:12px"> ${statusLabel}</span></td>
     </tr>`;
   }).join('');
 
-  // Paginación
+  // Paginacion
   const totalPages = Math.ceil(total / CANAL_PAGE_SIZE);
   document.getElementById('canal-pagination').innerHTML = `
-    <span>${total} publicaciones · Página ${canalPage} de ${totalPages}</span>
+    <span>${total} publicaciones . Pagina ${canalPage} de ${totalPages}</span>
     <div style="display:flex;gap:6px">
-      <button class="btn btn-out btn-sm" onclick="canalPage=Math.max(1,canalPage-1);filterCanalItems()" ${canalPage<=1?'disabled':''}>‹ Ant</button>
-      <button class="btn btn-out btn-sm" onclick="canalPage=Math.min(${totalPages},canalPage+1);filterCanalItems()" ${canalPage>=totalPages?'disabled':''}>Sig ›</button>
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.max(1,canalPage-1);filterCanalItems()" ${canalPage<=1?'disabled':''}>< Ant</button>
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.min(${totalPages},canalPage+1);filterCanalItems()" ${canalPage>=totalPages?'disabled':''}>Sig ></button>
     </div>`;
 }
 
@@ -2906,7 +2973,7 @@ let deferredPrompt;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  // Mostrar botón instalar si existe
+  // Mostrar boton instalar si existe
   const btn = document.getElementById('btn-install');
   if (btn) { btn.style.display = 'inline-flex'; btn.onclick = () => { deferredPrompt.prompt(); deferredPrompt = null; btn.style.display='none'; }; }
 });
