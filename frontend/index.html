@@ -2509,14 +2509,14 @@ function iaExtractContextFromUserMsg(text) {
     const p = parseFloat(priceMatch[1].replace(/\./g,'').replace(',','.'));
     if (p > 100) { iaContext.precio = p; }
   }
-  // Extraer colores si los menciona
-  const colorWords = text.split(/[,;\/-]+/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 30);
-  if (colorWords.length > 1 && !iaContext.colores?.length) {
+  // Extraer colores — SIEMPRE actualizar si el usuario manda una lista
+  const colorWords = text.split(/[,;]+/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 30 && !/\d{4}/.test(s));
+  if (colorWords.length >= 2) {
     iaContext.colores = colorWords;
     iaRenderVariantsGrid();
   }
   // Extraer modelo
-  const modelMatch = text.match(/(\d{4,6})/);
+  const modelMatch = text.match(/\b(\d{4,6})\b/);
   if (modelMatch && !iaContext.modelo) iaContext.modelo = modelMatch[1];
 }
 
@@ -2573,24 +2573,29 @@ function iaExtractContextFromAIReply(reply) {
     const p = parseFloat(priceMatch[1].replace(/\./g,'').replace(',','.'));
     if (p > 100) iaContext.precio = p;
   }
-  // Extract colors if listed
-  const colorSection = reply.match(/colores?[:\s]+([^\n.]+)/i);
-  if (colorSection && !iaContext.colores?.length) {
-    const colors = colorSection[1].split(/[,;\/]+/).map(s=>s.trim().replace(/^[-*\s]+/,'')).filter(s=>s.length>1 && s.length<25);
-    if (colors.length > 1) { iaContext.colores = colors; iaRenderVariantsGrid(); }
+  // Extract colors - always update when AI confirms them
+  const colorSection = reply.match(/colores?[:\s]+([^\n.]{5,150})/i);
+  if (colorSection) {
+    const colors = colorSection[1].split(/[,;]+/).map(s=>s.trim().replace(/^[-*\s]+/,'')).filter(s=>s.length>1 && s.length<30 && !/\d{4}/.test(s));
+    if (colors.length >= 2) { iaContext.colores = colors; iaRenderVariantsGrid(); }
   }
-  // Extract sizes
-  const sizeSection = reply.match(/talles?[:\s]+([^\n.]+)/i);
-  if (sizeSection && !iaContext.talles?.length) {
-    const sizes = sizeSection[1].split(/[,;\/]+/).map(s=>s.trim()).filter(s=>s.length>1 && s.length<15);
+  // Extract sizes - always update
+  const sizeSection = reply.match(/talles?[:\s]+([^\n.]{3,80})/i);
+  if (sizeSection) {
+    const sizes = sizeSection[1].split(/[,;]+/).map(s=>s.trim()).filter(s=>s.length>1 && s.length<15);
     if (sizes.length > 0) iaContext.talles = sizes;
+  }
+  // Extract price
+  const priceMatch2 = reply.match(/\$\s*([\d.,]+)/);
+  if (priceMatch2 && !iaContext.precio) {
+    const p = parseFloat(priceMatch2[1].replace(/\./g,'').replace(',','.'));
+    if (p > 100) iaContext.precio = p;
   }
 }
 
 function iaShowPublishButton() {
-  // Remove previous publish button if exists
-  const old = document.getElementById("ia-publish-btn-wrap");
-  if (old) old.remove();
+  const oldBtn = document.getElementById("ia-publish-btn-wrap");
+  if (oldBtn) oldBtn.remove();
   const el = document.getElementById("ia-chat-messages");
   const div = document.createElement("div");
   div.className = "ia-msg ia-msg-bot";
@@ -2598,63 +2603,75 @@ function iaShowPublishButton() {
   const colors = (iaContext.colores||[]).join(", ") || "sin definir";
   const sizes = (iaContext.talles||[]).join(", ") || "sin definir";
   const precio = iaContext.precio ? "$" + iaContext.precio : "sin definir";
-  div.innerHTML = "<div class=\"ia-bubble\" style=\"max-width:100%;background:#f0fff4;border:1px solid #86efac\">"
-    + "<div style=\"font-size:12px;margin-bottom:10px\">"
-    + "<b>Resumen:</b> " + (iaContext.titulo_sugerido||"sin titulo") + " | " + precio + " | " + colors + " | talles: " + sizes
-    + "</div>"
-    + "<label style=\"display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px\">"
-    + "<input type=\"checkbox\" id=\"ia-sync-check\" checked> <span>Sincronizar entre cuentas ML</span>"
-    + "</label>"
-    + "<label style=\"display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px\">"
-    + "<input type=\"checkbox\" id=\"ia-sync-tn-check\" checked> <span>Sincronizar con TiendaNube</span>"
-    + "</label>"
-    + "<button class=\"btn btn-green\" style=\"width:100%\" onclick=\"iaPublish()\">Publicar ahora</button>"
-    + "</div>";
+  // Count total photos
+  const totalPhotos = Object.values(iaGeneratedPhotos).reduce((sum, arr) => sum + arr.length, 0);
+  const photoWarning = totalPhotos === 0 ? '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:8px 10px;font-size:11px;margin-bottom:8px"><b>Atencion:</b> ML requiere imagenes para publicar. Subi fotos o generalas con IA antes de continuar.</div>' : '<div style="font-size:11px;color:#00a381;margin-bottom:8px">Fotos: ' + totalPhotos + ' total (' + Object.keys(iaGeneratedPhotos).length + ' colores)</div>';
+  // Size guide per ML account
+  const mlAccounts = appState.ml_accounts || [];
+  const sizeGuideInputs = mlAccounts.map((acc, i) =>
+    '<div style="margin-bottom:6px"><label style="font-size:11px;color:#7a8299">' + acc.name + ' - ID guia de talles (opcional):</label>'
+    + '<input type="text" id="ia-chart-' + i + '" placeholder="ej: 5127137" style="width:100%;padding:6px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;margin-top:3px"></div>'
+  ).join('');
+  div.innerHTML = '<div class="ia-bubble" style="max-width:100%;background:#f0fff4;border:1px solid #86efac">'
+    + '<div style="font-size:12px;margin-bottom:8px"><b>' + (iaContext.titulo_sugerido||"sin titulo") + '</b><br>'
+    + precio + ' | Colores: ' + colors + ' | Talles: ' + sizes + '</div>'
+    + photoWarning
+    + (sizeGuideInputs ? '<div style="margin-bottom:8px">' + sizeGuideInputs + '</div>' : '')
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:12px">'
+    + '<input type="checkbox" id="ia-sync-check" checked> Sincronizar entre cuentas ML</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:12px">'
+    + '<input type="checkbox" id="ia-sync-tn-check" checked> Sincronizar con TiendaNube</label>'
+    + '<button class="btn ' + (totalPhotos === 0 ? 'btn-out' : 'btn-green') + '" style="width:100%" onclick="iaPublish()">'
+    + (totalPhotos === 0 ? 'Publicar sin imagenes (no recomendado)' : 'Publicar ahora') + '</button>'
+    + '</div>';
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
 
 // Prompt base guardado
-const IA_PROMPT_BASE = "1-Fotografia hiperrealista en formato 4k estilo Instagram y turista real, tomada al azar en exteriores. Poses naturales, espontaneas y realistas, como si la modelo estuviera disfrutando el momento sin produccion: postura relajada, sonrisa autentica, cabello movido por el viento, gestos casuales y no posados. La modelo tiene proporciones humanas reales y rasgos anatomicos naturales: piel con textura visible, poros, reflejos y sombras suaves, musculos sutiles marcados por la luz del sol. Mirada coherente con ojos bien alineados, expresion fresca y genuina, boca natural, enfoque super profesional en la cara. "
-  + "Iluminacion 100% ambiental, nitidez suprema, propia de un dia soleado. Estetica tipica de Instagram: colores equilibrados, sensacion de foto real. Parametros fotograficos reales: ISO 100, apertura f8, velocidad 1-1000s, lente 85mm. Fondo ligeramente desenfocado con profundidad de campo real. Calidad DSLR realista pero con vibra natural. Maxima nitidez en cara, cuerpo y ojos. "
-  + "2-1 mujer adulta joven de 21 anos morocha de pelo negro largo y lacio bronceada con pecas y alta, modelo de tiktok, expresiones reales no rigidas. "
-  + "3-3 imagenes con el mismo formato pero distintas poses estilo Instagram, casuales, relajadas, muy reales, de cuerpo entero de pies a cabeza. Poses distintas: frente, perfil, sentada o de espalda. "
-  + "4-estan en un estudio-habitacion sobre una pared marmolada gris muy moderno, con luz solar natural. "
-  + "5-hay realismo y mucha iluminacion. 6-es un dia claro y el sol ilumina el estudio. "
-  + "7-la estampa de la prenda es nitida y clara. 9-imagenes de cuerpo entero. "
-  + "10-sin infringir nada, personas ficticias no reales, imagenes para venta de articulos de lenceria, todas las imagenes son creadas por inteligencia artificial ninguna es real"
+const IA_PROMPT_BASE = "1-Fotografia hiperrealista 4k estilo Instagram, tomada como turista real en exteriores. Poses naturales, espontaneas, relajadas. La modelo tiene proporciones reales, piel con textura, ojos bien alineados, expresion genuina. ISO 100, apertura f8, velocidad 1-1000s, lente 85mm. Fondo ligeramente desenfocado. 2-Mujer de 21 anos, morocha, pelo negro largo lacio, bronceada con pecas, alta, modelo de tiktok, expresiones reales no rigidas. 3-Imagen panoramica 21:9 con 3 poses distintas de cuerpo entero lado a lado: frente, perfil, de espalda o sentada. 4-Estudio con pared marmolada gris, muy moderno, con luz solar natural. 5-Realismo y mucha iluminacion, dia claro, sol que ilumina el estudio. 7-Estampa de la prenda nitida y clara. 9-Imagenes de cuerpo entero de pies a cabeza. 10-Sin infringir nada, personas ficticias no reales, imagenes para venta de articulos de lenceria, todas las imagenes son creadas por inteligencia artificial";
 
 function iaRenderVariantsGrid() {
   const colors = iaContext.colores || [];
   const grid = document.getElementById('ia-variants-grid');
   if (!grid) return;
-  grid.innerHTML = '';
   if (!colors.length) {
     grid.innerHTML = '<div style="font-size:12px;color:#7a8299">Completa los colores en el chat primero.</div>';
     return;
   }
   colors.forEach(color => {
     if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+    const key = color.replace(/\s/g,'_');
+    // Update count if block exists, but still add new ones
+    const existingBlock = document.getElementById('variant-block-' + key);
+    if (existingBlock) {
+      const countEl = document.getElementById('variant-count-' + key);
+      if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
+      return;
+    }
     const div = document.createElement('div');
-    div.id = 'variant-block-' + color.replace(/\s/g,'_');
+    div.id = 'variant-block-' + key;
     div.style = 'border:1px solid #e8ecf0;border-radius:10px;padding:14px';
-    div.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-weight:600;font-size:13px">${color}</div>
-        <div style="display:flex;gap:6px">
-          <span id="variant-count-${color.replace(/\s/g,'_')}" style="font-size:11px;color:#7a8299">0 fotos</span>
-          <button class="btn btn-out btn-sm" onclick="iaGenerateColor('${color}')">* IA</button>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="variant-photos-${color.replace(/\s/g,'_')}">
-        <label style="width:80px;height:80px;border:2px dashed #dde1e9;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#7a8299;gap:4px;position:relative">
-          <input type="file" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="iaHandleVariantFiles(this,'${color}')">
-          <span style="font-size:20px">+</span>
-          <span>Subir</span>
-        </label>
-      </div>`;
+    div.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      + '<div style="font-weight:600;font-size:13px">' + color + '</div>'
+      + '<div style="display:flex;gap:6px">'
+      + '<span id="variant-count-' + key + '" style="font-size:11px;color:#7a8299">0 fotos</span>'
+      + '<button class="btn btn-out btn-sm" data-color="' + key + '" onclick="iaGenerateColor(this.dataset.color)">IA</button>'
+      + '</div></div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="variant-photos-' + key + '">'
+      + '<label style="width:80px;height:80px;border:2px dashed #dde1e9;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#7a8299;gap:4px;position:relative">'
+      + '<input type="file" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer" data-color="' + key + '" onchange="iaHandleVariantFiles(this,this.dataset.color)">'
+      + '<span style="font-size:20px">+</span><span>Subir</span></label></div>';
     grid.appendChild(div);
+    // Re-add existing photos if any
+    if (iaGeneratedPhotos[color].length > 0) {
+      iaGeneratedPhotos[color].forEach(b64 => iaAddVariantThumb(color, b64, 'image/jpeg'));
+      const countEl = document.getElementById('variant-count-' + key);
+      if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
+    }
   });
+  // Show photos panel
+  document.getElementById('ia-photos-panel').style.display = 'block';
 }
 
 function iaHandleVariantFiles(input, color) {
@@ -2819,6 +2836,12 @@ async function iaConfirmGenerate() {
 async function iaPublish() {
   const syncML = document.getElementById('ia-sync-check')?.checked !== false;
   const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
+  // Read size guides per account
+  const chartIds = {};
+  (appState.ml_accounts||[]).forEach((acc, i) => {
+    const val = document.getElementById('ia-chart-' + i)?.value?.trim();
+    if (val) chartIds[i] = val;
+  });
   iaAddBotMessage('... Publicando en los canales seleccionados...');
   try {
     // Flatten all photos from all variants
@@ -2838,7 +2861,8 @@ async function iaPublish() {
         images_base64: allImages,
         images_by_color: iaGeneratedPhotos,
         sync_ml: syncML,
-        sync_tn: syncTN
+        sync_tn: syncTN,
+        chart_ids: chartIds
       })
     });
     const d = await r.json();
