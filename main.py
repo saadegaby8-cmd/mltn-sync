@@ -1731,6 +1731,11 @@ Analizá esta imagen de un producto y respondé SOLO con JSON válido (sin markd
         )
         
         data = response.json()
+        print(f"Anthropic response status={response.status_code} keys={list(data.keys())}")
+        if "error" in data:
+            return {"ok": False, "error": f"Anthropic API: {data['error'].get('message', str(data['error']))}"}
+        if "content" not in data:
+            return {"ok": False, "error": f"Respuesta inesperada: {str(data)[:200]}"}
         text = data["content"][0]["text"].strip()
         import json as json_mod
         clean = text.replace("```json", "").replace("```", "").strip()
