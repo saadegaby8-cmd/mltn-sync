@@ -2338,7 +2338,7 @@ async function iaAnalyze() {
       // Primer mensaje del asistente
       await iaChatWithAI("El vendedor subió una imagen. Iniciá la conversación presentándote brevemente y hacé la primera pregunta más importante para completar la publicación.");
     } else {
-      iaAddBotMessage('❌ Error al analizar: ' + (d.error || 'desconocido'));
+      iaAddBotMessage('❌ Error al analizar: ' + (d.error || 'desconocido') + ' | respuesta: ' + JSON.stringify(d));
     }
   } catch(e) {
     iaAddBotMessage('❌ Error: ' + e.message);
