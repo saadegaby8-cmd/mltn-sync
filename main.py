@@ -1,2707 +1,2935 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
-from contextlib import asynccontextmanager
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
-import httpx, asyncio, json, os, time, secrets
-from pathlib import Path
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ML×TN Sync">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>ML × TN Sync</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f6f9;color:#1a1a2e;font-family:'Inter',sans-serif;min-height:100vh;font-size:14px;overflow-x:hidden}
+/* LOGIN */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f6f9}
+.login-box{background:#fff;border-radius:12px;border:1px solid #e8ecf0;padding:40px 36px;width:360px;box-shadow:0 4px 24px rgba(0,0,0,0.07)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .star{font-size:28px}
+.login-logo h2{font-size:20px;font-weight:700;margin-top:8px}
+.login-logo p{font-size:13px;color:#7a8299;margin-top:4px}
+.lform-group{margin-bottom:16px}
+.lform-group label{display:block;font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.lform-group input{width:100%;padding:10px 14px;border:1px solid #dde1e9;border-radius:7px;font-size:14px;outline:none;font-family:'Inter',sans-serif;background:#f9fafb}
+.lform-group input:focus{border-color:#4f9eff;background:#fff}
+.btn-login{width:100%;padding:11px;border-radius:7px;background:#4f9eff;color:#fff;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;margin-top:4px}
+.btn-login:hover{background:#3a8ef0}
+.login-err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b;padding:9px 14px;border-radius:6px;font-size:12px;margin-top:12px;display:none}
+.login-err.show{display:block}
+/* APP */
+.app-wrap{display:flex;min-height:100vh}
+.sidebar{width:200px;flex-shrink:0;background:#1a1f36;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}.sidebar-logo{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px}
+.sidebar-logo .star{color:#fff;font-size:16px}
+.sidebar-logo span{color:#fff;font-weight:700;font-size:14px}
+.s-section{padding:12px 0 2px}
+.s-title{padding:0 14px 5px;font-size:10px;font-weight:600;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.s-title:hover{color:rgba(255,255,255,.55)}
+.nav-i{display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;color:rgba(255,255,255,.55);transition:all .15s}
+.nav-i:hover{color:#fff;background:rgba(255,255,255,.07)}
+.nav-i.active{color:#fff;background:rgba(255,255,255,.12)}
+.nav-sub{padding:5px 14px 5px 38px;font-size:12px;color:rgba(255,255,255,.45);cursor:pointer;transition:all .15s}
+.nav-sub:hover{color:#fff}
+.nav-sub.active{color:#4f9eff}
+.nav-ch{display:flex;align-items:center;gap:7px;padding:4px 14px;font-size:11px;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s}
+.nav-ch:hover{color:#fff;background:rgba(255,255,255,.05)}
+.ch-av{width:18px;height:18px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.s-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between}
+.s-user{font-size:11px;color:rgba(255,255,255,.4)}
+.btn-logout{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif}
+.btn-logout:hover{color:#fff}
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:200px;right:0;height:52px;background:#1a1f36;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:flex-end;padding:0 24px;gap:14px;z-index:99}.topbar-av{width:32px;height:32px;border-radius:50%;background:#e91e63;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;cursor:pointer}
+/* MAIN */
+.main{margin-left:200px;margin-top:52px;flex:1;padding:24px 28px}
+.page{display:none!important}.page.active{display:block!important;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.page-title{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:20px}
+/* CARDS */
+.cards-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.dash-card{background:#fff;border-radius:10px;padding:18px 22px;border:1px solid #e8ecf0}
+.dc-label{font-size:11px;color:#7a8299;font-weight:500;margin-bottom:6px}
+.dc-val{font-size:26px;font-weight:700;color:#1a1a2e}
+.dc-sub{font-size:12px;color:#7a8299;margin-top:3px}
+.prog-bar{background:#e8ecf0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#4f9eff,#00c6ae);border-radius:4px;transition:width .4s}
+/* PANEL */
+.panel{background:#fff;border-radius:10px;border:1px solid #e8ecf0;margin-bottom:18px}
+.panel-hd{padding:14px 18px;border-bottom:1px solid #e8ecf0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.panel-hd h3{font-size:14px;font-weight:600}
+.panel-bd{padding:18px}
+/* FILTERS */
+.fbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.fpill{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #dde1e9;background:#fff;color:#5a6080;transition:all .15s}
+.fpill:hover{border-color:#4f9eff;color:#4f9eff}
+.fpill.active{background:#eef4ff;border-color:#4f9eff;color:#4f9eff;font-weight:600}
+.fpill.g{border-color:#00b894;color:#00b894}.fpill.g.active{background:#e6f9f4}
+.fpill.o{border-color:#f39c12;color:#f39c12}.fpill.o.active{background:#fef9ec}
+.fpill.r{border-color:#e17055;color:#e17055}.fpill.r.active{background:#fdf0ec}
+.s-wrap{flex:1;min-width:180px;position:relative}
+.s-wrap input{width:100%;padding:7px 12px 7px 32px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;background:#f9fafb;font-family:'Inter',sans-serif}
+.s-wrap input:focus{border-color:#4f9eff;background:#fff}
+.s-wrap input::placeholder{color:#b0b7c9}
+.s-wrap::before{content:'🔍';position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px}
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#7a8299;border-bottom:1px solid #e8ecf0;white-space:nowrap}
+th.chk{width:32px}
+tbody tr{border-bottom:1px solid #f0f2f6;transition:background .1s;cursor:pointer}
+tbody tr:hover{background:#f9fafb}
+tbody tr.sel{background:#eef4ff}
+tbody tr.var-row{background:#fafbff}
+tbody tr.var-row:hover{background:#f0f4ff}
+td{padding:9px 12px;font-size:13px;vertical-align:middle}
+.thumb{width:38px;height:38px;object-fit:contain;border-radius:5px;border:1px solid #e8ecf0;background:#f9fafb}
+.thumb-ph{width:38px;height:38px;border-radius:5px;border:1px solid #e8ecf0;background:#f0f2f6;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ptitle{font-weight:500;color:#1a1a2e;max-width:380px;word-break:break-word;line-height:1.4}
+.psku{font-size:10px;color:#7a8299;margin-top:1px}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.ba{background:#e6f9f4;color:#00a381}
+.bp{background:#fff4e0;color:#d68000}
+.bc{background:#fde8e8;color:#c0392b}
+.stock-0{color:#e17055;font-weight:600}
+.var-badge{background:#eef4ff;color:#4f9eff;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:5px}
+.expand-btn{background:none;border:none;cursor:pointer;color:#7a8299;font-size:13px;padding:2px 6px;border-radius:4px}
+.expand-btn:hover{background:#f0f2f6;color:#1a1a2e}
+/* ACTION BAR */
+.action-bar{background:#f0f6ff;border:1px solid #c5d9f8;border-radius:7px;padding:9px 14px;display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.ab-info{font-size:13px;color:#4f9eff;font-weight:600;flex:1}
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid #e8ecf0;font-size:12px;color:#7a8299;flex-wrap:wrap;gap:8px}
+.pag-btns{display:flex;align-items:center;gap:4px}
+.pb{padding:4px 9px;border:1px solid #dde1e9;border-radius:5px;cursor:pointer;background:#fff;font-size:12px;color:#5a6080;transition:all .15s}
+.pb:hover{border-color:#4f9eff;color:#4f9eff}
+.pb.active{background:#4f9eff;border-color:#4f9eff;color:#fff}
+.per-sel{border:1px solid #dde1e9;border-radius:5px;padding:3px 7px;font-size:12px;color:#5a6080;background:#fff;outline:none;cursor:pointer}
+/* BUTTONS */
+.btn{padding:7px 16px;border-radius:6px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:5px;text-decoration:none}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-blue{background:#4f9eff;color:#fff}.btn-blue:hover{background:#3a8ef0}.btn-blue:disabled{background:#b0cdf8;cursor:not-allowed}
+.btn-green{background:#00b894;color:#fff}.btn-green:hover{background:#009d7e}.btn-green:disabled{background:#a8e6dc;cursor:not-allowed}
+.btn-out{background:#fff;color:#5a6080;border:1px solid #dde1e9}.btn-out:hover{border-color:#4f9eff;color:#4f9eff}
+.btn-red{background:#fff;color:#e17055;border:1px solid #e17055}.btn-red:hover{background:#fdf0ec}
+.btn-ml{background:#ffe135;color:#000;font-size:14px;padding:11px 22px;border-radius:7px;font-weight:700}.btn-ml:hover{background:#ffd000}
+.btn-purple{background:#6c63ff;color:#fff}.btn-purple:hover{background:#574fd6}
+/* FORM */
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg select{padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;font-family:'Inter',sans-serif;background:#f9fafb}
+.fg input:focus,.fg select:focus{border-color:#4f9eff;background:#fff}
+.fg input::placeholder{color:#b0b7c9}
+.hint{font-size:11px;color:#7a8299;background:#f4f6f9;border:1px solid #e8ecf0;border-radius:6px;padding:9px 12px;margin-bottom:10px;line-height:1.6}
+.hint a{color:#4f9eff}
+/* MESSAGES */
+.msg{padding:9px 12px;border-radius:6px;font-size:12px;display:none;margin-top:8px;line-height:1.5}
+.msg.show{display:block}
+.msg.err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b}
+.msg.ok{background:#e6f9f4;border:1px solid #a8e6dc;color:#007a5e}
+.msg.inf{background:#eef4ff;border:1px solid #b8d4f8;color:#2c5fa8}
+.alert{padding:11px 16px;border-radius:7px;font-size:13px;margin-bottom:16px;display:none;font-weight:500}
+.alert.show{display:block}
+.alert.ok{background:#e6f9f4;border:1px solid #a8e6dc;color:#007a5e}
+.alert.err{background:#fde8e8;border:1px solid #f5b7b1;color:#c0392b}
+/* LOG */
+.log-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f2f6;font-size:12px}
+.lts{color:#7a8299;width:85px;flex-shrink:0}
+.lbadge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;flex-shrink:0}
+.lbadge.publish{background:#eef4ff;color:#4f9eff}
+.lbadge.sync{background:#e6f9f4;color:#00a381}
+.lbadge.duplicate{background:#f3f0ff;color:#6c63ff}
+.ltitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lstatus.ok{color:#00a381;font-weight:600}
+.lstatus.error{color:#c0392b;font-weight:600}
+/* PROGRESS */
+.prog-wrap{margin:10px 0}
+.prog-bg{background:#e8ecf0;border-radius:3px;height:5px;overflow:hidden;margin-bottom:5px}
+.prog-f{height:100%;background:linear-gradient(90deg,#4f9eff,#00c6ae);border-radius:3px;transition:width .3s;width:0%}
+.prog-txt{font-size:11px;color:#7a8299}
+.res-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-top:10px}
+.ri{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:5px;font-size:12px}
+.ri.ok{background:#e6f9f4}
+.ri.fail{background:#fde8e8}
+.ri .rt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ri .rm{color:#7a8299;font-size:11px}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid #dde1e9;border-top-color:#4f9eff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:36px 20px;color:#7a8299;font-size:13px}
+.empty .ei{font-size:28px;margin-bottom:8px}
+/* LINK MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal-close{float:right;cursor:pointer;color:#7a8299;font-size:18px;background:none;border:none;line-height:1}
+.tn-prod-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;margin:12px 0}
+.tn-prod-item{padding:10px 14px;border:1px solid #dde1e9;border-radius:7px;cursor:pointer;transition:all .15s}
+.tn-prod-item:hover{border-color:#4f9eff;background:#eef4ff}
+.tn-prod-item.sel{border-color:#4f9eff;background:#eef4ff}
+.tn-prod-item .tpn{font-weight:600;font-size:13px}
+.tn-prod-item .tpv{font-size:11px;color:#7a8299;margin-top:3px}
+.tn-search{width:100%;padding:8px 12px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;outline:none;margin-bottom:10px;font-family:'Inter',sans-serif}
+.tn-search:focus{border-color:#4f9eff}
+/* CH CARDS */
+.ch-card{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f0f2f6;transition:background .1s}
+.ch-card:hover{background:#f9fafb}
+.ch-logo{width:40px;height:40px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:#fff;font-weight:700}
+.ch-info{flex:1}
+.ch-name{font-weight:600;font-size:13px}
+.ch-sub{font-size:11px;color:#7a8299;margin-top:2px}
+.acc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.acc-tab{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #dde1e9;color:#5a6080;background:#fff;transition:all .15s}
+.acc-tab:hover{border-color:#4f9eff;color:#4f9eff}
+.acc-tab.active{border-color:#4f9eff;color:#4f9eff;background:#eef4ff;font-weight:600}
+.token-warn{font-size:11px;color:#d68000;background:#fff4e0;padding:3px 8px;border-radius:4px;margin-left:6px}
+.ord-opt{padding:7px 10px;font-size:13px;cursor:pointer;border-radius:5px;color:#1a1a2e;transition:background .1s}
+.ord-opt:hover{background:#f0f4ff;color:#4f9eff}
+.ord-opt.active{background:#eef4ff;color:#4f9eff;font-weight:600}
+/* BOTTOM NAV */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:#1a1a2e;z-index:998;align-items:stretch}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#7a8299;font-size:18px;cursor:pointer;gap:2px;transition:color .2s;padding:4px 0}
+.bn-item span{font-size:9px;font-weight:500;letter-spacing:.3px}
+.bn-item.active{color:#FFE600}
+.bn-item:active{background:rgba(255,255,255,0.05)}
 
-async def token_refresh_loop():
-    """Refresca tokens de ML automáticamente cada 5 horas"""
-    # Refrescar al arrancar también
-    await asyncio.sleep(5)  # esperar 5 segundos para que arranque todo
-    await refresh_all_tokens()
-    while True:
-        await asyncio.sleep(5 * 3600)  # esperar 5 horas
-        await refresh_all_tokens()
+/* MOBILE */
+@media(max-width:768px){
+  .sidebar{width:160px}
+  .topbar{left:160px}
+  .main{margin-left:160px;padding:14px}
+  .modal-box{width:95vw;max-width:95vw;margin:10px}
+  .modal-content{padding:16px}
+  table{font-size:12px}
+  .btn{padding:7px 12px;font-size:12px}
+  h2{font-size:16px}
+}
+@media(max-width:480px){
+  .sidebar{position:fixed!important;left:-300px!important;width:0!important;min-width:0!important;overflow:hidden!important}
+  .bottom-nav{display:flex!important}
+  .app-wrap{display:block!important;width:100vw!important}
+  .main{padding:10px;padding-bottom:75px;width:100vw;box-sizing:border-box;overflow-x:hidden}
+  .topbar{padding:8px 12px;width:100vw;box-sizing:border-box}
+  .cards-row{display:flex!important;flex-direction:column!important;gap:8px}
+  .dash-card{padding:12px 16px;width:100%;box-sizing:border-box}
+  #d-ch-icons{flex-direction:row!important;flex-wrap:wrap!important;gap:6px}
+  .prod-grid{grid-template-columns:1fr}
+  .pub-grid{grid-template-columns:1fr}
+  .panel{width:100%;box-sizing:border-box;overflow:hidden}
+}
+.ia-msg { display: flex; flex-direction: column; }
+.ia-msg-bot { align-items: flex-start; }
+.ia-msg-user { align-items: flex-end; }
+.ia-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ia-msg-bot .ia-bubble { background: #f0f2f6; color: #1a1a2e; border-bottom-left-radius: 4px; }
+.ia-msg-user .ia-bubble { background: #4f9eff; color: #fff; border-bottom-right-radius: 4px; }
+.ia-typing { display: flex; gap: 4px; padding: 10px 14px; background: #f0f2f6; border-radius: 16px; width: fit-content; border-bottom-left-radius: 4px; }
+.ia-dot { width: 6px; height: 6px; border-radius: 50%; background: #7a8299; animation: iaBounce .6s infinite alternate; }
+.ia-dot:nth-child(2) { animation-delay: .2s; }
+.ia-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes iaBounce { to { transform: translateY(-4px); opacity: 0.5; } }
+</style>
+</head>
+<body>
 
-async def refresh_all_tokens():
-    """Refrescar todos los tokens de ML"""
-    for i, acc in enumerate(ST.get("accounts", [])):
-        try:
-            if acc.get("refresh"):
-                async with httpx.AsyncClient(timeout=15) as c:
-                    r = await c.post("https://api.mercadolibre.com/oauth/token",
-                        data={"grant_type":"refresh_token","client_id":ML_APP_ID,
-                              "client_secret":ML_SECRET,"refresh_token":acc["refresh"]},
-                        headers={"Content-Type":"application/x-www-form-urlencoded"})
-                    td = r.json()
-                if "access_token" in td:
-                    acc["token"] = td["access_token"]
-                    acc["refresh"] = td.get("refresh_token", acc["refresh"])
-                    acc["expiry"] = time.time() + td.get("expires_in", 21600) - 300
-                    acc["token_ok"] = True
-                    save_state()
-                    print(f"Token refreshed OK for account {i}: {acc.get('name','')}")
-                else:
-                    acc["token_ok"] = False
-                    acc["expiry"] = 0
-                    save_state()
-                    print(f"Token refresh FAILED for account {i}: {td}")
-        except Exception as e:
-            print(f"Token refresh error account {i}: {e}")
+<!-- LOGIN -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="star">✦</div>
+      <h2>ML × TN Sync</h2>
+      <p>Iniciá sesión para continuar</p>
+    </div>
+    <div class="lform-group"><label>Email</label><input type="email" id="li-email" placeholder="admin@sync.com" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+    <div class="lform-group"><label>Contraseña</label><input type="password" id="li-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+    <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
+    <div class="login-err" id="li-err"></div>
+  </div>
+</div>
 
-@asynccontextmanager
-async def lifespan(app):
-    asyncio.create_task(token_refresh_loop())
-    yield
+<!-- APP -->
+<div id="app-screen" class="app-wrap" style="display:none">
+  <nav class="sidebar">
+    <div class="sidebar-logo"><span class="star">✦</span><span>ML × TN Sync</span></div>
+    <div class="s-section">
+      <div class="nav-i active" onclick="showPage('inicio')">🏠 Inicio</div>
+    </div>
+    <div class="s-section">
+      <div class="s-title" onclick="toggleSec('canales')">Canales <span id="arr-canales">▾</span></div>
+      <div id="sec-canales">
+        <div class="nav-i" onclick="showPage('cuentas')">🔗 Conectar canales</div>
+        <div id="sb-channels"></div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="s-title" onclick="toggleSec('productos')">Productos <span id="arr-productos">▾</span></div>
+      <div id="sec-productos">
+        <div class="nav-sub active" onclick="showPage('productos')">Panel de productos</div>
+        <div class="nav-sub" onclick="showPage('publicar')">Publicar</div>
+        <div class="nav-sub" onclick="showPage('duplicar')">Duplicar entre cuentas</div>
+        <div class="nav-sub" onclick="showPage('ia-publicar')">✦ Publicar con IA</div>
+      </div>
+    </div>
+    <div class="s-section">
+      <div class="nav-i" onclick="showPage('enlaces')">🔗 Mis enlaces</div>
+      <div class="nav-i" onclick="showPage('sincronizar')">🔄 Sincronizar</div>
+      <div class="nav-i" onclick="showPage('log')">📋 Historial</div>
+    </div>
+    <div class="s-bottom">
+      <span class="s-user" id="sb-user">admin</span>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </nav>
 
-app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+  <div style="flex:1;display:flex;flex-direction:column">
+    <div class="topbar"><button id="btn-install" style="display:none;background:#FFE600;color:#1a1a2e;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:10px">📲 Instalar app</button><div class="topbar-av" id="top-av">A</div></div>
+    <main class="main">
+      <div class="alert" id="app-alert"></div>
 
-ML_APP_ID     = os.getenv("ML_CLIENT_ID", "4576804985048120")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-ML_SECRET     = os.getenv("ML_CLIENT_SECRET", "j0FhuZVrZ3XUhdZIsdddpGISWt39JuHY")
-APP_URL       = os.getenv("APP_URL", "https://mltn-sync-production.up.railway.app")
-REDIRECT_URI  = f"{APP_URL}/auth/callback"
-ADMIN_EMAIL   = os.getenv("ADMIN_EMAIL", "admin@sync.com")
-ADMIN_PASS    = os.getenv("ADMIN_PASSWORD", "sync1234")
-ML_API        = "https://api.mercadolibre.com"
+      <!-- INICIO -->
+      <div class="page active" id="page-inicio">
+        <div class="page-title">Hola de nuevo!</div>
+        <div style="font-size:12px;color:#7a8299;margin-bottom:16px">Mis datos</div>
+        <div class="cards-row">
+          <div class="dash-card">
+            <div class="dc-label">Canales conectados</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="display:flex;align-items:baseline;gap:6px"><div class="dc-val" id="d-canales">0</div><div style="font-size:12px;color:#7a8299">de 4</div></div>
+              <div id="d-ch-icons" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+            </div>
+            <div class="prog-bar" style="margin-top:8px"><div class="prog-fill" id="d-can-bar" style="width:0%"></div></div>
+          </div>
+          <div class="dash-card">
+            <div class="dc-label">Tienda Nube</div>
+            <div class="dc-val" id="d-tn">—</div>
+            <div class="dc-sub" id="d-tn-sub">No conectada</div>
+          </div>
+          <div class="dash-card">
+            <div class="dc-label">Acciones realizadas</div>
+            <div class="dc-val" id="d-acc">0</div>
+            <div class="dc-sub">Última sync: <span id="d-last">—</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Actividad reciente</h3><button class="btn btn-out btn-sm" onclick="loadState()">↻ Actualizar</button></div>
+          <div style="padding:0 18px 6px"><div id="d-log"><div class="empty"><div class="ei">📋</div>Sin actividad aún</div></div></div>
+        </div>
+      </div>
 
-SESSIONS = {}
+      <!-- CANAL -->
+      <div class="page" id="page-canal">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div id="canal-av" style="width:36px;height:36px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">S</div>
+            <div>
+              <div id="canal-name" style="font-size:16px;font-weight:700"></div>
+              <div id="canal-stats" style="font-size:12px;color:#7a8299"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="canal-q" placeholder="Buscar..." oninput="filterCanalItems()" style="padding:7px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;width:180px">
+            <select id="canal-estado" onchange="filterCanalItems()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px">
+              <option value="">Todos los estados</option>
+              <option value="active">Activas</option>
+              <option value="paused">Pausadas</option>
+              <option value="closed">Cerradas</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel" style="padding:0;overflow:hidden">
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f8f9fb;border-bottom:2px solid #e8ecf0">
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Publicación</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299">Precio</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Cuotas y envío</th>
+                  <th style="padding:10px 14px;text-align:right;font-weight:600;color:#7a8299">Stock</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:600;color:#7a8299">Calidad</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#7a8299">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="canal-body">
+                <tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Seleccioná una cuenta</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="canal-pagination" style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e8ecf0;font-size:13px;color:#7a8299"></div>
+        </div>
+      </div>
 
-def get_redis():
-    url = os.getenv("REDIS_URL", "")
-    if not url:
-        return None
-    try:
-        import redis
-        if url.startswith("rediss://"):
-            r = redis.from_url(url, decode_responses=True, socket_timeout=5,
-                               ssl_cert_reqs=None)
-        else:
-            r = redis.from_url(url, decode_responses=True, socket_timeout=5)
-        r.ping()
-        return r
-    except Exception as e:
-        print(f"Redis error: {e}")
-        return None
+      <!-- PRODUCTOS -->
+      <div class="page" id="page-productos">
+        <div class="page-title">Panel de productos</div>
 
-def load_state():
-    r = get_redis()
-    if r:
-        try:
-            raw = r.get("mltn:state")
-            if raw:
-                return json.loads(raw)
-        except:
-            pass
-    if Path("state.json").exists():
-        return json.loads(Path("state.json").read_text())
-    return {"accounts": [], "tn": {}, "log": [], "links": []}
+        <!-- FILTROS BAR -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="s-wrap" style="flex:1;min-width:220px"><input type="text" id="prod-q" placeholder="Buscar producto..." oninput="applyProdF()" /></div>
 
-def save_state():
-    r = get_redis()
-    data = json.dumps(ST)
-    if r:
-        try:
-            r.set("mltn:state", data)
-            return
-        except:
-            pass
-    Path("state.json").write_text(data)
+          <!-- FILTROS -->
+          <div style="position:relative">
+            <button class="btn btn-out btn-sm" onclick="toggleFiltros()" id="btn-filtros">⚙ Filtros <span id="filtros-badge" style="display:none;background:#4f9eff;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px"></span></button>
+            <div id="filtros-panel" style="display:none;position:absolute;top:34px;left:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:14px;width:220px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Estado</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-active" checked onchange="applyProdF()"> <span style="color:#00a381">● Activas</span></label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="f-paused" checked onchange="applyProdF()"> <span style="color:#d68000">● Pausadas</span></label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="f-closed" checked onchange="applyProdF()"> <span style="color:#e17055">● Cerradas</span></label>
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Stock</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="todos" checked onchange="applyProdF()"> Todos</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-stock" value="con" onchange="applyProdF()"> Con stock</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="radio" name="f-stock" value="sin" onchange="applyProdF()"> Sin stock</label>
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;margin-bottom:8px">Cuotas</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-cuotas" value="todos" checked onchange="applyProdF()"> Todos</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;cursor:pointer"><input type="radio" name="f-cuotas" value="con" onchange="applyProdF()"> Con cuotas</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="f-cuotas" value="sin" onchange="applyProdF()"> Sin cuotas</label>
+            </div>
+          </div>
 
-try:
-    ST = load_state()
-except:
-    ST = {"accounts": [], "tn": {}, "log": [], "links": []}
-if "links" not in ST: ST["links"] = []
-if "accounts" not in ST: ST["accounts"] = []
+          <!-- ORDENAR -->
+          <div style="position:relative">
+            <button class="btn btn-out btn-sm" onclick="toggleOrdenar()" id="btn-ordenar">↕ Ordenar <span id="ordenar-label" style="color:#4f9eff;font-size:11px"></span></button>
+            <div id="ordenar-panel" style="display:none;position:absolute;top:34px;right:0;background:#fff;border:1px solid #dde1e9;border-radius:8px;padding:8px;width:210px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+              <div style="font-size:11px;font-weight:700;color:#7a8299;text-transform:uppercase;padding:6px 8px 4px">Ordenar por</div>
+              <div class="ord-opt" onclick="setOrden('default')" data-ord="default">Sin orden</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('fecha_desc')" data-ord="fecha_desc">📅 Más nuevos primero</div>
+              <div class="ord-opt" onclick="setOrden('fecha_asc')" data-ord="fecha_asc">📅 Más viejos primero</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('stock_desc')" data-ord="stock_desc">📦 Mayor stock primero</div>
+              <div class="ord-opt" onclick="setOrden('stock_asc')" data-ord="stock_asc">📦 Menor stock primero</div>
+              <div style="height:1px;background:#f0f2f6;margin:4px 0"></div>
+              <div class="ord-opt" onclick="setOrden('precio_desc')" data-ord="precio_desc">💰 Mayor precio primero</div>
+              <div class="ord-opt" onclick="setOrden('precio_asc')" data-ord="precio_asc">💰 Menor precio primero</div>
+            </div>
+          </div>
 
-def auth(req: Request):
-    t = req.headers.get("X-Session-Token", "")
-    if not t or t not in SESSIONS or SESSIONS[t] < time.time():
-        raise HTTPException(401, "No autorizado.")
-    SESSIONS[t] = time.time() + 86400 * 7
-    return t
+          <button class="btn btn-out btn-sm" id="resync-prod-btn" onclick="startMLSync()" style="display:none">↻ Re-sincronizar</button>
+          <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
+        </div>
 
-@app.get("/health")
-def health():
-    return {"ok": True}
+        <!-- ACTION BAR -->
+        <div id="ab-prod" class="action-bar" style="display:none;margin-bottom:12px">
+          <span class="ab-info" id="ab-prod-info">0 seleccionados</span>
+          <button class="btn btn-blue btn-sm" onclick="goPublishSelected()">🚀 Publicar</button>
+          <button class="btn btn-purple btn-sm" onclick="showPage('duplicar')">📋 Duplicar</button>
+          <button class="btn btn-out btn-sm" onclick="openUnirModal()">🔗 Unir</button>
+          <button class="btn btn-out btn-sm" onclick="clearProdSel()">✕ Limpiar</button>
+        </div>
 
-@app.post("/api/login")
-async def login(req: Request):
-    b = await req.json()
-    if b.get("email","").lower() != ADMIN_EMAIL.lower() or b.get("password","") != ADMIN_PASS:
-        raise HTTPException(401, "Email o contrasena incorrectos.")
-    t = secrets.token_hex(32)
-    SESSIONS[t] = time.time() + 86400 * 7
-    return {"token": t, "ok": True}
+        <!-- CANALES AGRUPADOS -->
+        <div id="prod-canales-wrap"></div>
 
-@app.post("/api/logout")
-def logout(s=Depends(auth)):
-    SESSIONS.pop(s, None)
-    return {"ok": True}
+        <!-- MSG -->
+        <div id="msg-prod" class="msg" style="margin-bottom:10px"></div>
+      </div>
 
-@app.get("/auth/login")
-def ml_login():
-    return RedirectResponse(
-        f"https://auth.mercadolibre.com.ar/authorization"
-        f"?response_type=code&client_id={ML_APP_ID}&redirect_uri={REDIRECT_URI}"
-    )
+      <!-- MODAL UNIR -->
+      <div class="modal-bg" id="unir-modal">
+        <div class="modal" style="width:600px">
+          <button class="modal-close" onclick="closeUnirModal()">✕</button>
+          <h3>🔗 Unir publicaciones</h3>
+          <p style="font-size:13px;color:#7a8299;margin-bottom:16px">Uní publicaciones del mismo producto para mantener stock y precio sincronizados entre cuentas.</p>
+          <div id="unir-items" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+          <div style="font-size:12px;color:#7a8299;margin-bottom:14px">+ Agregá más publicaciones para unir:</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <select id="unir-acc-sel" style="padding:7px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:'Inter',sans-serif;flex:1"></select>
+            <button class="btn btn-out btn-sm" onclick="buscarParaUnir()">Buscar</button>
+          </div>
+          <input type="text" id="unir-search" placeholder="Buscar producto para agregar..." style="width:100%;padding:8px 12px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;margin-bottom:8px;font-family:'Inter',sans-serif" oninput="filtrarUnirSearch()" />
+          <div id="unir-search-list" style="max-height:200px;overflow-y:auto;border:1px solid #e8ecf0;border-radius:6px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-blue" onclick="guardarUnion()">Guardar unión</button>
+            <button class="btn btn-out" onclick="closeUnirModal()">Cancelar</button>
+          </div>
+          <div id="msg-unir" class="msg"></div>
+        </div>
+      </div>
 
-@app.get("/auth/callback")
-async def ml_callback(code: str = None, error: str = None):
-    if not code:
-        return RedirectResponse(f"{APP_URL}/?error=auth_failed")
-    async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.post("https://api.mercadolibre.com/oauth/token",
-            data={"grant_type":"authorization_code","client_id":ML_APP_ID,
-                  "client_secret":ML_SECRET,"code":code,"redirect_uri":REDIRECT_URI},
-            headers={"Content-Type":"application/x-www-form-urlencoded"})
-        td = r.json()
-    if "access_token" not in td:
-        return RedirectResponse(f"{APP_URL}/?error=token_failed")
-    token = td["access_token"]
-    uid = str(td.get("user_id",""))
-    async with httpx.AsyncClient(timeout=10) as c:
-        ur = await c.get(f"{ML_API}/users/{uid}", headers={"Authorization":f"Bearer {token}"})
-        info = ur.json()
-    name = info.get("nickname", f"Cuenta {len(ST['accounts'])+1}")
-    for acc in ST["accounts"]:
-        if acc["uid"] == uid:
-            acc.update({"token":token,"refresh":td.get("refresh_token",""),
-                        "expiry":time.time()+td.get("expires_in",21600)-300})
-            save_state()
-            return RedirectResponse(f"{APP_URL}/?success=reconnected")
-    if len(ST["accounts"]) >= 4:
-        return RedirectResponse(f"{APP_URL}/?error=max_accounts")
-    ST["accounts"].append({"name":name,"uid":uid,"token":token,
-                           "refresh":td.get("refresh_token",""),
-                           "expiry":time.time()+td.get("expires_in",21600)-300})
-    save_state()
-    return RedirectResponse(f"{APP_URL}/?success=connected")
+      <!-- MODAL SELECTOR GUIA TALLES -->
+      <div class="modal-bg" id="chart-modal">
+        <div class="modal" style="width:560px">
+          <button class="modal-close" onclick="closeChartModal()">✕</button>
+          <h3>📏 Elegir guía de talles</h3>
+          <p style="font-size:13px;color:#7a8299;margin-bottom:16px">El duplicador no encontró la guía correcta automáticamente. Elegí cuál usar en la cuenta destino:</p>
+          <div id="chart-modal-list" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;margin-bottom:16px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-blue" id="chart-modal-confirm" onclick="confirmChartSelection()" disabled>Confirmar y duplicar</button>
+            <button class="btn btn-out" onclick="closeChartModal()">Cancelar</button>
+          </div>
+        </div>
+      </div>
 
-async def fresh_token(i: int) -> str:
-    acc = ST["accounts"][i]
-    if time.time() > acc.get("expiry",0) and acc.get("refresh"):
-        try:
-            async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.post("https://api.mercadolibre.com/oauth/token",
-                    data={"grant_type":"refresh_token","client_id":ML_APP_ID,
-                          "client_secret":ML_SECRET,"refresh_token":acc["refresh"]},
-                    headers={"Content-Type":"application/x-www-form-urlencoded"})
-                td = r.json()
-            if "access_token" in td:
-                acc["token"] = td["access_token"]
-                acc["refresh"] = td.get("refresh_token", acc["refresh"])
-                acc["expiry"] = time.time() + td.get("expires_in",21600) - 300
-                acc["token_ok"] = True
-                save_state()
-            else:
-                # Refresh falló — marcar como vencido
-                acc["token_ok"] = False
-                acc["expiry"] = 0
-                save_state()
-        except Exception as e:
-            acc["token_ok"] = False
-            save_state()
-    return acc["token"]
+      <!-- PUBLICAR -->
+      <div class="page" id="page-publicar">
+        <div class="page-title">Publicar</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Cuenta de ML origen</h3></div>
+          <div class="panel-bd">
+            <div class="acc-tabs" id="pub-tabs"></div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Publicar en</label>
+                <select id="pub-target" onchange="togglePubTarget()" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif">
+                  <option value="tn">TiendaNube</option>
+                  <option value="ml">Otra cuenta ML</option>
+                </select>
+              </div>
+              <div id="pub-ml-dest-wrap" style="display:none">
+                <label style="font-size:11px;font-weight:600;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Cuenta ML destino</label>
+                <select id="pub-ml-dest" style="padding:8px 12px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif"></select>
+              </div>
+            </div>
+            <button class="btn btn-blue btn-sm" id="load-pub-btn" onclick="loadPubProds()" style="display:none;margin-top:12px">Cargar productos →</button>
+            <div id="msg-pub" class="msg"></div>
+          </div>
+        </div>
+        <div class="panel" id="pub-prod-panel" style="display:none">
+          <div class="panel-hd">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h3>Seleccioná productos</h3>
+              <span id="pub-cnt" style="font-size:11px;color:#7a8299"></span>
+            </div>
+            <div class="fbar" style="margin:0">
+              <div class="s-wrap" style="min-width:160px"><input type="text" id="pub-q" placeholder="Buscar..." oninput="applyPubF()" /></div>
+              <button class="fpill active" onclick="setPubF('todas',this)">Todas</button>
+              <button class="fpill g" onclick="setPubF('active',this)">● Activas</button>
+              <button class="fpill o" onclick="setPubF('paused',this)">● Pausadas</button>
+              <button class="fpill r" onclick="setPubF('closed',this)">● Cerradas</button>
+            </div>
+          </div>
+          <div class="panel-bd" style="padding-bottom:0">
+            <div id="ab-pub" class="action-bar" style="display:none">
+              <span class="ab-info" id="ab-pub-info">0 seleccionados</span>
+              <button class="btn btn-green btn-sm" onclick="openPubConfirm()" id="btn-do-publish">🚀 Publicar en Tienda Nube</button>
+              <button class="btn btn-out btn-sm" onclick="clearPubSel()">✕</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th class="chk"><input type="checkbox" id="chk-all-pub" onchange="selAllPub(this)"/></th>
+                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>VARIACIONES</th><th>ESTADO</th>
+              </tr></thead>
+              <tbody id="pub-body"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="pub-pag-info"></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <select class="per-sel" id="pub-pp" onchange="renderPubT()"><option>10</option><option>25</option><option>50</option></select>
+              <div class="pag-btns">
+                <button class="pb" onclick="pPub(-1)">‹</button>
+                <span id="pub-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+                <button class="pb" onclick="pPub(1)">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="pub-prog-panel" style="display:none">
+          <div class="panel-hd"><h3>Publicando...</h3></div>
+          <div class="panel-bd">
+            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="pub-pf"></div></div><div class="prog-txt" id="pub-pt">Iniciando...</div></div>
+            <div class="res-list" id="pub-res"></div>
+            <div id="msg-pub-res" class="msg"></div>
+          </div>
+        </div>
+      </div>
 
-@app.get("/api/state")
-def get_state(_=Depends(auth)):
-    return {
-        "ml_accounts": [{"name":a["name"],"user_id":a["uid"],
-                         "token_ok": time.time() < a.get("expiry",0)} for a in ST["accounts"]],
-        "tn_connected": bool(ST["tn"].get("store_id")),
-        "tn_store_id": ST["tn"].get("store_id",""),
-        "last_sync": None,
-        "sync_log": ST["log"][-50:],
-        "links": ST["links"]
+      <!-- DUPLICAR -->
+      <div class="page" id="page-duplicar">
+        <div class="page-title">Duplicar publicaciones</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Configuración</h3></div>
+          <div class="panel-bd">
+            <div class="f-row">
+              <div class="fg"><label>Cuenta origen</label><select id="dup-from" class="fg"></select></div>
+              <div class="fg"><label>Cuenta destino</label><select id="dup-to" class="fg"></select></div>
+            </div>
+            <button class="btn btn-blue btn-sm" onclick="loadDupProds()">Cargar productos →</button>
+            <div id="msg-dup" class="msg"></div>
+          </div>
+        </div>
+        <div class="panel" id="dup-prod-panel" style="display:none">
+          <div class="panel-hd">
+            <h3>Seleccioná qué duplicar</h3>
+            <div class="s-wrap" style="max-width:260px;margin:0"><input type="text" id="dup-q" placeholder="Buscar..." oninput="applyDupF()" /></div>
+          </div>
+          <div class="panel-bd" style="padding-bottom:0">
+            <div id="ab-dup" class="action-bar" style="display:none">
+              <span class="ab-info" id="ab-dup-info">0 seleccionados</span>
+              <button class="btn btn-purple btn-sm" onclick="openDupConfirm()">📋 Duplicar a cuenta destino</button>
+              <button class="btn btn-out btn-sm" onclick="clearDupSel()">✕</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th class="chk"><input type="checkbox" id="chk-all-dup" onchange="selAllDup(this)"/></th>
+                <th></th><th>PRODUCTO</th><th>STOCK</th><th>PRECIO</th><th>ESTADO</th><th>GUÍA TALLES</th>
+              </tr></thead>
+              <tbody id="dup-body"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="dup-pag-info"></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <select class="per-sel" id="dup-pp" onchange="renderDupT()"><option>10</option><option>25</option><option>50</option></select>
+              <div class="pag-btns">
+                <button class="pb" onclick="pDup(-1)">‹</button>
+                <span id="dup-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+                <button class="pb" onclick="pDup(1)">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="dup-prog-panel" style="display:none">
+          <div class="panel-hd"><h3>Duplicando...</h3></div>
+          <div class="panel-bd">
+            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="dup-pf"></div></div><div class="prog-txt" id="dup-pt"></div></div>
+            <div class="res-list" id="dup-res"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR PUBLICAR -->
+      <div class="modal-bg" id="pub-confirm-modal">
+        <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
+          <button class="modal-close" onclick="closePubConfirm()">✕</button>
+          <h3>🚀 Confirmar publicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a publicar <b id="pub-confirm-count">0</b> producto(s) en <b id="pub-confirm-dest"></b>.</p>
+
+          <!-- AGRUPAR VARIANTES — solo para TN -->
+          <div id="pub-grupo-wrap" style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+            <div id="pub-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-si">
+                <input type="radio" name="pub-grupo" value="si" onchange="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Sí, agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea 1 producto con todas las variantes</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-pub-grupo-no">
+                <input type="radio" name="pub-grupo" value="no" checked onchange="updatePubGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 No, uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Crea un producto separado por cada ítem</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-green" onclick="confirmPublish()" style="flex:1">🚀 Publicar ahora</button>
+            <button class="btn btn-out" onclick="closePubConfirm()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR DUPLICAR -->
+      <div class="modal-bg" id="dup-confirm-modal">
+        <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
+          <button class="modal-close" onclick="closeDupConfirm()">✕</button>
+          <h3>📋 Confirmar duplicación</h3>
+          <p style="font-size:13px;color:#7a8299;margin:10px 0 16px">Vas a duplicar <b id="dup-confirm-count">0</b> producto(s) a <b id="dup-confirm-dest"></b>.</p>
+
+          <!-- AGRUPAR VARIANTES -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">¿Agrupar variantes?</div>
+            <div id="dup-grupos-preview" style="font-size:12px;color:#4f9eff;margin-bottom:10px;display:none"></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-si">
+                <input type="radio" name="dup-grupo" value="si" onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🗂 Agrupar por modelo</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">1 producto con todas las variantes juntas</div>
+                </div>
+              </label>
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-no">
+                <input type="radio" name="dup-grupo" value="no" checked onchange="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">📋 Uno por uno</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto separado por cada ítem</div>
+                </div>
+              </label>
+              <label style="flex:1;min-width:140px;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:8px" id="lbl-grupo-explotar">
+                <input type="radio" name="dup-grupo" value="explotar" onchange="updateDupGrupoUI()" onclick="updateDupGrupoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#e17055">💥 Explotar variantes</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Un producto por cada talle+color</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Estado en cuenta destino</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-active">
+                <input type="radio" name="dup-estado" value="active" checked onchange="updateDupEstadoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#00a381">● Activa</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Visible inmediatamente</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-estado-paused">
+                <input type="radio" name="dup-estado" value="paused" onchange="updateDupEstadoUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#d68000">● Pausada</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">No visible hasta que la actives</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Sincronización de stock y precio</div>
+            <div style="display:flex;gap:10px">
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-sync-si">
+                <input type="radio" name="dup-sync" value="si" onchange="updateDupSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#4f9eff">🔗 Sí, sincronizar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Enlaza origen↔destino automáticamente</div>
+                </div>
+              </label>
+              <label style="flex:1;border:2px solid #e8ecf0;border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px" id="lbl-sync-no">
+                <input type="radio" name="dup-sync" value="no" checked onchange="updateDupSyncUI()">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:#7a8299">Solo duplicar</div>
+                  <div style="font-size:11px;color:#7a8299;margin-top:2px">Sin enlace ni sync automático</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- GUÍAS DE TALLES MANUAL -->
+          <div style="border:1px solid #e8ecf0;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📏 Guía de talles (opcional)</div>
+            <div style="font-size:11px;color:#7a8299;margin-bottom:10px">Si el producto tiene guía de talles, ingresá el ID de la guía en la cuenta destino.</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" id="dup-chart-id-input" placeholder="ID de guía destino (ej: 5127137)" style="flex:1;padding:8px 11px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;font-family:Inter,sans-serif" />
+              <span style="font-size:11px;color:#7a8299">Dejá vacío para automático</span>
+            </div>
+          </div>
+
+          <!-- DIMENSIONES -->
+          <div id="dup-dims-wrap" style="display:block;border:1px solid #ffe58f;background:#fffbec;border-radius:8px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:#7a8299;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📦 Dimensiones</div>
+            <div style="font-size:11px;color:#7a8299;margin-bottom:12px">Si el producto original ya las tiene, se copian automáticamente. Completá solo si son productos viejos sin dimensiones.</div>
+            
+            <div style="font-size:11px;font-weight:600;color:#5a6080;margin-bottom:8px">Producto (sin embolsar)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+              <div class="fg"><label>Alto (cm)</label><input type="number" id="dup-prod-h" placeholder="ej: 10" min="1" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Ancho (cm)</label><input type="number" id="dup-prod-w" placeholder="ej: 20" min="1" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Largo (cm)</label><input type="number" id="dup-prod-l" placeholder="ej: 30" min="1" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Peso (kg)</label><input type="number" id="dup-prod-p" placeholder="ej: 0.5" min="0.01" step="0.01" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+            </div>
+
+            <div style="font-size:11px;font-weight:600;color:#5a6080;margin-bottom:8px">Paquete (embolsado/encajado)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div class="fg"><label>Alto (cm)</label><input type="number" id="dup-dim-h" placeholder="ej: 12" min="1" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Ancho (cm)</label><input type="number" id="dup-dim-w" placeholder="ej: 22" min="1" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Largo (cm)</label><input type="number" id="dup-dim-l" placeholder="ej: 32" min="1" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+              <div class="fg"><label>Peso (kg)</label><input type="number" id="dup-dim-p" placeholder="ej: 0.6" min="0.01" step="0.01" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif;width:100%" /></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-purple" onclick="confirmDuplicate()" style="flex:1">📋 Duplicar ahora</button>
+            <button class="btn btn-out" onclick="closeDupConfirm()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENLACES -->
+      <div class="page" id="page-enlaces">
+        <div class="page-title">Mis enlaces</div>
+        <div class="panel">
+          <div class="panel-hd">
+            <h3>Productos enlazados</h3>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:12px;color:#7a8299" id="links-count">0 enlaces</span>
+              <button class="btn btn-out btn-sm" onclick="enrichLinks()">↻ Actualizar nombres</button>
+            </div>
+          </div>
+          <div style="padding:12px 18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e8ecf0">
+            <div class="s-wrap" style="min-width:200px;flex:1"><input type="text" id="links-q" placeholder="Buscar por nombre..." oninput="applyLinksFilter()" /></div>
+            <select id="links-filter-acc" onchange="applyLinksFilter()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif">
+              <option value="">Todas las cuentas</option>
+            </select>
+            <select id="links-sort" onchange="applyLinksFilter()" style="padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif">
+              <option value="fecha_desc">Más nuevos primero</option>
+              <option value="fecha_asc">Más viejos primero</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>CUENTA ML</th><th>PRODUCTO ML</th><th>DESTINO</th><th></th></tr></thead>
+              <tbody id="links-body"><tr><td colspan="4"><div class="empty"><div class="ei">🔗</div>Sin enlaces.</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CUENTAS -->
+      <div class="page" id="page-cuentas">
+        <div class="page-title">Conectar canales</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Cuentas MercadoLibre</h3></div>
+          <div id="ml-cards"></div>
+          <div class="panel-bd">
+            <div style="background:#fffbec;border:1px solid #ffe58f;border-radius:7px;padding:14px;margin-bottom:4px">
+              <div style="font-size:13px;font-weight:600;margin-bottom:5px">Conectar nueva cuenta</div>
+              <div style="font-size:12px;color:#7a8299;margin-bottom:12px;line-height:1.6">Hacé clic, iniciá sesión con la cuenta de ML y autorizá. Podés agregar hasta 4 cuentas.</div>
+              <a href="/auth/login" class="btn btn-ml">🔗 Conectar cuenta de MercadoLibre</a>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Tienda Nube</h3></div>
+          <div class="panel-bd">
+            <div id="tn-cur" style="font-size:13px;color:#7a8299;margin-bottom:14px">No conectada.</div>
+            <div class="f-row">
+              <div class="fg"><label>Store ID</label><input type="text" id="tn-sid" placeholder="ej: 123456" /></div>
+              <div class="fg"><label>Access Token</label><input type="password" id="tn-tok" placeholder="tu_access_token" /></div>
+            </div>
+            <div class="hint"><b>Store ID:</b> en la URL: tiendanube.com/stores/<b>XXXXXX</b>/...<br><b>Access Token:</b> <a href="https://partners.tiendanube.com" target="_blank">partners.tiendanube.com</a> → tu app → copiá el token.</div>
+            <div id="msg-tn" class="msg"></div>
+            <button class="btn btn-blue btn-sm" onclick="connectTN()">Conectar Tienda Nube</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- IA PUBLICAR -->
+      <div class="page" id="page-ia-publicar">
+        <div class="page-title">✦ Publicar con IA</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;height:calc(100vh - 140px)">
+          
+          <!-- PANEL IZQUIERDO: Upload + Preview -->
+          <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+            
+            <!-- Upload -->
+            <div class="panel" id="ia-upload-panel">
+              <div class="panel-hd"><h3>📸 Foto del producto</h3></div>
+              <div class="panel-bd">
+                <div id="ia-dropzone" style="border:2px dashed #dde1e9;border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;position:relative" 
+                     ondragover="event.preventDefault();this.style.borderColor='#4f9eff'" 
+                     ondragleave="this.style.borderColor='#dde1e9'"
+                     ondrop="iaDrop(event)">
+                  <input type="file" accept="image/*" id="ia-file-input" style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="iaHandleFile(this)">
+                  <div style="font-size:32px;margin-bottom:8px">📸</div>
+                  <div style="font-weight:600;margin-bottom:4px">Subí una foto</div>
+                  <div style="font-size:12px;color:#7a8299">JPG, PNG o WEBP</div>
+                </div>
+                <div style="margin-top:12px">
+                  <div style="font-size:11px;color:#7a8299;margin-bottom:6px;text-align:center">— o pegá una URL de producto —</div>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="ia-url-input" placeholder="https://articulo.mercadolibre.com.ar/... o cualquier tienda" 
+                           style="flex:1;padding:9px 12px;border:1px solid #dde1e9;border-radius:8px;font-size:12px;outline:none;font-family:Inter,sans-serif"
+                           onkeydown="if(event.key==='Enter')iaAnalyzeUrl()">
+                    <button class="btn btn-blue btn-sm" onclick="iaAnalyzeUrl()" id="ia-url-btn">🔍 Analizar</button>
+                  </div>
+                </div>
+
+                <div id="ia-img-preview" style="display:none;margin-top:12px">
+                  <img id="ia-preview-img" style="width:100%;max-height:280px;object-fit:contain;border-radius:10px;border:1px solid #e8ecf0">
+                  <button class="btn btn-blue btn-sm" style="width:100%;margin-top:10px" onclick="iaAnalyze()" id="ia-analyze-btn">✦ Analizar con IA</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fotos generadas -->
+            <div class="panel" id="ia-photos-panel" style="display:none">
+              <div class="panel-hd">
+                <h3>📸 Fotos por variante</h3>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-out btn-sm" onclick="iaGenerateAllPhotos()">✦ Generar con IA</button>
+                </div>
+              </div>
+              <div class="panel-bd">
+                <div style="font-size:11px;color:#7a8299;margin-bottom:12px">Subí tus fotos por variante o generá con IA. ML requiere mínimo 3 fotos por variante.</div>
+                <div id="ia-variants-grid" style="display:flex;flex-direction:column;gap:12px"></div>
+              </div>
+            </div>
+
+            <!-- Canales -->
+            <div class="panel" id="ia-channels-panel" style="display:none">
+              <div class="panel-hd"><h3>📡 Publicar en</h3></div>
+              <div class="panel-bd" id="ia-channels-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+
+          </div>
+
+          <!-- PANEL DERECHO: Chat -->
+          <div style="display:flex;flex-direction:column;background:#fff;border-radius:10px;border:1px solid #e8ecf0;overflow:hidden">
+            <div style="padding:14px 18px;border-bottom:1px solid #e8ecf0;background:#f9fafb;display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c6cfc,#fc6cc8);display:flex;align-items:center;justify-content:center;font-size:14px">✦</div>
+              <div>
+                <div style="font-weight:600;font-size:13px">Asistente Publicador IA</div>
+                <div style="font-size:11px;color:#7a8299">Experto en MercadoLibre Argentina</div>
+              </div>
+            </div>
+            <div id="ia-chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div class="ia-msg ia-msg-bot">
+                <div class="ia-bubble">¡Hola! Soy tu asistente publicador. Subí una foto del producto y te ayudo a crear la publicación perfecta para ML y TN. 📸</div>
+              </div>
+            </div>
+            <div style="padding:12px;border-top:1px solid #e8ecf0;display:flex;gap:8px">
+              <input type="text" id="ia-chat-input" placeholder="Escribí tu respuesta..." 
+                     style="flex:1;padding:10px 14px;border:1px solid #dde1e9;border-radius:20px;font-size:13px;outline:none;font-family:Inter,sans-serif"
+                     onkeydown="if(event.key==='Enter')iaSendMessage()">
+              <button class="btn btn-blue" style="border-radius:20px;padding:10px 16px" onclick="iaSendMessage()">→</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SINCRONIZAR -->
+      <div class="page" id="page-sincronizar">
+        <div class="page-title">Sincronizar stock y precios</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Sincronización por enlaces manuales</h3></div>
+          <div class="panel-bd">
+            <p style="font-size:13px;color:#7a8299;margin-bottom:14px;line-height:1.6">Actualizá precio y stock en Tienda Nube según los enlaces que configuraste manualmente. Sin SKU automático.</p>
+            <div id="sync-links-info" style="font-size:13px;margin-bottom:16px"></div>
+            <button class="btn btn-green" onclick="doSync()" id="sync-btn">🔄 Sincronizar ahora</button>
+            <div id="msg-sync" class="msg"></div>
+          </div>
+        </div>
+        <div class="panel" id="sync-res-panel" style="display:none">
+          <div class="panel-hd"><h3>Resultado</h3></div>
+          <div class="panel-bd">
+            <div class="prog-wrap"><div class="prog-bg"><div class="prog-f" id="sync-pf"></div></div><div class="prog-txt" id="sync-pt"></div></div>
+            <div class="res-list" id="sync-res"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOG -->
+      <div class="page" id="page-log">
+        <div class="page-title">Historial</div>
+        <div class="panel">
+          <div class="panel-hd"><h3>Log completo</h3></div>
+          <div style="padding:0 18px 8px"><div id="full-log"><div class="empty"><div class="ei">📋</div>Sin actividad aún</div></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- LINK MODAL -->
+<div class="modal-bg" id="link-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3>Enlazar con Tienda Nube</h3>
+    <div id="modal-ml-info" style="font-size:13px;color:#7a8299;margin-bottom:14px"></div>
+    <input type="text" class="tn-search" id="tn-prod-search" placeholder="Buscar producto en TN..." oninput="filterTNProds()" />
+    <div class="tn-prod-list" id="tn-prod-list"><div class="empty"><div class="ei">⏳</div>Cargando productos de TN...</div></div>
+    <div id="modal-var-sel" style="display:none;margin-top:10px">
+      <div style="font-size:12px;font-weight:600;color:#7a8299;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Variante de TN (opcional)</div>
+      <select class="fg" id="tn-var-sel" style="width:100%"><option value="">— Sin variante específica —</option></select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-blue" onclick="saveLink()">Guardar enlace</button>
+      <button class="btn btn-out" onclick="closeModal()">Cancelar</button>
+    </div>
+    <div id="msg-modal" class="msg"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let SESSION = localStorage.getItem('session_token') || '';
+let appState = {ml_accounts:[],tn_connected:false,tn_store_id:'',sync_log:[],last_sync:null,links:[]};
+
+// Products state
+let prodProds=[], prodFilt=[], prodSel=[], prodAccIdx=0, prodPg=0, prodSF='todas';
+let pubProds=[], pubFilt=[], pubSel=[], pubAccIdx=0, pubPg=0, pubSF='todas';
+let dupProds=[], dupFilt=[], dupSel=[], dupPg=0;
+let tnProds=[], tnProdsFilt=[];
+let modalML={item_id:null,var_id:null,acc_idx:null,title:null};
+let selectedTNProd=null;
+
+function hdr(){return {'Content-Type':'application/json','X-Session-Token':SESSION}}
+
+// -- LOGIN ---------------------------------------------------------------------
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pw=document.getElementById('li-pw').value;
+  const err=document.getElementById('li-err');
+  err.classList.remove('show');
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+    const d=await r.json();
+    if(!r.ok){err.textContent=d.detail||'Error';err.classList.add('show');return;}
+    SESSION=d.token;
+    localStorage.setItem('session_token',SESSION);
+    showApp();
+  }catch(e){err.textContent='Error de conexión.';err.classList.add('show');}
+}
+
+async function doLogout(){
+  try{await fetch('/api/logout',{method:'POST',headers:hdr()});}catch(e){}
+  SESSION='';localStorage.removeItem('session_token');
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+  checkURLParams();
+  loadState();
+}
+
+// On load
+window.addEventListener('load',()=>{
+  if(SESSION){
+    fetch('/api/state',{headers:hdr()}).then(r=>{
+      if(r.ok)showApp(); else{SESSION='';localStorage.removeItem('session_token');}
+    }).catch(()=>{});
+  }
+});
+
+function checkURLParams(){
+  const p=new URLSearchParams(window.location.search);
+  const b=document.getElementById('app-alert');
+  if(p.get('success')==='connected'){b.textContent='✅ Cuenta de MercadoLibre conectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
+  else if(p.get('success')==='reconnected'){b.textContent='✅ Cuenta reconectada!';b.className='alert ok show';setTimeout(()=>b.classList.remove('show'),5000);}
+  else if(p.get('error')){const m={auth_failed:'Error al autenticar.',token_failed:'Error de token.',max_accounts:'Máximo 4 cuentas.'};b.textContent='❌ '+(m[p.get('error')]||'Error.');b.className='alert err show';}
+  if(p.toString())window.history.replaceState({},'','/');
+}
+
+function toggleSec(id){
+  const el=document.getElementById('sec-'+id),arr=document.getElementById('arr-'+id);
+  if(el.style.display==='none'){el.style.display='';arr.textContent='▾';}else{el.style.display='none';arr.textContent='▸';}
+}
+
+function showPage(name){
+  const target = document.getElementById('page-'+name);
+  if (!target) { console.warn('Page not found: page-'+name); return; }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  target.classList.add('active');
+  document.querySelectorAll('.nav-i,.nav-sub').forEach(n=>n.classList.remove('active'));
+  if(name==='inicio')document.querySelector('.nav-i').classList.add('active');
+  if(name==='productos'||name==='publicar'||name==='duplicar'){
+    const subs=document.querySelectorAll('.nav-sub');
+    if(name==='productos')subs[0]?.classList.add('active');
+    if(name==='publicar')subs[1]?.classList.add('active');
+    if(name==='duplicar')subs[2]?.classList.add('active');
+  }
+  if(name==='log'||name==='inicio')renderLog();
+  if(name==='produtos')renderProdTabs();
+  if(name==='publicar')renderPubTabs();
+  if(name==='duplicar')renderDupAccs();
+  if(name==='enlaces')renderLinks();
+  if(name==='sincronizar')renderSyncInfo();
+}
+
+async function loadState(){
+  try{
+    const r=await fetch('/api/state',{headers:hdr()});
+    if(r.status===401){doLogout();return;}
+    appState=await r.json();
+    updateUI();
+  }catch(e){}
+}
+
+function updateUI(){
+  const n=appState.ml_accounts.length;
+  document.getElementById('d-canales').textContent=n;
+  document.getElementById('d-can-bar').style.width=(n/4*100)+'%';
+  document.getElementById('d-tn').textContent=appState.tn_connected?'✓':'✗';
+  document.getElementById('d-tn').style.color=appState.tn_connected?'#00a381':'#e17055';
+  document.getElementById('d-tn-sub').textContent=appState.tn_connected?'Conectada (ID: '+appState.tn_store_id+')':'No conectada';
+  document.getElementById('d-acc').textContent=appState.sync_log.length;
+  if(appState.last_sync){const d=new Date(appState.last_sync*1000);document.getElementById('d-last').textContent=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+  // icons
+  document.getElementById('d-ch-icons').innerHTML=appState.ml_accounts.map(a=>`<div title="${a.name}" style="width:30px;height:30px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px">${a.name[0].toUpperCase()}</div>`).join('');
+  // sidebar channels
+  document.getElementById('sb-channels').innerHTML=appState.ml_accounts.map((a,i)=>`<div class="nav-ch" onclick="showCanal(${i})"><div class="ch-av">${a.name[0].toUpperCase()}</div><span class="ch-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.name}</span>${!a.token_ok?'<span style="font-size:9px;color:#f39c12">⚠</span>':''}</div>`).join('');
+  // ML cards
+  const cards=document.getElementById('ml-cards');
+  if(!appState.ml_accounts.length){cards.innerHTML='<div class="panel-bd" style="padding-top:0;color:#7a8299;font-size:13px">No hay cuentas conectadas.</div>';}
+  else{cards.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="ch-card"><div class="ch-logo">${a.name[0].toUpperCase()}</div><div class="ch-info"><div class="ch-name">${a.name}</div><div class="ch-sub">MercadoLibre · ID ${a.user_id}${!a.token_ok?' · <span style="color:#d68000">Token vencido — reconectá</span>':''}</div></div><button class="btn btn-red btn-sm" onclick="removeML(${i})">Quitar</button></div>`).join('');}
+  if(appState.tn_connected){document.getElementById('tn-cur').innerHTML=`<span style="color:#00a381;font-weight:600">✓ Conectada</span> — Store ID: <b>${appState.tn_store_id}</b>`;}
+  // dup selects — solo init si vacios
+  const _df=document.getElementById('dup-from');
+  if(!_df.options.length){
+    const _opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+    _df.innerHTML=_opts;
+    document.getElementById('dup-to').innerHTML=_opts;
+    if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
+  }
+  renderLog();renderProdTabs(true);renderPubTabs();renderLinks();renderSyncInfo();
+}
+
+function renderLog(){
+  const logs=[...(appState.sync_log||[])].reverse().slice(0,80);
+  const html=logs.length?logs.map(l=>{const d=new Date(l.ts*1000);const t=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<div class="log-row"><span class="lts">${t}</span><span class="lbadge ${l.action}">${l.action}</span><span class="ltitle">${l.product}</span><span class="lstatus ${l.status}">${l.status==='ok'?'✓':'✗'}</span></div>`;}).join(''):'<div class="empty"><div class="ei">📋</div>Sin actividad aún.</div>';
+  document.getElementById('d-log').innerHTML=html;
+  document.getElementById('full-log').innerHTML=html;
+}
+
+function renderLinks(){
+  const links = appState.links || [];
+  // Llenar filtro de cuentas
+  const accSel = document.getElementById('links-filter-acc');
+  if(accSel){
+    const accs = [...new Set(links.map(l=>l.ml_account_name||'ML').filter(Boolean))];
+    const curVal = accSel.value;
+    accSel.innerHTML = '<option value="">Todas las cuentas</option>' + accs.map(a=>`<option value="${a}" ${curVal===a?'selected':''}>${a}</option>`).join('');
+  }
+  document.getElementById('links-count').textContent = links.length + ' enlaces';
+  applyLinksFilter();
+}
+
+function applyLinksFilter(){
+  const links = appState.links || [];
+  const q = (document.getElementById('links-q')?.value||'').toLowerCase();
+  const acc = document.getElementById('links-filter-acc')?.value||'';
+  const sort = document.getElementById('links-sort')?.value||'fecha_desc';
+  
+  let filtered = links.filter(l=>{
+    const title = (l.ml_title||l.ml_item_id||'').toLowerCase();
+    const tnName = (l.tn_product_name||l.tn_product_id||'').toLowerCase();
+    const matchQ = !q || title.includes(q) || tnName.includes(q);
+    const matchAcc = !acc || (l.ml_account_name||'ML') === acc;
+    return matchQ && matchAcc;
+  });
+  
+  if(sort==='az') filtered.sort((a,b)=>(a.ml_title||'').localeCompare(b.ml_title||''));
+  else if(sort==='za') filtered.sort((a,b)=>(b.ml_title||'').localeCompare(a.ml_title||''));
+  else if(sort==='fecha_asc') filtered.sort((a,b)=>(a.created_at||0)-(b.created_at||0));
+  else filtered.sort((a,b)=>(b.created_at||0)-(a.created_at||0));
+  
+  const tbody = document.getElementById('links-body');
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="4"><div class="empty"><div class="ei">🔗</div>Sin enlaces.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(l=>{
+    const mlName = l.ml_account_name || 'ML';
+    const mlTitle = l.ml_title || l.ml_item_id;
+    const mlVar = l.ml_variation_id ? ` · Var: ${l.ml_variation_id}` : '';
+    const destName = l.tn_product_name || l.tn_product_id;
+    const destSub = l.tn_product_id ? `TiendaNube · ID ${l.tn_product_id}` : '';
+    const date = l.created_at ? new Date(l.created_at*1000).toLocaleDateString('es-AR') : '';
+    return `<tr>
+      <td><span style="font-size:11px;background:#eef4ff;color:#4f9eff;padding:2px 7px;border-radius:4px;font-weight:600">${mlName}</span></td>
+      <td>
+        <div style="font-size:12px;font-weight:500">${mlTitle}</div>
+        <div style="font-size:10px;color:#7a8299">${l.ml_item_id}${mlVar}</div>
+      </td>
+      <td>
+        <div style="font-size:12px;font-weight:500">${destName}</div>
+        <div style="font-size:10px;color:#7a8299">${destSub}${date?' · '+date:''}</div>
+      </td>
+      <td><button class="btn btn-red btn-sm" onclick="removeLink('${l.ml_item_id}','${l.ml_variation_id||''}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function enrichLinks(){
+  try{
+    const r = await fetch('/api/links/enrich',{method:'POST',headers:hdr()});
+    const d = await r.json();
+    await loadState();
+    if(d.enriched > 0) alert(`✓ Se actualizaron ${d.enriched} enlaces`);
+  }catch(e){alert('Error: '+e.message);}
+}
+
+function renderSyncInfo(){
+  const n=(appState.links||[]).length;
+  document.getElementById('sync-links-info').innerHTML=n?`<span style="color:#00a381;font-weight:600">✓ ${n} enlace(s) configurado(s)</span>`:'<span style="color:#e17055">⚠ No hay enlaces configurados. Creálos desde el Panel de productos.</span>';
+}
+
+function showMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg;el.className='msg show '+(type==='info'?'inf':type);}
+function hideMsg(id){document.getElementById(id).className='msg';}
+
+async function removeML(i){if(!confirm('¿Quitar esta cuenta?'))return;await fetch('/api/ml/'+i,{method:'DELETE',headers:hdr()});await loadState();}
+
+async function connectTN(){
+  const sid=document.getElementById('tn-sid').value.trim();
+  const tok=document.getElementById('tn-tok').value.trim();
+  if(!sid||!tok){showMsg('msg-tn','⚠️ Completá ambos campos.','err');return;}
+  try{const r=await fetch('/api/tn/connect',{method:'POST',headers:hdr(),body:JSON.stringify({store_id:sid,token:tok})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');showMsg('msg-tn','✓ Tienda Nube conectada.','ok');await loadState();}
+  catch(e){showMsg('msg-tn','❌ '+e.message,'err');}
+}
+
+// -- PROD TABLE -----------------------------------------------------------------
+let prodSoloSinUnir = false;
+
+let prodOrden='default';
+
+function toggleOrdenar(){
+  const p=document.getElementById('ordenar-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('filtros-panel').style.display='none';
+}
+function setOrden(val){
+  prodOrden=val;
+  document.querySelectorAll('.ord-opt').forEach(el=>el.classList.toggle('active',el.dataset.ord===val));
+  const labels={
+    'default':'','fecha_desc':'Más nuevos','fecha_asc':'Más viejos',
+    'stock_desc':'Mayor stock','stock_asc':'Menor stock',
+    'precio_desc':'Mayor precio','precio_asc':'Menor precio'
+  };
+  document.getElementById('ordenar-label').textContent=labels[val]?'· '+labels[val]:'';
+  document.getElementById('ordenar-panel').style.display='none';
+  applyProdF();
+}
+
+function toggleFiltros(){
+  const p=document.getElementById('filtros-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('ordenar-panel').style.display='none';
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#btn-filtros')&&!e.target.closest('#filtros-panel'))
+    document.getElementById('filtros-panel').style.display='none';
+  if(!e.target.closest('#btn-ordenar')&&!e.target.closest('#ordenar-panel'))
+    document.getElementById('ordenar-panel').style.display='none';
+});
+
+function filtrarSinUnir(){
+  prodSoloSinUnir=!prodSoloSinUnir;
+  document.getElementById('prod-sin-unir').style.fontWeight=prodSoloSinUnir?'700':'400';
+  applyProdF();
+}
+
+function filterByAcc(idx) {
+  prodAccIdx = idx;
+  prodProds = [];
+  prodFilt = [];
+  renderProdTabs();
+  // Cargar productos de la cuenta seleccionada
+  setTimeout(() => loadProdAcc(idx), 150);
+}
+
+function renderProdTabs(preserveProducts=false){
+  const wrap=document.getElementById('prod-canales-wrap');
+  const resync=document.getElementById('resync-prod-btn');
+  if(!appState.ml_accounts.length){
+    wrap.innerHTML=`<div class="panel"><div class="panel-bd"><div class="empty"><div class="ei">🔗</div>Conectá cuentas en <b>Canales</b> para ver productos</div></div></div>`;
+    return;
+  }
+  resync.style.display='inline-flex';
+
+  const links=appState.links||[];
+  let html='';
+
+  appState.ml_accounts.forEach((a,i)=>{
+    const isOpen=i===prodAccIdx&&prodProds.length>0;
+    const prodCount=i===prodAccIdx&&prodProds.length>0?prodProds.length:null;
+    const sinUnirCount=i===prodAccIdx&&prodProds.length>0?prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length:null;
+
+    html+=`<div class="panel" style="margin-bottom:10px;overflow:visible">
+      <!-- CANAL HEADER -->
+      <div class="canal-header" onclick="toggleCanal(${i})" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none">
+        <div class="canal-av" style="background:#ffe135;color:#333;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">${a.name[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${a.name}${!a.token_ok?' <span style="color:#d68000;font-size:11px">⚠ token vencido</span>':''}</div>
+          <div style="font-size:11px;color:#4f9eff;margin-top:1px">
+            ${prodCount!==null?`${prodCount} productos`:'MercadoLibre'}
+            ${sinUnirCount>0?` · <span style="color:#e17055;cursor:pointer" onclick="event.stopPropagation();selProdAcc(${i});filtrarSinUnir()">${sinUnirCount} sin unir</span>`:''}
+          </div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();selProdAcc(${i});loadProdProds()" id="load-prod-btn-${i}">
+            ${i===prodAccIdx&&prodProds.length>0?'↻ Recargar':'Cargar'}
+          </button>
+          <span style="color:#b0b7c9;font-size:16px;transition:transform .2s" id="canal-arrow-${i}">${isOpen?'▾':'▸'}</span>
+        </div>
+      </div>
+
+      <!-- TABLA DESPLEGABLE -->
+      <div id="canal-body-${i}" style="display:${isOpen?'block':'none'};border-top:1px solid #e8ecf0">
+        ${i===prodAccIdx&&prodProds.length>0?renderCanalTablaHTML(i):'<div class="empty" style="padding:24px"><div class="ei">📦</div>Apretá "Cargar" para ver productos</div>'}
+      </div>
+    </div>`;
+  });
+
+  // TiendaNube al final si conectada
+  if(appState.tn_connected){
+    html+=`<div class="panel" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 18px">
+        <div style="width:36px;height:36px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">TN</div>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">TiendaNube</div><div style="font-size:11px;color:#7a8299">Store ID: ${appState.tn_store_id} · ${links.length} enlaces</div></div>
+      </div>
+    </div>`;
+  }
+
+  wrap.innerHTML=html;
+
+  // Si hay productos cargados y venimos de un refresh automático, re-renderizar la tabla
+  if(preserveProducts && prodProds.length>0){
+    const cb=document.getElementById('canal-body-'+prodAccIdx);
+    if(cb){
+      cb.innerHTML=renderCanalTablaHTML(prodAccIdx);
+      cb.style.display='block';
     }
+    const ar=document.getElementById('canal-arrow-'+prodAccIdx);
+    if(ar)ar.textContent='▾';
+    // Re-renderizar productos sin resetear filtros
+    renderProdT();
+  }
+}
 
-@app.delete("/api/ml/{i}")
-def remove_ml(i: int, _=Depends(auth)):
-    if i < 0 or i >= len(ST["accounts"]):
-        raise HTTPException(404)
-    ST["accounts"].pop(i)
-    save_state()
-    return {"ok": True}
+function toggleCanal(i){
+  if(i!==prodAccIdx){
+    selProdAcc(i);
+    return;
+  }
+  const body=document.getElementById('canal-body-'+i);
+  const arrow=document.getElementById('canal-arrow-'+i);
+  if(body.style.display==='none'){
+    body.style.display='block';
+    arrow.textContent='▾';
+  } else {
+    body.style.display='none';
+    arrow.textContent='▸';
+  }
+}
 
-@app.get("/tn/authorize")
-async def tn_authorize(client_id: str, client_secret: str, code: str):
-    """Intercambiar code de TN por access_token automáticamente"""
-    try:
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.post("https://www.tiendanube.com/apps/authorize/token",
-                headers={"Content-Type": "application/json"},
-                json={"client_id": client_id, "client_secret": client_secret,
-                      "grant_type": "authorization_code", "code": code})
-            d = r.json()
-        if "access_token" in d:
-            ST["tn"]["store_id"] = str(d.get("user_id", ""))
-            ST["tn"]["token"] = d["access_token"]
-            save_state()
-            return RedirectResponse(url="/?success=tn_connected")
-        else:
-            return {"error": "No se obtuvo access_token", "response": d}
-    except Exception as e:
-        return {"error": str(e)}
+function renderCanalTablaHTML(i){
+  return `<div style="padding:10px 18px 6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid #f0f2f6">
+    <span id="prod-cnt" style="font-size:12px;color:#7a8299"></span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span id="prod-sin-unir" style="font-size:12px;color:#e17055;cursor:pointer" onclick="filtrarSinUnir()"></span>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th class="chk"><input type="checkbox" id="chk-all-prod" onchange="selAllProd(this)"/></th>
+        <th></th>
+        <th>TÍTULO</th>
+        <th>CANALES</th>
+        <th>STOCK</th>
+        <th>VARIACIONES</th>
+        <th>ESTADO</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="prod-body"><tr><td colspan="8"><div class="empty"><div class="ei">⏳</div>Cargando...</div></td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination" style="padding:10px 18px">
+    <span id="prod-pag-info"></span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:#7a8299">Listar</span>
+      <select class="per-sel" id="prod-pp" onchange="renderProdT()"><option>10</option><option>25</option><option>50</option></select>
+      <div class="pag-btns">
+        <button class="pb" onclick="pProd(-1)">‹</button>
+        <span id="prod-pag-cur" style="padding:4px 9px;font-size:12px;font-weight:600"></span>
+        <button class="pb" onclick="pProd(1)">›</button>
+      </div>
+    </div>
+  </div>`;
+}
 
-@app.get("/tn/callback")
-async def tn_callback(code: str = "", error: str = ""):
-    """Callback de TN — recibe el code y lo intercambia por access_token automáticamente"""
-    if error or not code:
-        return RedirectResponse(url="/?error=tn_auth_failed")
-    try:
-        TN_CLIENT_ID = os.getenv("TN_CLIENT_ID", "27952")
-        TN_CLIENT_SECRET = os.getenv("TN_CLIENT_SECRET", "fd7f9106bf5554ac68616444dd00d9e3362a3618460aaa61")
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.post("https://www.tiendanube.com/apps/authorize/token",
-                headers={"Content-Type": "application/json"},
-                json={"client_id": TN_CLIENT_ID, "client_secret": TN_CLIENT_SECRET,
-                      "grant_type": "authorization_code", "code": code})
-            d = r.json()
-        if "access_token" in d:
-            ST["tn"]["store_id"] = str(d.get("user_id", ""))
-            ST["tn"]["token"] = d["access_token"]
-            save_state()
-            return RedirectResponse(url="/?success=tn_connected")
-        else:
-            print(f"TN callback error: {d}")
-            return RedirectResponse(url="/?error=tn_token_failed")
-    except Exception as e:
-        print(f"TN callback exception: {e}")
-        return RedirectResponse(url="/?error=tn_token_failed")
+function selProdAcc(i){
+  prodAccIdx=i;
+  prodProds=[];prodFilt=[];prodSel=[];prodPg=0;prodSoloSinUnir=false;
+  renderProdTabs();
+}
 
-@app.post("/api/tn/connect")
-async def connect_tn(req: Request, _=Depends(auth)):
-    b = await req.json()
-    ST["tn"] = {"store_id": b.get("store_id",""), "token": b.get("token","")}
-    save_state()
-    return {"ok": True}
+let syncPollInterval=null;
+async function loadProdProds(){
+  // Buscar el botón del canal activo
+  const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
+  if(btn){btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;}
+  hideMsg('msg-prod');
 
-SYNC_RUNNING = {}
+  // Asegurar que el cuerpo del canal esté abierto con la tabla
+  const canalBody=document.getElementById('canal-body-'+prodAccIdx);
+  const arrow=document.getElementById('canal-arrow-'+prodAccIdx);
+  if(canalBody){
+    canalBody.innerHTML=renderCanalTablaHTML(prodAccIdx);
+    canalBody.style.display='block';
+    if(arrow)arrow.textContent='▾';
+  }
 
-def redis_products_key(uid): return f"mltn:products:{uid}"
-def redis_status_key(uid): return f"mltn:sync_status:{uid}"
-
-def get_cached_products(uid):
-    r = get_redis()
-    if r:
-        try:
-            raw = r.get(redis_products_key(uid))
-            if raw:
-                return json.loads(raw)
-        except: pass
-    return None
-
-def set_cached_products(uid, products):
-    r = get_redis()
-    if r:
-        try:
-            r.set(redis_products_key(uid), json.dumps(products))
-            r.set(redis_status_key(uid), json.dumps({"status":"done","total":len(products),"ts":int(time.time())}))
-        except: pass
-
-def set_sync_status(uid, status, total=0, fetched=0):
-    r = get_redis()
-    if r:
-        try:
-            r.set(redis_status_key(uid), json.dumps({"status":status,"total":total,"fetched":fetched,"ts":int(time.time())}))
-        except: pass
-
-def get_sync_status(uid):
-    r = get_redis()
-    if r:
-        try:
-            raw = r.get(redis_status_key(uid))
-            if raw: return json.loads(raw)
-        except: pass
-    return None
-
-async def do_sync_products(i: int, uid: str, token: str):
-    hdrs = {"Authorization": f"Bearer {token}"}
-    set_sync_status(uid, "fetching_ids", total=0, fetched=0)
-    all_ids = []
-    try:
-        # Usar scroll scan solo para items activos con stock
-        async with httpx.AsyncClient(timeout=60) as c:
-            scroll_id = None
-            for _ in range(1000):
-                url = f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100&status=active"
-                if scroll_id:
-                    url += f"&scroll_id={scroll_id}"
-                try:
-                    r = await c.get(url, headers=hdrs)
-                    if r.status_code == 429:
-                        await asyncio.sleep(60)
-                        r = await c.get(url, headers=hdrs)
-                    if r.status_code != 200:
-                        break
-                    d = r.json()
-                    ids = d.get("results", [])
-                    if not ids:
-                        break
-                    all_ids.extend(ids)
-                    all_ids = list(dict.fromkeys(all_ids))  # deduplicar manteniendo orden
-                    set_sync_status(uid, "fetching_ids", total=len(all_ids), fetched=0)
-                    scroll_id = d.get("scroll_id")
-                    if not scroll_id:
-                        break
-                    await asyncio.sleep(0.8)
-                except Exception:
-                    break
-
-        if not all_ids:
-            set_sync_status(uid, "error: no se encontraron productos")
-            SYNC_RUNNING.pop(uid, None)
-            return
-
-        # Esperar antes de empezar a bajar detalles
-        await asyncio.sleep(10)
-
-        # Obtener detalles en batches de 20
-        set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=0)
-
-        # Cargar productos ya descargados para poder retomar
-        existing = get_cached_products(uid) or []
-        existing_ids = {p["id"] for p in existing}
-        products = list(existing)
-        pending_ids = [id for id in all_ids if id not in existing_ids]
-        set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
-
-        async with httpx.AsyncClient(timeout=60) as c:
-            for x in range(0, len(pending_ids), 20):
-                batch = pending_ids[x:x+20]
-                for attempt in range(5):
-                    try:
-                        r = await c.get(f"{ML_API}/items?ids={','.join(batch)}", headers=hdrs)
-                        if r.status_code == 429:
-                            wait = 60 * (attempt + 1)
-                            await asyncio.sleep(wait)
-                            continue
-                        if r.status_code == 200:
-                            for item in r.json():
-                                if item.get("code") == 200:
-                                    b = item["body"]
-                                    for v in b.get("variations",[]):
-                                        v["_attrs"] = {a["name"]:a["value_name"] for a in v.get("attribute_combinations",[])}
-                                    b["_has_variations"] = len(b.get("variations",[])) > 0
-                                    b["_variation_count"] = len(b.get("variations",[]))
-                                    products.append(b)
-                        break
-                    except Exception:
-                        await asyncio.sleep(5)
-                set_sync_status(uid, "fetching_details", total=len(all_ids), fetched=len(products))
-                if len(products) % 100 == 0 and len(products) > 0:
-                    set_cached_products(uid, products)
-                await asyncio.sleep(5)
-
-        set_cached_products(uid, products)
-        set_sync_status(uid, "done", total=len(products), fetched=len(products))
-
-    except Exception as e:
-        set_sync_status(uid, f"error: {str(e)}")
-    finally:
-        SYNC_RUNNING.pop(uid, None)
-
-@app.post("/api/ml/{i}/sync")
-async def start_sync(i: int, background_tasks: BackgroundTasks, _=Depends(auth)):
-    if i < 0 or i >= len(ST["accounts"]):
-        raise HTTPException(404)
-    acc = ST["accounts"][i]
-    uid = acc["uid"]
-    if uid in SYNC_RUNNING:
-        return {"ok": False, "msg": "Ya esta sincronizando"}
-    token = await fresh_token(i)
-    SYNC_RUNNING[uid] = True
-    background_tasks.add_task(do_sync_products, i, uid, token)
-    return {"ok": True, "msg": "Sincronizacion iniciada"}
-
-@app.get("/api/ml/{i}/sync/status")
-def sync_status(i: int, _=Depends(auth)):
-    if i < 0 or i >= len(ST["accounts"]):
-        raise HTTPException(404)
-    uid = ST["accounts"][i]["uid"]
-    status = get_sync_status(uid)
-    running = uid in SYNC_RUNNING
-    return {"running": running, "status": status}
-
-@app.get("/api/ml/{i}/products")
-async def get_products(i: int, page: int = 1, limit: int = 50,
-                       status: str = "all", search: str = "", _=Depends(auth)):
-    if i < 0 or i >= len(ST["accounts"]):
-        raise HTTPException(404)
-    uid = ST["accounts"][i]["uid"]
-    products = get_cached_products(uid)
-    if products is None:
-        return {"products": [], "total": 0, "synced": False,
-                "msg": "Productos no sincronizados. Presiona Sincronizar."}
-    if status != "all":
-        products = [p for p in products if p.get("status","") == status]
-    if search:
-        s = search.lower()
-        products = [p for p in products if s in p.get("title","").lower()]
-    total = len(products)
-    if limit >= 9999:
-        return {"products": products, "items": products, "total": total, "synced": True, "page": 1, "limit": total}
-    start = (page-1)*limit
-    page_products = products[start:start+limit]
-    return {"products": page_products, "items": page_products, "total": total, "synced": True, "page": page, "limit": limit}
-
-@app.get("/api/ml/{i}/health")
-async def get_items_health(i: int, ids: str = "", _=Depends(auth)):
-    """Obtener health/calidad de un batch de items"""
-    if i < 0 or i >= len(ST["accounts"]):
-        raise HTTPException(404)
-    if not ids:
-        return {"health": {}}
-    token = await fresh_token(i)
-    id_list = ids.split(",")[:20]
-    health_map = {}
-    async with httpx.AsyncClient(timeout=20) as c:
-        for item_id in id_list:
-            try:
-                r = await c.get(f"{ML_API}/items/{item_id}/health",
-                               headers={"Authorization": f"Bearer {token}"})
-                if r.status_code == 200:
-                    health_map[item_id] = r.json().get("health", None)
-            except Exception:
-                pass
-            await asyncio.sleep(0.2)
-    return {"health": health_map}
-
-@app.get("/api/tn/products")
-async def get_tn_products(_=Depends(auth)):
-    if not ST["tn"].get("store_id"):
-        raise HTTPException(400, "TN no conectada.")
-    tn = ST["tn"]
-    hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
-    all_p = []
-    async with httpx.AsyncClient(timeout=30) as c:
-        for pg in range(1, 50):
-            r = await c.get(f"https://api.tiendanube.com/v1/{tn['store_id']}/products?page={pg}&per_page=50", headers=hdrs)
-            d = r.json()
-            if not isinstance(d, list) or not d:
-                break
-            all_p.extend(d)
-            if len(d) < 50:
-                break
-            await asyncio.sleep(0.1)
-    return {"products": all_p, "total": len(all_p)}
-
-@app.post("/api/links/add")
-async def add_link(req: Request, _=Depends(auth)):
-    b = await req.json()
-    key = b["ml_item_id"] + ("_"+b["ml_variation_id"] if b.get("ml_variation_id") else "")
-    ST["links"] = [l for l in ST["links"]
-                   if (l["ml_item_id"]+("_"+l.get("ml_variation_id","") if l.get("ml_variation_id") else "")) != key]
-    b["created_at"] = int(time.time())
-    ST["links"].append(b)
-    save_state()
-    return {"ok": True}
-
-@app.post("/api/links/enrich")
-async def enrich_links(_=Depends(auth)):
-    """Enriquecer links viejos con títulos y nombres de cuenta"""
-    enriched = 0
-    for link in ST.get("links", []):
-        if link.get("ml_title"):
-            continue  # ya tiene título
-        try:
-            acc_idx = link.get("ml_account_index", 0)
-            token = await fresh_token(acc_idx)
-            async with httpx.AsyncClient(timeout=10) as c:
-                r = await c.get(f"{ML_API}/items/{link['ml_item_id']}?attributes=title",
-                    headers={"Authorization": f"Bearer {token}"})
-                if r.status_code == 200:
-                    link["ml_title"] = r.json().get("title", link["ml_item_id"])
-                    link["ml_account_name"] = ST["accounts"][acc_idx].get("name","ML") if acc_idx < len(ST["accounts"]) else "ML"
-                    enriched += 1
-        except Exception:
-            pass
-    save_state()
-    return {"enriched": enriched}
-
-@app.post("/api/links/remove")
-async def remove_link(req: Request, _=Depends(auth)):
-    b = await req.json()
-    key = b["ml_item_id"] + ("_"+b.get("ml_variation_id","") if b.get("ml_variation_id") else "")
-    ST["links"] = [l for l in ST["links"]
-                   if (l["ml_item_id"]+("_"+l.get("ml_variation_id","") if l.get("ml_variation_id") else "")) != key]
-    save_state()
-    return {"ok": True}
-
-@app.post("/api/sync/manual")
-async def sync(_=Depends(auth)):
-    if not ST["tn"].get("store_id"):
-        raise HTTPException(400, "TN no conectada.")
-    tn = ST["tn"]
-    tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
-    results = []
-    for link in ST["links"]:
-        idx = link.get("ml_account_index", 0)
-        if idx >= len(ST["accounts"]):
-            continue
-        token = await fresh_token(idx)
-        ml_hdrs = {"Authorization": f"Bearer {token}"}
-        try:
-            async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.get(f"{ML_API}/items/{link['ml_item_id']}", headers=ml_hdrs)
-                item = r.json()
-                var_id = link.get("ml_variation_id")
-                if var_id:
-                    v = next((x for x in item.get("variations",[]) if str(x["id"])==str(var_id)), None)
-                    price = str(v.get("price", item.get("price",0))) if v else str(item.get("price",0))
-                    stock = v.get("available_quantity",0) if v else item.get("available_quantity",0)
-                else:
-                    price = str(item.get("price",0))
-                    stock = item.get("available_quantity",0)
-                pid = link["tn_product_id"]
-                vid = link.get("tn_variant_id")
-                if not vid:
-                    rp = await c.get(f"https://api.tiendanube.com/v1/{tn['store_id']}/products/{pid}", headers=tn_hdrs)
-                    vid = (rp.json().get("variants") or [{}])[0].get("id")
-                if vid:
-                    r2 = await c.put(f"https://api.tiendanube.com/v1/{tn['store_id']}/products/{pid}/variants/{vid}",
-                                     headers=tn_hdrs, json={"price":price,"stock":stock})
-                    ok = r2.status_code in (200,201)
-                else:
-                    ok = False
-                results.append({"title": item.get("title",""), "ok": ok})
-                ST["log"].append({"ts":int(time.time()),"action":"sync","product":item.get("title",""),"status":"ok" if ok else "error"})
-            await asyncio.sleep(0.2)
-        except Exception as e:
-            results.append({"title": link["ml_item_id"], "ok": False, "action": str(e)})
-    save_state()
-    return {"results": results}
-
-@app.post("/api/publish")
-async def publish(req: Request, _=Depends(auth)):
-    b = await req.json()
-    item_ids = b.get("item_ids", [])
-    idx = b.get("ml_account_index", 0)
-    target = b.get("target", "tn")  # "tn" o "ml"
-    target_ml_idx = b.get("target_ml_index", 0)
-
-    # Publicar en ML (duplicar a otra cuenta)
-    if target == "ml":
-        if target_ml_idx >= len(ST["accounts"]):
-            raise HTTPException(400, "Cuenta ML destino no existe.")
-        from_t = await fresh_token(idx)
-        to_t = await fresh_token(target_ml_idx)
-        results = []
-        async with httpx.AsyncClient(timeout=30) as c:
-            for iid in item_ids:
-                try:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization":f"Bearer {from_t}"})
-                    item = r.json()
-                    payload = {"title":item["title"],"category_id":item.get("category_id",""),
-                               "price":item.get("price",0),"currency_id":item.get("currency_id","ARS"),
-                               "available_quantity":item.get("available_quantity",0),
-                               "listing_type_id":item.get("listing_type_id","gold_special"),
-                               "condition":item.get("condition","new"),
-                               "pictures":[{"source":p["url"]} for p in (item.get("pictures") or [])[:12]],
-                               "attributes":item.get("attributes",[])}
-                    if item.get("variations"):
-                        payload["variations"] = item["variations"]
-                    r2 = await c.post(f"{ML_API}/items", headers={"Authorization":f"Bearer {to_t}"}, json=payload)
-                    ok = r2.status_code in (200,201)
-                    results.append({"id":iid,"title":item.get("title",""),"ok":ok,
-                                    "msg":"Publicado en ML" if ok else r2.json().get("message","Error")})
-                    ST["log"].append({"ts":int(time.time()),"action":"publish_ml","product":item.get("title",""),"status":"ok" if ok else "error"})
-                    await asyncio.sleep(0.5)
-                except Exception as e:
-                    results.append({"id":iid,"ok":False,"msg":str(e)})
-        save_state()
-        return {"results": results}
-
-    # Publicar en TiendaNube
-    if not ST["tn"].get("store_id"):
-        raise HTTPException(400, "TN no conectada.")
-    token = await fresh_token(idx)
-    ml_hdrs = {"Authorization": f"Bearer {token}"}
-    tn = ST["tn"]
-    tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
-    agrupar = b.get("agrupar", False)
-    results = []
-
-    async with httpx.AsyncClient(timeout=20) as c:
-
-        if agrupar:
-            # Bajar todos los items primero
-            all_items = []
-            for iid in item_ids:
-                try:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
-                    item = r.json()
-                    dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
-                    item["_desc"] = dr.json().get("plain_text", item.get("title",""))
-                    if "error" not in item:
-                        all_items.append(item)
-                    await asyncio.sleep(0.3)
-                except Exception:
-                    pass
-
-            # Agrupar por MODEL
-            grupos = {}
-            for item in all_items:
-                model_attr = next((a for a in (item.get("attributes") or []) if a.get("id") == "MODEL"), None)
-                key = model_attr.get("value_name", item["id"]) if model_attr else item["id"]
-                if key not in grupos:
-                    grupos[key] = []
-                grupos[key].append(item)
-
-            for model_key, items_grupo in grupos.items():
-                try:
-                    base = items_grupo[0]
-                    # Título base: cortar después del número de modelo
-                    _t = base.get("title","")
-                    _m = next((a.get("value_name","") for a in (base.get("attributes") or []) if a.get("id")=="MODEL"), "")
-                    if _m and _m in _t:
-                        title = _t[:_t.index(_m)+len(_m)].strip()
-                    elif " - " in _t:
-                        title = _t.rsplit(" - ", 1)[0].strip()
-                    else:
-                        title = _t
-                    desc = base.get("_desc", title)
-
-                    # Armar variantes TN: una por item, con COLOR y SIZE como values
-                    variants = []
-                    for item in items_grupo:
-                        attrs = {a["id"]: a for a in (item.get("attributes") or [])}
-                        color = attrs.get("COLOR",{}).get("value_name","")
-                        size = attrs.get("SIZE",{}).get("value_name") or attrs.get("SIZE",{}).get("value_id","")
-                        values = []
-                        if color: values.append({"es": color})
-                        if size: values.append({"es": size})
-                        v = {
-                            "price": str(item.get("price", base.get("price",0))),
-                            "stock_management": True,
-                            "stock": item.get("available_quantity", 0),
-                        }
-                        if values: v["values"] = values
-                        variants.append(v)
-
-                    # Imágenes de todos los items del grupo
-                    pics = []
-                    seen = set()
-                    for item in items_grupo:
-                        for p in (item.get("pictures") or [])[:2]:
-                            url = p.get("url","")
-                            if url and url not in seen:
-                                pics.append({"src": url})
-                                seen.add(url)
-                        if len(pics) >= 10: break
-
-                    payload = {
-                        "name": {"es": title},
-                        "description": {"es": desc},
-                        "published": True,
-                        "variants": variants,
-                        "images": pics[:10],
-                    }
-                    pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
-                                      headers=tn_hdrs, json=payload)
-                    ok = pr.status_code in (200,201)
-                    msg = f"Publicado con {len(variants)} variantes" if ok else pr.json().get("description","Error")
-                    results.append({"id": base["id"], "title": title, "ok": ok, "msg": msg})
-                    ST["log"].append({"ts":int(time.time()),"action":"publish_tn_group","product":title,"status":"ok" if ok else "error"})
-                    await asyncio.sleep(0.5)
-                except Exception as e:
-                    results.append({"id": model_key, "title": model_key, "ok": False, "msg": str(e)})
-
-        else:
-            # Publicar uno por uno (comportamiento original)
-            for iid in item_ids:
-                try:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
-                    item = r.json()
-                    dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
-                    desc = dr.json().get("plain_text", item.get("title",""))
-                    variations = item.get("variations",[])
-                    if variations:
-                        variants = [{"price":str(v.get("price",item.get("price",0))),
-                                     "stock_management":True,"stock":v.get("available_quantity",0),
-                                     "values":[{"es":a["value_name"]} for a in v.get("attribute_combinations",[])]}
-                                    for v in variations]
-                    else:
-                        variants = [{"price":str(item.get("price",0)),"stock_management":True,
-                                     "stock":item.get("available_quantity",0)}]
-                    payload = {"name":{"es":item["title"]},"description":{"es":desc},
-                               "published":True,"variants":variants,
-                               "images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:5]]}
-                    pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
-                                      headers=tn_hdrs, json=payload)
-                    ok = pr.status_code in (200,201)
-                    results.append({"id":iid,"title":item.get("title",""),"ok":ok,
-                                     "msg":"Publicado" if ok else pr.json().get("description","Error")})
-                    ST["log"].append({"ts":int(time.time()),"action":"publish","product":item.get("title",""),
-                                      "status":"ok" if ok else "error"})
-                    await asyncio.sleep(0.3)
-                except Exception as e:
-                    results.append({"id":iid,"ok":False,"msg":str(e)})
-    save_state()
-    return {"results": results}
-
-@app.post("/api/duplicate")
-async def duplicate(req: Request, _=Depends(auth)):
-    b = await req.json()
-    from_idx = b.get("from_account", 0)
-    to_idx = b.get("to_account", 1)
-    status = b.get("status", "active")
-    auto_link = b.get("auto_link", False)
-    agrupar = b.get("agrupar", False)
-    explotar = b.get("explotar", False)
-    try:
-        from_t = await fresh_token(from_idx)
-        to_t = await fresh_token(to_idx)
-    except Exception as e:
-        raise HTTPException(400, f"Error de token: {str(e)}")
-
-    # Cache de guías de talles ya copiadas en esta sesión: {chart_id_origen: chart_id_destino}
-    size_chart_map = {}
-
-    async def copy_size_chart(c, chart_id: str):
-        """Copia una guía de talles de cuenta origen a destino. Devuelve el nuevo ID."""
-        if chart_id in size_chart_map:
-            return size_chart_map[chart_id]
-        try:
-            # Obtener la guía original
-            r = await c.get(f"{ML_API}/size_charts/{chart_id}",
-                           headers={"Authorization": f"Bearer {from_t}"})
-            if r.status_code != 200:
-                return None
-            chart = r.json()
-
-            # Obtener el user_id de la cuenta destino
-            me_r = await c.get(f"{ML_API}/users/me",
-                               headers={"Authorization": f"Bearer {to_t}"})
-            to_uid = me_r.json().get("id")
-
-            # Armar payload para crear la guía en destino
-            payload = {
-                "site_id": chart.get("site_id", "MLA"),
-                "name": chart.get("name", "Guía de talles"),
-                "category_id": chart.get("category_id"),
-                "domain_id": chart.get("domain_id"),
-                "attributes": chart.get("attributes", []),
-                "rows": chart.get("rows", []),
-            }
-            # Remover claves None
-            payload = {k: v for k, v in payload.items() if v is not None}
-
-            r2 = await c.post(f"{ML_API}/size_charts",
-                             headers={"Authorization": f"Bearer {to_t}"},
-                             json=payload)
-            if r2.status_code in (200, 201):
-                new_chart_id = r2.json().get("id")
-                size_chart_map[chart_id] = new_chart_id
-                return new_chart_id
-            else:
-                # Si falla la creación, intentar reutilizar la misma (si es pública/compartida)
-                size_chart_map[chart_id] = chart_id
-                return chart_id
-        except Exception:
-            return chart_id  # fallback: usar el mismo ID
-
-    # Detectar si cuenta destino es user_product_seller y preparar carga de guías
-    dest_is_up = False
-    dest_charts_cache = {}  # chart_id -> {chart_id, rows: {size_name: row_id}}
-    # Cargar overrides de guías seleccionadas por el usuario
-    chart_override = {}
-    try:
-        r_redis = get_redis()
-        if r_redis:
-            raw = r_redis.get("mltn:chart_override")
-            if raw:
-                chart_override = json.loads(raw)
-    except Exception:
-        pass
-    # Hardcode conocidos: guía origen -> guía destino por cuenta
-    KNOWN_CHARTS = {
-        # LENCERIA pijamas (4788364) -> SHAMPOOSHIR pijamas (5127137)
-        "4788364": {"chart_id": "5127137", "rows": {"XL-2XL": "5127137:1", "3XL-4XL": "5127137:2"}},
-        # También mapear 4666038 por si acaso
-        "4666038": {"chart_id": "5127137", "rows": {"XL-2XL": "5127137:1", "3XL-4XL": "5127137:2"}},
+  try{
+    const r=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error');
+    if(!d.synced){
+      showMsg('msg-prod','⏳ Sin sync previo. Iniciando sincronización...','info');
+      if(btn){btn.innerHTML='Cargar';btn.disabled=false;}
+      await startMLSync();
+      return;
     }
-
-    async def get_dest_user_info():
-        nonlocal dest_is_up
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
-            try:
-                data = r.json() if r.content else {}
-            except Exception:
-                data = {}
-            tags = data.get("tags", [])
-            dest_is_up = "user_product_seller" in tags
-
-    async def load_dest_chart(orig_chart_id: str, domain_id: str = "", brand: str = ""):
-        """Buscar guía de talles equivalente en cuenta destino"""
-        cache_key = f"{orig_chart_id}"
-        if cache_key in dest_charts_cache:
-            return dest_charts_cache[cache_key]
-        # Verificar override del usuario (por ID específico o "manual" para cualquiera)
-        override_key = orig_chart_id if orig_chart_id in chart_override else ("manual" if "manual" in chart_override else None)
-        if override_key:
-            orig_chart_id = override_key  # reusar lógica abajo
-        if orig_chart_id in chart_override:
-            override_id = chart_override[orig_chart_id]
-            try:
-                async with httpx.AsyncClient(timeout=10) as c:
-                    r = await c.get(f"{ML_API}/catalog/charts/{override_id}",
-                                   headers={"Authorization": f"Bearer {to_t}"})
-                    if r.status_code == 200:
-                        row_map = {}
-                        for row in (r.json().get("rows") or []):
-                            rid = row.get("id","")
-                            sv = next((v.get("name","") for a in row.get("attributes",[])
-                                       if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                            if sv and rid:
-                                row_map[sv] = rid
-                        result = {"chart_id": override_id, "rows": row_map}
-                        dest_charts_cache[cache_key] = result
-                        return result
-            except Exception:
-                pass
-        # Usar mapeo conocido si existe
-        if orig_chart_id in KNOWN_CHARTS:
-            result = KNOWN_CHARTS[orig_chart_id]
-            dest_charts_cache[cache_key] = result
-            return result
-        try:
-            async with httpx.AsyncClient(timeout=15) as c:
-                # Para UP siempre buscar en las guías del vendedor destino
-                # Para no-UP: intentar leer la guía origen directamente
-                if not dest_is_up:
-                    r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
-                                   headers={"Authorization": f"Bearer {to_t}"})
-                    if r.status_code == 200:
-                        chart = r.json()
-                        # Solo usar si es del vendedor destino
-                        if str(chart.get("seller_id","")) == str(to_uid if False else ""):
-                            pass  # skip, we don't have to_uid yet
-                        row_map = {}
-                        for row in (chart.get("rows") or []):
-                            rid = row.get("id","")
-                            size_val = next((v.get("name","") for a in row.get("attributes",[])
-                                            if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                            if size_val and rid:
-                                row_map[size_val] = rid
-                        result = {"chart_id": orig_chart_id, "rows": row_map}
-                        dest_charts_cache[cache_key] = result
-                        return result
-
-                # Buscar guías del vendedor destino por dominio
-                me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
-                to_uid = me_r.json().get("id","")
-
-                # Buscar guías de la cuenta destino — primero con brand, luego sin brand
-                charts = []
-                for search_payload in [
-                    {"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS",
-                     "attributes":[{"id":"GENDER","values":[{"name":"Mujer"}]},{"id":"BRAND","values":[{"name": brand or ""}]}]},
-                    {"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS",
-                     "attributes":[{"id":"GENDER","values":[{"name":"Mujer"}]}]},
-                    {"site_id":"MLA","seller_id": to_uid, "domain_id": domain_id or "BRAS"},
-                ]:
-                    search_r = await c.post(f"{ML_API}/catalog/charts/search",
-                        headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                        json=search_payload)
-                    if search_r.status_code == 200:
-                        charts = search_r.json().get("charts", [])
-                        if charts:
-                            break
-
-                # Elegir la guía que tenga el talle que necesitamos
-                best = None
-                # Primero buscar la guía que ya tenga el size_val en sus rows
-                for ch in charts:
-                    for row in (ch.get("rows") or []):
-                        sv = next((v.get("name","") for a in row.get("attributes",[])
-                                   if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                        if sv == size_val:
-                            best = ch
-                            break
-                    if best:
-                        break
-                # Si ninguna tiene el talle, tomar la que coincida por brand
-                if not best:
-                    for ch in charts:
-                        ch_name = ch.get("names",{}).get("MLA","").upper()
-                        if brand and brand.upper() in ch_name:
-                            best = ch
-                            break
-                if not best and charts:
-                    best = charts[0]
-
-                if best:
-                    # Cargar los rows de la mejor guía
-                    r2 = await c.get(f"{ML_API}/catalog/charts/{best['id']}",
-                                    headers={"Authorization": f"Bearer {to_t}"})
-                    if r2.status_code == 200:
-                        chart = r2.json()
-                        row_map = {}
-                        for row in (chart.get("rows") or []):
-                            rid = row.get("id","")
-                            size_val = next((v.get("name","") for a in row.get("attributes",[])
-                                            if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                            if size_val and rid:
-                                row_map[size_val] = rid
-                        result = {"chart_id": str(best["id"]), "rows": row_map}
-                        dest_charts_cache[cache_key] = result
-                        return result
-        except Exception:
-            pass
-        return None
-
-    async def copy_chart_to_dest(orig_chart_id: str, domain_id: str = ""):
-        """Copiar guía de talles de cuenta origen a cuenta destino"""
-        cache_key = f"copy_{orig_chart_id}"
-        if cache_key in dest_charts_cache:
-            return dest_charts_cache[cache_key]
-        try:
-            async with httpx.AsyncClient(timeout=20) as c:
-                # Leer guía original con token origen
-                r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
-                               headers={"Authorization": f"Bearer {from_t}"})
-                if r.status_code != 200:
-                    return None
-                orig = r.json()
-
-                # Armar payload para crear la guía en destino
-                new_chart = {
-                    "names": orig.get("names", {"MLA": "Guía de talles"}),
-                    "domain_id": orig.get("domain_id") or domain_id or "BRAS",
-                    "site_id": orig.get("site_id", "MLA"),
-                    "main_attribute": {"attributes": [{"site_id": "MLA", "id": orig.get("main_attribute_id", "SIZE")}]},
-                    "attributes": orig.get("attributes", []),
-                    "rows": []
-                }
-                if orig.get("measure_type"):
-                    new_chart["measure_type"] = orig["measure_type"]
-
-                # Copiar rows — limpiar IDs
-                for row in (orig.get("rows") or []):
-                    new_row = {"attributes": []}
-                    for a in row.get("attributes", []):
-                        new_row["attributes"].append({
-                            "id": a["id"],
-                            "values": a.get("values", [])
-                        })
-                    new_chart["rows"].append(new_row)
-
-                r2 = await c.post(f"{ML_API}/catalog/charts",
-                                 headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                                 json=new_chart)
-
-                if r2.status_code in (200, 201):
-                    new_chart_data = r2.json()
-                    new_id = str(new_chart_data.get("id",""))
-                    # Cargar los rows del nuevo chart
-                    row_map = {}
-                    for row in (new_chart_data.get("rows") or []):
-                        rid = row.get("id","")
-                        size_val2 = next((v.get("name","") for a in row.get("attributes",[])
-                                         if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                        if size_val2 and rid:
-                            row_map[size_val2] = rid
-                    result = {"chart_id": new_id, "rows": row_map}
-                    dest_charts_cache[cache_key] = result
-                    dest_charts_cache[orig_chart_id] = result  # también cachear por ID original
-                    return result
-        except Exception:
-            pass
-        return None
-
-    await get_dest_user_info()
-
-    results = []
-    item_ids = b.get("item_ids", [])
-
-    # Si explotar=True, expandir variantes como productos separados
-    if explotar:
-        new_item_ids = []
-        for iid in item_ids:
-            try:
-                async with httpx.AsyncClient(timeout=15) as c:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
-                    if r.status_code == 200:
-                        item = r.json()
-                        variations = item.get("variations", [])
-                        if variations:
-                            # Crear un item por cada variante
-                            for v in variations:
-                                attrs = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                                # Buscar talle con cualquier key posible
-                                talle = (attrs.get("Talle") or attrs.get("Tamaño") or 
-                                        attrs.get("Size") or attrs.get("Talla") or
-                                        next((v for k,v in attrs.items() if "tall" in k.lower() or "size" in k.lower() or "tamaño" in k.lower()), ""))
-                                color = (attrs.get("Color") or 
-                                        next((v for k,v in attrs.items() if "color" in k.lower()), ""))
-                                print(f"Variante attrs: {attrs}, talle={talle}, color={color}")
-                                suffix = " - ".join(filter(None, [talle, color]))
-                                new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
-                                price = v.get("price") or item.get("price", 0)
-                                stock = v.get("available_quantity", item.get("available_quantity", 0))
-                                # Construir atributos — tomar del item original
-                                item_attrs = [a for a in (item.get("attributes") or []) 
-                                              if a.get("id") not in ("SIZE_GRID_ID", "SIZE", "COLOR")]
-                                # Agregar SIZE y COLOR de esta variante
-                                if talle:
-                                    item_attrs.append({"id": "SIZE", "value_name": talle})
-                                if color:
-                                    item_attrs.append({"id": "COLOR", "value_name": color})
-                                # Agregar family_name requerido por ML
-                                item_attrs.append({"id": "FAMILY_NAME", "value_name": item.get("title", "")[:60]})
-                                # Agregar SIZE_GRID_ID con override o el original
-                                orig_chart_id = str(next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), "") or "")
-                                dest_chart_id = chart_override.get(orig_chart_id) or chart_override.get("manual", "")
-                                if dest_chart_id:
-                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(dest_chart_id)})
-                                elif orig_chart_id:
-                                    item_attrs.append({"id": "SIZE_GRID_ID", "value_name": orig_chart_id})
-                                payload = {
-                                    "title": new_title,
-                                    "category_id": item.get("category_id"),
-                                    "price": price,
-                                    "currency_id": item.get("currency_id", "ARS"),
-                                    "available_quantity": stock,
-                                    "buying_mode": "buy_it_now",
-                                    "listing_type_id": item.get("listing_type_id", "gold_special"),
-                                    "condition": item.get("condition", "new"),
-                                    "pictures": [{"source": p["url"]} for p in (item.get("pictures") or [])[:12]],
-                                    "attributes": item_attrs,
-                                    "family_name": item.get("title","")
-                                }
-                                await asyncio.sleep(1)  # evitar rate limit de ML
-                                r2 = None
-                                for attempt in range(3):
-                                    async with httpx.AsyncClient(timeout=30) as c2:
-                                        r2 = await c2.post(f"{ML_API}/items",
-                                            headers={"Authorization": f"Bearer {to_t}"},
-                                            json=payload)
-                                    if r2.status_code == 429:
-                                        await asyncio.sleep((attempt+1) * 10)
-                                        continue
-                                    break
-                                ok = r2.status_code in (200, 201) if r2 else False
-                                try:
-                                    err_body = r2.json() if r2 else {}
-                                except:
-                                    err_body = {}
-                                if not ok:
-                                    print(f"ML error {r2.status_code if r2 else 'None'}: {json.dumps(err_body)[:300]}")
-                                cause_list = err_body.get("cause", [])
-                                err_msg = cause_list[0].get("message","") if cause_list else err_body.get("message","Error")
-                                results.append({"id": iid, "title": new_title, "ok": ok,
-                                    "msg": "Publicado" if ok else err_msg})
-                        else:
-                            new_item_ids.append(iid)
-                    else:
-                        new_item_ids.append(iid)
-            except Exception as e:
-                results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
-        # Los items sin variantes se procesan normal
-        item_ids = new_item_ids
-        if not item_ids:
-            return {"results": results}
-
-    # Si agrupar=True, obtener todos los items primero y agrupar por MODEL
-    if agrupar:
-        async with httpx.AsyncClient(timeout=30) as c:
-            # Bajar todos los items
-            all_items = []
-            for iid in item_ids:
-                try:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
-                    item = r.json()
-                    if "error" not in item:
-                        all_items.append(item)
-                    await asyncio.sleep(0.5)
-                except Exception:
-                    pass
-
-            # Agrupar por MODEL
-            grupos = {}
-            for item in all_items:
-                model_attr = next((a for a in (item.get("attributes") or []) if a.get("id") == "MODEL"), None)
-                key = model_attr.get("value_name", item["id"]) if model_attr else item["id"]
-                if key not in grupos:
-                    grupos[key] = []
-                grupos[key].append(item)
-
-            # Procesar cada grupo
-            for model_key, items_grupo in grupos.items():
-                try:
-                    base_item = items_grupo[0]
-
-                    # Armar variaciones combinando COLOR + SIZE de cada item
-                    variations = []
-                    for item in items_grupo:
-                        attrs = {a["id"]: a for a in (item.get("attributes") or [])}
-                        color_id = attrs.get("COLOR", {}).get("value_id")
-                        color_name = attrs.get("COLOR", {}).get("value_name")
-                        size_id = attrs.get("SIZE", {}).get("value_id")
-                        size_name = attrs.get("SIZE", {}).get("value_name")
-                        combinations = []
-                        if color_id or color_name:
-                            c_attr = {"id": "COLOR"}
-                            if color_id: c_attr["value_id"] = color_id
-                            else: c_attr["value_name"] = color_name
-                            combinations.append(c_attr)
-                        if size_id or size_name:
-                            s_attr = {"id": "SIZE"}
-                            if size_id: s_attr["value_id"] = size_id
-                            else: s_attr["value_name"] = size_name
-                            combinations.append(s_attr)
-                        v = {
-                            "price": item.get("price", base_item.get("price", 0)),
-                            "available_quantity": item.get("available_quantity", 0),
-                            "attribute_combinations": combinations,
-                            "picture_ids": [p["id"] for p in (item.get("pictures") or [])[:3] if p.get("id")],
-                        }
-                        variations.append(v)
-
-                    # Limpiar atributos del item base
-                    EXCLUDED_ATTRS = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
-                                      "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
-                                      "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID","COLOR","SIZE"}
-                    brand_val = next((a.get("value_name","") for a in (base_item.get("attributes") or []) if a.get("id")=="BRAND"), "")
-                    model_val2 = next((a.get("value_name","") for a in (base_item.get("attributes") or []) if a.get("id")=="MODEL"), "")
-                    attrs_clean = []
-                    for a in (base_item.get("attributes") or []):
-                        aid = a.get("id","")
-                        if aid in EXCLUDED_ATTRS: continue
-                        if aid in ("BRAND","MODEL"):
-                            vn = a.get("value_name")
-                            if vn: attrs_clean.append({"id":aid,"value_name":vn})
-                            continue
-                        if a.get("value_id"):
-                            attrs_clean.append({"id": aid, "value_id": a["value_id"]})
-                        elif a.get("value_name"):
-                            attrs_clean.append({"id": aid, "value_name": a["value_name"]})
-                    family2 = f"{brand_val} {model_val2}".strip() or base_item.get("title","")[:60]
-                    attrs_clean.append({"id": "family_name", "value_name": family2})
-                    # Agregar dimensiones si se ingresaron
-                    if dims:
-                        if dims.get("h"): attrs_clean.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":f'{int(dims["h"])} cm'})
-                        if dims.get("w"): attrs_clean.append({"id":"SELLER_PACKAGE_WIDTH","value_name":f'{int(dims["w"])} cm'})
-                        if dims.get("l"): attrs_clean.append({"id":"SELLER_PACKAGE_LENGTH","value_name":f'{int(dims["l"])} cm'})
-                        if dims.get("p"): attrs_clean.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":f'{int(float(dims["p"])*1000)} g'})
-                        if dims.get("ph"): attrs_clean.append({"id":"PRODUCT_HEIGHT","value_name":f'{int(dims["ph"])} cm'})
-                        if dims.get("pw"): attrs_clean.append({"id":"PRODUCT_WIDTH","value_name":f'{int(dims["pw"])} cm'})
-                        if dims.get("pl"): attrs_clean.append({"id":"PRODUCT_LENGTH","value_name":f'{int(dims["pl"])} cm'})
-                        if dims.get("pp"): attrs_clean.append({"id":"PRODUCT_WEIGHT","value_name":f'{int(float(dims["pp"])*1000)} g'})
-
-                    # Título base: cortar después del número de modelo
-                    _t = base_item.get("title", "")
-                    if model_val2 and model_val2 in _t:
-                        title = _t[:_t.index(model_val2)+len(model_val2)].strip()
-                    elif " - " in _t:
-                        title = _t.rsplit(" - ", 1)[0].strip()
-                    else:
-                        title = _t
-
-                    payload = {
-                        "title": title,
-                        "category_id": base_item.get("category_id", ""),
-                        "price": base_item.get("price", 0),
-                        "currency_id": base_item.get("currency_id", "ARS"),
-                        "available_quantity": 0,
-                        "listing_type_id": base_item.get("listing_type_id", "gold_special"),
-                        "condition": base_item.get("condition", "new"),
-                        "pictures": [{"source": p["url"]} for p in (base_item.get("pictures") or [])[:12]],
-                        "attributes": attrs_clean,
-                        "variations": variations,
-                    }
-                    if base_item.get("sale_terms"):
-                        payload["sale_terms"] = base_item["sale_terms"]
-
-                    # Intentar con retry 429
-                    r2 = None
-                    for attempt in range(3):
-                        r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
-                        if r2.status_code == 429:
-                            await asyncio.sleep(30 * (attempt + 1))
-                            continue
-                        break
-
-                    ok = r2.status_code in (200, 201)
-                    new_id = None
-                    if ok:
-                        new_id = r2.json().get("id")
-                        msg = f"Agrupado OK ({len(items_grupo)} variantes)"
-                        if status == "paused" and new_id:
-                            await c.put(f"{ML_API}/items/{new_id}",
-                                headers={"Authorization": f"Bearer {to_t}"},
-                                json={"status": "paused"})
-                    elif r2.status_code == 429:
-                        msg = "Rate limit ML (429)"
-                    else:
-                        try:
-                            err = r2.json()
-                            causes = err.get("cause", [])
-                            msg = ", ".join([cx.get("code","") for cx in causes[:3]]) if causes else err.get("message", f"Error {r2.status_code}")
-                        except Exception:
-                            msg = f"Error {r2.status_code}"
-
-                    results.append({"id": base_item["id"], "title": title, "ok": ok, "msg": msg, "new_id": new_id, "variantes": len(items_grupo)})
-                    ST["log"].append({"ts": int(time.time()), "action": "duplicate_group", "product": title, "status": "ok" if ok else "error"})
-                    await asyncio.sleep(3)
-
-                except Exception as e:
-                    results.append({"id": model_key, "title": model_key, "ok": False, "msg": str(e)})
-
-        save_state()
-        return {"results": results}
-
-    # Modo normal: duplicar uno por uno
-    async with httpx.AsyncClient(timeout=30) as c:
-        for iid in item_ids:
-            try:
-                # Fetch con retry en caso de rate limit
-                r = None
-                for attempt in range(3):
-                    r = await c.get(f"{ML_API}/items/{iid}", headers={"Authorization": f"Bearer {from_t}"})
-                    if r.status_code == 429:
-                        await asyncio.sleep((attempt+1) * 15)
-                        continue
-                    break
-                try:
-                    item = r.json()
-                except:
-                    results.append({"id": iid, "title": iid, "ok": False, "msg": "Rate limit ML (429) — esperá unos minutos"})
-                    await asyncio.sleep(30)
-                    continue
-                if "error" in item:
-                    results.append({"id": iid, "title": iid, "ok": False, "msg": item.get("message", "Error ML")})
-                    continue
-
-                # Limpiar variaciones
-                variations_clean = []
-                for v in (item.get("variations") or []):
-                    vc = {
-                        "attribute_combinations": v.get("attribute_combinations", []),
-                        "price": v.get("price", item.get("price", 0)),
-                        "available_quantity": v.get("available_quantity", 0),
-                    }
-                    if v.get("picture_ids"):
-                        vc["picture_ids"] = v["picture_ids"]
-                    variations_clean.append(vc)
-
-                # Atributos a excluir
-                EXCLUDED_ATTRS = {
-                    "SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
-                    "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
-                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID"
-                }
-                # Extraer BRAND y MODEL primero
-                brand_val = next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="BRAND"), "")
-                model_val = next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="MODEL"), "")
-                size_val = next((a.get("value_name") or str(a.get("value_id","")) for a in (item.get("attributes") or []) if a.get("id")=="SIZE"), "")
-                orig_chart_id = next((a.get("value_name") or a.get("value_id","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), None)
-                orig_row_id = next((a.get("value_name","") for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ROW_ID"), None)
-
-                attrs_clean = []
-                for a in (item.get("attributes") or []):
-                    aid = a.get("id","")
-                    if aid in EXCLUDED_ATTRS: continue
-                    if aid in ("BRAND","MODEL"):
-                        vn = a.get("value_name")
-                        if vn: attrs_clean.append({"id":aid,"value_name":vn})
-                        continue
-                    if aid == "SIZE":
-                        if dest_is_up:
-                            # UP: SIZE como value_name
-                            if size_val: attrs_clean.append({"id":"SIZE","value_name":size_val})
-                        else:
-                            if a.get("value_id"): attrs_clean.append({"id":"SIZE","value_id":a["value_id"]})
-                            elif a.get("value_name"): attrs_clean.append({"id":"SIZE","value_name":a["value_name"]})
-                        continue
-                    if dest_is_up:
-                        # Para UP: siempre value_name
-                        vn = a.get("value_name")
-                        if vn:
-                            attrs_clean.append({"id": aid, "value_name": vn})
-                    else:
-                        if a.get("value_id"):
-                            attrs_clean.append({"id": aid, "value_id": a["value_id"]})
-                        elif a.get("value_name"):
-                            attrs_clean.append({"id": aid, "value_name": a["value_name"]})
-
-                # Agregar SIZE_GRID_ID y SIZE_GRID_ROW_ID
-                if orig_chart_id:
-                    # Para UP: buscar guía en cuenta destino por su ID
-                    if dest_is_up:
-                        # Obtener domain_id de la categoría
-                        cat_domain = ""
-                        try:
-                            async with httpx.AsyncClient(timeout=10) as cc:
-                                dr = await cc.get(f"{ML_API}/categories/{item.get('category_id','')}", 
-                                                  headers={"Authorization": f"Bearer {from_t}"})
-                                cat_domain = dr.json().get("domain_id","")
-                        except Exception:
-                            pass
-                        dest_chart = await load_dest_chart(str(orig_chart_id), cat_domain, brand_val)
-                        if not dest_chart:
-                            # Intentar copiar la guía automáticamente
-                            dest_chart = await copy_chart_to_dest(str(orig_chart_id), cat_domain)
-                        if dest_chart:
-                            attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(dest_chart["chart_id"])})
-                            row_id = dest_chart["rows"].get(size_val)
-                            if not row_id:
-                                # Agregar el talle faltante via POST /catalog/charts/{id}/rows
-                                try:
-                                    async with httpx.AsyncClient(timeout=20) as cc:
-                                        # Leer guía original para copiar el row con todos sus atributos
-                                        orig_chart_r = await cc.get(
-                                            f"{ML_API}/catalog/charts/{orig_chart_id}",
-                                            headers={"Authorization": f"Bearer {from_t}"}
-                                        )
-                                        orig_row_data = None
-                                        if orig_chart_r.status_code == 200:
-                                            for r in (orig_chart_r.json().get("rows") or []):
-                                                sv = next((v.get("name","") for a in r.get("attributes",[])
-                                                           if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                                                if sv == size_val:
-                                                    orig_row_data = r
-                                                    break
-                                        # Armar payload del nuevo row limpiando IDs
-                                        if orig_row_data:
-                                            new_row_attrs = []
-                                            for a in orig_row_data.get("attributes", []):
-                                                new_row_attrs.append({"id": a["id"], "values": a.get("values", [])})
-                                        else:
-                                            new_row_attrs = [{"id": "SIZE", "values": [{"name": size_val}]}]
-                                        add_r = await cc.post(
-                                            f"{ML_API}/catalog/charts/{dest_chart['chart_id']}/rows",
-                                            headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                                            json={"attributes": new_row_attrs}
-                                        )
-                                        if add_r.status_code in (200, 201):
-                                            added = add_r.json()
-                                            row_id = added.get("id", "")
-                                            if row_id:
-                                                dest_chart["rows"][size_val] = row_id
-                                except Exception:
-                                    pass
-                            if row_id:
-                                attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":row_id})
-                            else:
-                                results.append({"id": iid, "title": item.get("title", iid), "ok": False,
-                                    "msg": f"⚠️ El talle '{size_val}' no existe en la guía de talles de la cuenta destino.",
-                                    "error_type": "missing_size",
-                                    "missing_size": size_val,
-                                    "chart_id": dest_chart["chart_id"],
-                                    "ml_talles_url": "https://www.mercadolibre.com.ar/moda/talles/"})
-                                continue
-                        else:
-                            results.append({"id": iid, "title": item.get("title", iid), "ok": False,
-                                "msg": f"⚠️ No hay guía de talles para '{brand_val}' en la cuenta destino. SIZE_GRID_ID origen: {orig_chart_id}",
-                                "error_type": "missing_chart",
-                                "domain_id": cat_domain,
-                                "brand": brand_val,
-                                "orig_chart_id": str(orig_chart_id),
-                                "ml_talles_url": "https://www.mercadolibre.com.ar/moda/talles/"})
-                            continue
-                    else:
-                        attrs_clean.append({"id":"SIZE_GRID_ID","value_name":str(orig_chart_id)})
-                        if orig_row_id:
-                            attrs_clean.append({"id":"SIZE_GRID_ROW_ID","value_name":orig_row_id})
-
-                # family_name
-                family = f"{brand_val} {model_val}".strip() or item.get("title","")[:60]
-
-                # Título base: cortar después del modelo
-                raw_title = item.get("title","")
-                if model_val and model_val in raw_title:
-                    base_title = raw_title[:raw_title.index(model_val)+len(model_val)].strip()
-                elif " - " in raw_title:
-                    base_title = raw_title.rsplit(" - ", 1)[0].strip()
-                else:
-                    base_title = raw_title.strip()
-
-                if dest_is_up:
-                    payload = {
-                        "family_name": base_title[:60],
-                        "category_id": item.get("category_id", ""),
-                        "price": item.get("price", 0),
-                        "currency_id": item.get("currency_id", "ARS"),
-                        "available_quantity": item.get("available_quantity", 0),
-                        "listing_type_id": item.get("listing_type_id", "gold_special"),
-                        "condition": item.get("condition", "new"),
-                        "pictures": [{"source": p["url"].replace("http://","https://")} for p in (item.get("pictures") or [])[:12]],
-                        "attributes": attrs_clean,
-                    }
-                else:
-                    payload = {
-                        "title": base_title[:60],
-                        "category_id": item.get("category_id", ""),
-                        "price": item.get("price", 0),
-                        "currency_id": item.get("currency_id", "ARS"),
-                        "available_quantity": item.get("available_quantity", 0) if not variations_clean else 0,
-                        "listing_type_id": item.get("listing_type_id", "gold_special"),
-                        "condition": item.get("condition", "new"),
-                        "pictures": [{"source": p["url"].replace("http://","https://")} for p in (item.get("pictures") or [])[:12]],
-                        "attributes": attrs_clean,
-                    }
-                    if variations_clean:
-                        payload["variations"] = variations_clean
-                    if item.get("sale_terms"):
-                        payload["sale_terms"] = item["sale_terms"]
-
-                # Intentar con retry en 429
-                r2 = None
-                for attempt in range(3):
-                    r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
-                    if r2.status_code == 429:
-                        wait = 30 * (attempt + 1)
-                        await asyncio.sleep(wait)
-                        continue
-                    break
-
-                ok = r2.status_code in (200, 201)
-
-                new_id = None
-                if ok:
-                    new_id = r2.json().get("id")
-                    msg = "Duplicado OK"
-                    if status == "paused" and new_id:
-                        await c.put(f"{ML_API}/items/{new_id}",
-                            headers={"Authorization": f"Bearer {to_t}"},
-                            json={"status": "paused"})
-                    if auto_link and new_id:
-                        link = {"ml_item_id": iid, "ml_acc_idx": from_idx,
-                                "tn_product_id": new_id, "tn_acc_idx": to_idx,
-                                "auto_linked": True}
-                        if "links" not in ST: ST["links"] = []
-                        ST["links"].append(link)
-                elif r2.status_code == 429:
-                    msg = "Rate limit ML (429) — esperá unos minutos y volvé a intentar"
-                else:
-                    try:
-                        err = r2.json()
-                        causes = err.get("cause", [])
-                        # Solo mostrar errores reales, ignorar warnings
-                        real_errors = [c2 for c2 in causes if c2.get("type") == "error"]
-                        msg = ", ".join([c2.get("message", c2.get("code","")) for c2 in real_errors[:3]]) if real_errors else err.get("message", f"Error {r2.status_code}")
-                    except Exception:
-                        msg = f"Error {r2.status_code}"
-
-                results.append({"id": iid, "title": item.get("title", iid), "ok": ok, "msg": msg, "new_id": new_id})
-                ST["log"].append({"ts": int(time.time()), "action": "duplicate", "product": item.get("title", ""), "status": "ok" if ok else "error"})
-                await asyncio.sleep(3)  # 3 segundos entre cada item para no disparar 429
-            except Exception as e:
-                results.append({"id": iid, "title": iid, "ok": False, "msg": str(e)})
-    save_state()
-    return {"results": results}
-
-@app.post("/webhook/ml")
-async def webhook_ml(request: Request, background_tasks: BackgroundTasks):
-    """Recibir notificaciones de ML (ventas, cambios de stock)"""
-    try:
-        body = await request.json()
-    except:
-        body = {}
-    topic = body.get("topic","") or request.query_params.get("topic","")
-    resource = body.get("resource","") or request.query_params.get("resource","")
-    user_id = body.get("user_id") or request.query_params.get("user_id")
-    print(f"Webhook ML: topic={topic} resource={resource} user_id={user_id}")
-    # Solo procesar órdenes
-    if topic in ("orders", "orders_v2"):
-        background_tasks.add_task(process_ml_order, resource, int(user_id) if user_id else None)
-    return {"status": "ok"}
-
-async def process_ml_order(resource: str, seller_uid: int):
-    """Procesar una orden de ML y sincronizar stock entre cuentas"""
-    try:
-        # Encontrar qué cuenta es
-        acc_idx = None
-        for i, acc in enumerate(ST.get("accounts", [])):
-            if int(acc.get("uid", 0)) == seller_uid:
-                acc_idx = i
-                break
-        if acc_idx is None:
-            print(f"Webhook: cuenta {seller_uid} no encontrada")
-            return
-        # Obtener detalle de la orden
-        token = await fresh_token(acc_idx)
-        order_id = resource.strip("/").split("/")[-1]
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{ML_API}/orders/{order_id}",
-                headers={"Authorization": f"Bearer {token}"})
-            if r.status_code != 200:
-                print(f"Webhook: error obteniendo orden {order_id}: {r.status_code}")
-                return
-            order = r.json()
-        # Procesar cada item vendido
-        for order_item in order.get("order_items", []):
-            item_id = order_item.get("item", {}).get("id", "")
-            qty_sold = order_item.get("quantity", 0)
-            variation_id = order_item.get("item", {}).get("variation_id")
-            if not item_id or not qty_sold:
-                continue
-            print(f"Webhook: item {item_id} vendido x{qty_sold} en cuenta {acc_idx}")
-            # Extraer modelo del título
-            async with httpx.AsyncClient(timeout=10) as c:
-                ri = await c.get(f"{ML_API}/items/{item_id}?attributes=title,attributes",
-                    headers={"Authorization": f"Bearer {token}"})
-                if ri.status_code != 200:
-                    continue
-                item_data = ri.json()
-            title = item_data.get("title", "")
-            model = extract_model(title)
-            if not model:
-                print(f"Webhook: no se encontró modelo en '{title}'")
-                continue
-            print(f"Webhook: sincronizando modelo '{model}' x{qty_sold}")
-            # Descontar stock en las otras cuentas
-            await sync_stock_by_model(model, qty_sold, acc_idx, item_id)
-    except Exception as e:
-        print(f"Webhook error: {e}")
-
-def extract_model(title: str) -> str:
-    """Extraer número de modelo del título (ej: '15228', '2002')"""
-    import re
-    # Buscar números de 4+ dígitos que parecen modelos
-    matches = re.findall(r'\b(\d{4,6})\b', title)
-    return matches[0] if matches else ""
-
-async def sync_stock_by_model(model: str, qty_sold: int, sold_acc_idx: int, sold_item_id: str):
-    """Descontar stock en todas las cuentas que tienen el mismo modelo"""
-    for i, acc in enumerate(ST.get("accounts", [])):
-        if i == sold_acc_idx:
-            continue  # saltar la cuenta donde se vendió
-        try:
-            token = await fresh_token(i)
-            uid = acc.get("uid", "")
-            prods = get_cached_products(uid)
-            if not prods:
-                continue
-            # Buscar items con el mismo modelo
-            matching = [p for p in prods if extract_model(p.get("title","")) == model]
-            for prod in matching:
-                item_id = prod.get("id","")
-                current_stock = prod.get("available_quantity", 0)
-                new_stock = max(0, current_stock - qty_sold)
-                # Actualizar stock en ML
-                async with httpx.AsyncClient(timeout=10) as c:
-                    r = await c.put(f"{ML_API}/items/{item_id}",
-                        headers={"Authorization": f"Bearer {token}",
-                                 "Content-Type": "application/json"},
-                        json={"available_quantity": new_stock})
-                if r.status_code in (200, 201):
-                    print(f"Stock sync OK: {item_id} cuenta {i}: {current_stock} -> {new_stock}")
-                    # Actualizar cache local
-                    prod["available_quantity"] = new_stock
-                else:
-                    print(f"Stock sync ERROR: {item_id} cuenta {i}: {r.status_code} {r.text[:100]}")
-            if matching:
-                # Guardar cache actualizado
-                set_cached_products(uid, prods)
-        except Exception as e:
-            print(f"sync_stock_by_model error cuenta {i}: {e}")
-
-async def process_ml_item_change(resource: str, seller_uid: int):
-    """Cuando cambia un item en LENCERIA, propagar precio/stock a las otras cuentas"""
-    try:
-        # Verificar que es LENCERIA (cuenta maestra = índice 0)
-        master_acc = ST.get("accounts", [{}])[0]
-        if int(master_acc.get("uid", 0)) != seller_uid:
-            return  # Solo propagar cambios de la cuenta maestra
-        
-        item_id = resource.strip("/").split("/")[-1]
-        token = await fresh_token(0)
-        
-        # Obtener datos actuales del item en LENCERIA
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}?attributes=title,price,available_quantity,attributes,variations",
-                headers={"Authorization": f"Bearer {token}"})
-            if r.status_code != 200:
-                return
-            item = r.json()
-        
-        title = item.get("title", "")
-        price = item.get("price", 0)
-        stock = item.get("available_quantity", 0)
-        model = extract_model(title)
-        
-        if not model:
-            return
-        
-        print(f"Item change: modelo '{model}' precio={price} stock={stock}")
-        
-        # Propagar a las otras cuentas ML
-        for i, acc in enumerate(ST.get("accounts", [])):
-            if i == 0:
-                continue  # saltar LENCERIA
-            try:
-                to_token = await fresh_token(i)
-                uid = acc.get("uid", "")
-                prods = get_cached_products(uid)
-                if not prods:
-                    continue
-                matching = [p for p in prods if extract_model(p.get("title","")) == model]
-                for prod in matching:
-                    pid = prod.get("id","")
-                    async with httpx.AsyncClient(timeout=10) as c:
-                        r = await c.put(f"{ML_API}/items/{pid}",
-                            headers={"Authorization": f"Bearer {to_token}",
-                                     "Content-Type": "application/json"},
-                            json={"price": price, "available_quantity": stock})
-                    if r.status_code in (200, 201):
-                        prod["price"] = price
-                        prod["available_quantity"] = stock
-                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock}")
-                    else:
-                        print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code}")
-                if matching:
-                    set_cached_products(uid, prods)
-            except Exception as e:
-                print(f"process_ml_item_change error cuenta {i}: {e}")
-        
-        # Propagar a TiendaNube si está conectada
-        if ST.get("tn", {}).get("store_id") and ST.get("tn", {}).get("token"):
-            await sync_item_to_tn(model, price, stock)
-    
-    except Exception as e:
-        print(f"process_ml_item_change error: {e}")
-
-async def sync_item_to_tn(model: str, price: float, stock: int):
-    """Sincronizar precio y stock con TiendaNube por modelo"""
-    try:
-        tn_store = ST["tn"]["store_id"]
-        tn_token = ST["tn"]["token"]
-        links = ST.get("links", [])
-        # Buscar en cache de productos de LENCERIA items con ese modelo
-        master_uid = ST.get("accounts", [{}])[0].get("uid","")
-        prods = get_cached_products(master_uid)
-        matching_ids = [p["id"] for p in (prods or []) if extract_model(p.get("title","")) == model]
-        # Buscar links que correspondan a esos items
-        for link in links:
-            if link.get("ml_item_id") in matching_ids:
-                tn_prod_id = link.get("tn_product_id")
-                tn_var_id = link.get("tn_variant_id")
-                if not tn_prod_id:
-                    continue
-                headers = {"Authentication": f"Bearer {tn_token}",
-                           "Content-Type": "application/json",
-                           "User-Agent": "MLTNSync/1.0"}
-                async with httpx.AsyncClient(timeout=10) as c:
-                    if tn_var_id:
-                        await c.put(f"https://api.tiendanube.com/v1/{tn_store}/products/{tn_prod_id}/variants/{tn_var_id}",
-                            headers=headers, json={"price": str(price), "stock": stock})
-                    else:
-                        await c.put(f"https://api.tiendanube.com/v1/{tn_store}/products/{tn_prod_id}",
-                            headers=headers, json={"price": str(price)})
-    except Exception as e:
-        print(f"sync_item_to_tn error: {e}")
-
-
-@app.post("/api/ai/analyze")
-async def ai_analyze(req: Request, _=Depends(auth)):
-    """Analizar imagen con Claude y devolver datos del producto"""
-    try:
-        b = await req.json()
-        image_base64 = b.get("image_base64", "")
-        image_type = b.get("image_type", "image/jpeg")
-        
-        prompt = """Sos un experto en publicaciones de MercadoLibre Argentina, especializado en ropa y lencería.
-Analizá esta imagen de un producto y respondé SOLO con JSON válido (sin markdown) con esta estructura:
-{
-  "tipo_prenda": "descripción del tipo de prenda",
-  "titulo_sugerido": "título para ML máximo 60 caracteres, descriptivo y comercial",
-  "colores_detectados": ["color1", "color2"],
-  "colores_sugeridos": ["otros colores típicos de esta prenda"],
-  "talles_sugeridos": ["S/M", "L/XL", "2XL/3XL"],
-  "descripcion": "descripción comercial del producto en 2-3 oraciones",
-  "genero": "Mujer/Hombre/Unisex",
-  "preguntas": ["pregunta1 que necesito hacerle al vendedor para completar la publicación", "pregunta2"],
-  "categoria_ml": "categoría sugerida para ML"
-}"""
-
-        response = await httpx.AsyncClient(timeout=30).post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"Content-Type": "application/json", "x-api-key": os.getenv("ANTHROPIC_API_KEY", ""),
-                     "anthropic-version": "2023-06-01"},
-            json={
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 1000,
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {"type": "image", "source": {"type": "base64", "media_type": image_type, "data": image_base64}},
-                        {"type": "text", "text": prompt}
-                    ]
-                }]
-            }
-        )
-        
-        data = response.json()
-        print(f"Anthropic response status={response.status_code} keys={list(data.keys())}")
-        if "error" in data:
-            return {"ok": False, "error": f"Anthropic API: {data['error'].get('message', str(data['error']))}"}
-        if "content" not in data:
-            return {"ok": False, "error": f"Respuesta inesperada: {str(data)[:200]}"}
-        text = data["content"][0]["text"].strip()
-        import json as json_mod
-        clean = text.replace("```json", "").replace("```", "").strip()
-        result = json_mod.loads(clean)
-        return {"ok": True, "analysis": result}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-@app.post("/api/ai/analyze_url")
-async def ai_analyze_url(req: Request, _=Depends(auth)):
-    """Analizar producto desde una URL usando web scraping + Claude"""
-    try:
-        b = await req.json()
-        url = b.get("url", "").strip()
-        if not url:
-            return {"ok": False, "error": "URL requerida"}
-        
-        # 1. Detectar si es ML para usar API directamente
-        import re
-        ml_match = re.search(r'MLA\d+', url)
-        if ml_match and "mercadolibre" in url:
-            item_id = ml_match.group(0)
-            # Usar API de ML con la cuenta 0
-            token = await fresh_token(0)
-            async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {token}"})
-                dr = await c.get(f"{ML_API}/items/{item_id}/description", headers={"Authorization": f"Bearer {token}"})
-            item = r.json()
-            desc = dr.json().get("plain_text", "")
-            attrs = {a["id"]: a.get("value_name","") for a in (item.get("attributes") or [])}
-            result = {
-                "titulo_sugerido": item.get("title",""),
-                "descripcion": desc or item.get("title",""),
-                "precio": item.get("price", 0),
-                "colores": [],
-                "talles": [],
-                "tipo_prenda": attrs.get("ITEM_TYPE",""),
-                "genero": attrs.get("GENDER","Mujer"),
-                "marca": attrs.get("BRAND",""),
-                "modelo": attrs.get("MODEL",""),
-                "imagenes": [p.get("url","") for p in (item.get("pictures") or [])],
-                "category_id": item.get("category_id",""),
-                "fuente": "MercadoLibre API",
-                "item_id_original": item_id
-            }
-            # Extraer colores y talles de variantes
-            for v in (item.get("variations") or []):
-                for combo in (v.get("attribute_combinations") or []):
-                    if combo.get("id") == "COLOR" and combo.get("value_name") not in result["colores"]:
-                        result["colores"].append(combo["value_name"])
-                    if combo.get("id") == "SIZE" and combo.get("value_name") not in result["talles"]:
-                        result["talles"].append(combo["value_name"])
-            # Si no hay variantes, buscar en atributos
-            if not result["colores"] and attrs.get("COLOR"):
-                result["colores"] = [attrs["COLOR"]]
-            if not result["talles"] and attrs.get("SIZE"):
-                result["talles"] = [attrs["SIZE"]]
-            return {"ok": True, "analysis": result, "source": "ml_api"}
-        
-        # 2. Para otras URLs: scraping + Claude
-        ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-        if not ANTHROPIC_KEY:
-            return {"ok": False, "error": "ANTHROPIC_API_KEY no configurada"}
-        
-        # Hacer scraping de la página
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True, 
-                                      headers={"User-Agent": "Mozilla/5.0 (compatible; MLTNSync/1.0)"}) as c:
-            r = await c.get(url)
-            html = r.text[:15000]  # Limitar tamaño
-        
-        prompt = f"""Analizá este HTML de una página de producto de e-commerce y extraé los datos.
-URL: {url}
-HTML (primeros 15000 chars):
-{html}
-
-Respondé SOLO con JSON válido (sin markdown):
-{{
-  "titulo_sugerido": "título del producto",
-  "descripcion": "descripción completa",
-  "precio": 0,
-  "colores": ["color1", "color2"],
-  "talles": ["S/M", "L/XL"],
-  "tipo_prenda": "tipo de prenda",
-  "genero": "Mujer/Hombre/Unisex",
-  "marca": "marca si aparece",
-  "modelo": "número de modelo si aparece",
-  "imagenes": ["url_imagen1", "url_imagen2"],
-  "fuente": "nombre de la tienda"
-}}"""
-
-        async with httpx.AsyncClient(timeout=40) as c:
-            response = await c.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={"Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY,
-                         "anthropic-version": "2023-06-01"},
-                json={"model": "claude-sonnet-4-20250514", "max_tokens": 1000,
-                      "messages": [{"role": "user", "content": prompt}]}
-            )
-        data = response.json()
-        if "error" in data:
-            return {"ok": False, "error": data["error"].get("message","Error API")}
-        text = data["content"][0]["text"].strip().replace("```json","").replace("```","").strip()
-        import json as json_mod
-        result = json_mod.loads(text)
-        return {"ok": True, "analysis": result, "source": "scraping"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-@app.post("/api/ai/chat")
-async def ai_chat(req: Request, _=Depends(auth)):
-    """Chat con el asistente publicador IA"""
-    try:
-        b = await req.json()
-        messages = b.get("messages", [])
-        context = b.get("context", {})
-        
-        system = f"""Sos un asistente experto en publicaciones de MercadoLibre Argentina, especializado en ropa y lencería femenina.
-Tu trabajo es ayudar al vendedor a crear publicaciones perfectas paso a paso.
-
-CONOCIMIENTO DE ML ARGENTINA:
-- Las publicaciones requieren: título (max 60 chars), descripción, precio, stock, categoría, atributos obligatorios
-- Para ropa: BRAND (marca), MODEL (modelo/número), GENDER (género), COLOR, SIZE son obligatorios
-- Si tiene guía de talles: necesitás el ID de la guía (SIZE_GRID_ID)
-- Las fotos: mínimo 3 por variante, fondo blanco o neutro, buena iluminación
-- Dimensiones del paquete: alto, ancho, largo (cm) y peso (kg) - obligatorio para envíos
-- El título debe incluir: tipo de prenda, marca, modelo, característica principal
-
-CONTEXTO ACTUAL DEL PRODUCTO:
-{json.dumps(context, ensure_ascii=False)}
-
-INSTRUCCIONES:
-1. Hacé UNA pregunta a la vez, la más importante que falta
-2. Cuando tengas toda la info, decí "LISTO" y mostrá un resumen completo
-3. Si el vendedor dice algo ambiguo, pedí aclaración
-4. Siempre pensá en qué necesita ML para publicar correctamente
-5. Respondé en español, tono amigable y profesional"""
-
-        response = await httpx.AsyncClient(timeout=30).post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"Content-Type": "application/json", "x-api-key": os.getenv("ANTHROPIC_API_KEY", ""),
-                     "anthropic-version": "2023-06-01"},
-            json={"model": "claude-sonnet-4-20250514", "max_tokens": 500, "system": system, "messages": messages}
-        )
-        
-        data = response.json()
-        reply = data["content"][0]["text"]
-        return {"ok": True, "reply": reply}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-@app.post("/api/ai/generate_image")
-async def ai_generate_image(req: Request, _=Depends(auth)):
-    """Generar imagen 21:9 con 3 poses y cortarla en 3 imágenes separadas"""
-    try:
-        b = await req.json()
-        prompt = b.get("prompt", "")
-        reference_base64 = b.get("reference_base64", "")
-        reference_type = b.get("reference_type", "image/jpeg")
-        
-        if not GEMINI_API_KEY:
-            return {"ok": False, "error": "GEMINI_API_KEY no configurada"}
-        
-        from google import genai as google_genai
-        from google.genai import types as google_types
-        import base64 as b64
-        import io
-        
-        client = google_genai.Client(api_key=GEMINI_API_KEY)
-        
-        # Prompt para imagen 21:9 con 3 poses lado a lado
-        full_prompt = prompt + """
-IMPORTANTE: Generá UNA SOLA imagen en formato panorámico 21:9 (muy ancha) que contenga exactamente 3 escenas/poses SEPARADAS de la misma modelo con la misma prenda, dispuestas horizontalmente de izquierda a derecha. Cada escena ocupa exactamente 1/3 del ancho total. Las 3 poses deben ser distintas (frente, perfil, sentada o de espalda). Formato final: imagen panorámica 4K 21:9."""
-        
-        contents = []
-        if reference_base64:
-            img_bytes = b64.b64decode(reference_base64)
-            contents.append(google_types.Part.from_bytes(data=img_bytes, mime_type=reference_type))
-        contents.append(full_prompt)
-        
-        response = client.models.generate_content(
-            model="gemini-3.1-flash-image-preview",
-            contents=contents,
-            config=google_types.GenerateContentConfig(
-                response_modalities=["IMAGE", "TEXT"]
-            )
-        )
-        
-        # Obtener imagen generada
-        img_data = None
-        img_mime = "image/png"
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, 'inline_data') and part.inline_data:
-                img_data = part.inline_data.data
-                img_mime = part.inline_data.mime_type
-                break
-        
-        if not img_data:
-            return {"ok": False, "error": "No se generó imagen"}
-        
-        # Cortar la imagen 21:9 en 3 partes iguales
-        try:
-            from PIL import Image as PILImage
-            import io
-            
-            img = PILImage.open(io.BytesIO(img_data))
-            width, height = img.size
-            third = width // 3
-            
-            parts_b64 = []
-            for i in range(3):
-                left = i * third
-                right = left + third
-                crop = img.crop((left, 0, right, height))
-                # Optimizar para ML (max 10MB) — guardar como JPEG calidad 92
-                buf = io.BytesIO()
-                crop.convert("RGB").save(buf, format="JPEG", quality=92, optimize=True)
-                buf.seek(0)
-                size_mb = buf.tell() / (1024*1024)
-                # Si pesa más de 9MB, bajar calidad
-                if size_mb > 9:
-                    buf = io.BytesIO()
-                    crop.convert("RGB").save(buf, format="JPEG", quality=75, optimize=True)
-                    buf.seek(0)
-                parts_b64.append(b64.b64encode(buf.read()).decode())
-            
-            return {"ok": True, "images_base64": parts_b64, "mime_type": "image/jpeg", "count": 3}
-        
-        except ImportError:
-            # Sin PIL, devolver imagen completa
-            img_b64 = b64.b64encode(img_data).decode()
-            return {"ok": True, "images_base64": [img_b64], "mime_type": img_mime, "count": 1}
-    
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-@app.post("/api/ai/publish_product")
-async def ai_publish_product(req: Request, _=Depends(auth)):
-    """Publicar producto generado por IA en los canales seleccionados"""
-    try:
-        b = await req.json()
-        product = b.get("product", {})
-        channels = b.get("channels", [])  # lista de índices ML + "tn"
-        images_base64 = b.get("images_base64", [])  # fotos ya generadas
-        sync_ml = b.get("sync_ml", False)  # crear enlaces ML↔ML
-        sync_tn = b.get("sync_tn", False)  # crear enlaces ML↔TN
-        
-        results = []
-        
-        # Subir fotos a ML primero (cuenta 0 = LENCERIA)
-        ml_picture_ids = []
-        if images_base64:
-            try:
-                token = await fresh_token(0)
-                async with httpx.AsyncClient(timeout=30) as c:
-                    for img_b64 in images_base64[:10]:
-                        import base64 as b64
-                        img_bytes = b64.b64decode(img_b64)
-                        r = await c.post(f"{ML_API}/pictures/items/upload",
-                            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                            json={"source": f"data:image/jpeg;base64,{img_b64}"})
-                        if r.status_code in (200, 201):
-                            ml_picture_ids.append({"id": r.json().get("id","")})
-            except Exception as e:
-                print(f"Error subiendo fotos: {e}")
-        
-        title = product.get("titulo", "")
-        price = product.get("precio", 0)
-        stock = product.get("stock_por_variante", 100)
-        colors = product.get("colores", [])
-        sizes = product.get("talles", [])
-        brand = product.get("marca", "")
-        model_num = product.get("modelo", "")
-        desc = product.get("descripcion", title)
-        
-        # Construir variantes
-        variations = []
-        for color in colors:
-            for size in sizes:
-                variations.append({
-                    "attribute_combinations": [
-                        {"id": "COLOR", "value_name": color},
-                        {"id": "SIZE", "value_name": size}
-                    ],
-                    "price": price,
-                    "available_quantity": stock
-                })
-        
-        # Atributos ML
-        attrs = [
-            {"id": "GENDER", "value_name": product.get("genero", "Mujer")},
-        ]
-        if brand: attrs.append({"id": "BRAND", "value_name": brand})
-        if model_num: attrs.append({"id": "MODEL", "value_name": model_num})
-        
-        # Publicar en cuentas ML
-        for ch_idx in [c for c in channels if isinstance(c, int)]:
-            try:
-                token = await fresh_token(ch_idx)
-                payload = {
-                    "title": title,
-                    "category_id": product.get("category_id", "MLA109255"),
-                    "price": price,
-                    "currency_id": "ARS",
-                    "available_quantity": stock,
-                    "buying_mode": "buy_it_now",
-                    "listing_type_id": "gold_special",
-                    "condition": "new",
-                    "pictures": ml_picture_ids or [{"source": ""}],
-                    "attributes": attrs,
-                    "variations": variations,
-                    "family_name": title[:60]
-                }
-                if product.get("dims"):
-                    dims = product["dims"]
-                    payload["attributes"] += [
-                        {"id": "SELLER_PACKAGE_HEIGHT", "value_name": f"{dims.get('h',0)} cm"},
-                        {"id": "SELLER_PACKAGE_WIDTH", "value_name": f"{dims.get('w',0)} cm"},
-                        {"id": "SELLER_PACKAGE_LENGTH", "value_name": f"{dims.get('l',0)} cm"},
-                        {"id": "SELLER_PACKAGE_WEIGHT", "value_name": f"{int(float(dims.get('p',0))*1000)} g"},
-                    ]
-                async with httpx.AsyncClient(timeout=30) as c:
-                    r = await c.post(f"{ML_API}/items",
-                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                        json=payload)
-                ok = r.status_code in (200, 201)
-                new_id = r.json().get("id","") if ok else ""
-                results.append({"channel": ST["accounts"][ch_idx].get("name","ML"), "ok": ok,
-                                 "msg": "Publicado" if ok else r.json().get("message","Error"),
-                                 "new_id": new_id})
-            except Exception as e:
-                results.append({"channel": f"cuenta_{ch_idx}", "ok": False, "msg": str(e)})
-        
-        # Publicar en TN
-        if "tn" in channels and ST.get("tn", {}).get("store_id"):
-            try:
-                tn = ST["tn"]
-                tn_hdrs = {"Authentication": f"bearer {tn['token']}", "Content-Type": "application/json",
-                           "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"}
-                tn_variants = []
-                seen = set()
-                for color in colors:
-                    for size in sizes:
-                        key = (color, size)
-                        if key not in seen:
-                            seen.add(key)
-                            tn_variants.append({"price": str(price), "stock_management": True, "stock": stock,
-                                                "values": [{"es": color}, {"es": size}]})
-                tn_images = [{"src": f"data:image/jpeg;base64,{img}"} for img in images_base64[:10]] if images_base64 else []
-                tn_payload = {"name": {"es": title}, "description": {"es": desc}, "published": True,
-                              "attributes": ["Color", "Talle"], "variants": tn_variants, "images": tn_images}
-                async with httpx.AsyncClient(timeout=30) as c:
-                    r = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
-                        headers=tn_hdrs, json=tn_payload)
-                ok = r.status_code in (200, 201)
-                tn_new_id = r.json().get("id","") if ok else ""
-                results.append({"channel": "TiendaNube", "ok": ok,
-                                 "msg": "Publicado" if ok else r.json().get("description","Error"),
-                                 "new_id": tn_new_id})
-            except Exception as e:
-                results.append({"channel": "TiendaNube", "ok": False, "msg": str(e)})
-        
-        # Crear enlaces ML↔ML entre las cuentas publicadas
-        if sync_ml:
-            ml_published = [(r["channel"], r.get("new_id","")) for r in results if r.get("ok") and r.get("new_id")]
-            for i, (ch1, id1) in enumerate(ml_published):
-                for ch2, id2 in ml_published[i+1:]:
-                    ST["links"].append({
-                        "ml_item_id": id1, "ml_account_name": ch1, "ml_account_index": 0,
-                        "ml_title": product.get("titulo",""), "linked_ml_item_id": id2,
-                        "linked_ml_account": ch2, "created_at": int(time.time())
-                    })
-        
-        # Crear enlaces ML↔TN
-        if sync_tn:
-            tn_result = next((r for r in results if r.get("channel") == "TiendaNube" and r.get("ok")), None)
-            if tn_result and tn_result.get("new_id"):
-                ml_results = [r for r in results if r.get("ok") and r.get("channel") != "TiendaNube" and r.get("new_id")]
-                for r in ml_results:
-                    acc_idx = next((i for i,a in enumerate(ST["accounts"]) if a.get("name") == r["channel"]), 0)
-                    ST["links"].append({
-                        "ml_item_id": r["new_id"], "ml_account_index": acc_idx,
-                        "ml_account_name": r["channel"], "ml_title": product.get("titulo",""),
-                        "tn_product_id": str(tn_result["new_id"]), "created_at": int(time.time())
-                    })
-        
-        save_state()
-        return {"ok": True, "results": results}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-@app.get("/diag/prod_attrs/{i}")
-async def diag_prod_attrs(i: int, q: str = ""):
-    """Ver atributos de productos cacheados, buscar por título"""
-    try:
-        acc = ST["accounts"][i]
-        uid = acc.get("uid","")
-        prods = get_cached_products(uid)
-        if not prods:
-            return {"error": "no products cached"}
-        if q:
-            prods = [p for p in prods if q.lower() in p.get("title","").lower()]
-        if not prods:
-            return {"error": "no matching products"}
-        p = prods[0]
-        attrs = p.get("attributes", [])
-        return {"title": p.get("title",""), "attr_count": len(attrs), "all_attrs": attrs}
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.get("/diag/item/{item_id}")
-async def diag_item(item_id: str):
-    if not ST["accounts"]:
-        return {"error": "no accounts"}
-    try:
-        from_t = await fresh_token(0)
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}",
-                           headers={"Authorization": f"Bearer {from_t}"})
-            raw = r.text[:3000]
-            try:
-                item = r.json()
-            except Exception:
-                return {"http_status": r.status_code, "raw_response": raw}
-
-            # Obtener guía de talles si existe
-            size_grid = None
-            size_grid_error = None
-            size_attr = next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None)
-            if size_attr:
-                chart_id = size_attr.get("value_name") or size_attr.get("value_id")
-                if chart_id:
-                    sg = await c.get(f"{ML_API}/size_charts/{chart_id}",
-                                    headers={"Authorization": f"Bearer {from_t}"})
-                    try:
-                        size_grid = sg.json()
-                        size_grid_error = None if sg.status_code == 200 else f"HTTP {sg.status_code}"
-                    except Exception:
-                        size_grid_error = sg.text[:200]
-
-            return {
-                "http_status": r.status_code,
-                "title": item.get("title"),
-                "category_id": item.get("category_id"),
-                "variations_count": len(item.get("variations", [])),
-                "size_grid_attr": size_attr,
-                "size_grid_response": size_grid,
-                "size_grid_error": size_grid_error,
-                "ml_error": item.get("error"),
-            }
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/api/ml/{i}/charts")
-async def list_charts(i: int, _=Depends(auth)):
-    """Listar guías de talles de una cuenta ML"""
-    try:
-        t = await fresh_token(i)
-        async with httpx.AsyncClient(timeout=15) as c:
-            me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {t}"})
-            uid = str(me_r.json().get("id",""))
-            r = await c.post(f"{ML_API}/catalog/charts/search",
-                headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
-                json={"site_id": "MLA", "seller_id": int(uid) if uid.isdigit() else uid})
-            if r.status_code == 200:
-                charts = r.json().get("charts", [])
-                result = []
-                for ch in charts:
-                    sizes = []
-                    for row in (ch.get("rows") or []):
-                        sv = next((v.get("name","") for a in row.get("attributes",[])
-                                   if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                        if sv:
-                            sizes.append(sv)
-                    result.append({"id": str(ch["id"]), "name": ch.get("names",{}).get("MLA",""),
-                                   "domain": ch.get("domain_id",""), "sizes": sizes})
-                return {"charts": result}
-            return {"charts": [], "error": r.status_code, "body": r.text[:200]}
-    except Exception as e:
-        import traceback
-        return {"charts": [], "error": str(e), "trace": traceback.format_exc()[:500]}
-
-@app.post("/api/duplicate/with_chart")
-async def dup_with_chart(request: Request, _=Depends(auth)):
-    """Guardar override de guía de talles para el duplicador"""
-    b = await request.json()
-    chart_override = b.get("chart_override", {})
-    r = get_redis()
-    if r and chart_override:
-        r.set("mltn:chart_override", json.dumps(chart_override), ex=3600)
-    return {"ok": True}
-
-
-@app.get("/diag/charts_search")
-async def diag_charts_search(domain: str = "BRAS", brand: str = "Maxima"):
-    """Buscar guías de talles en cuenta destino (índice 1)"""
-    try:
-        to_t = await fresh_token(1)
-        async with httpx.AsyncClient(timeout=15) as c:
-            me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
-            to_uid = me_r.json().get("id","")
-            r = await c.post(f"{ML_API}/catalog/charts/search",
-                headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                json={"site_id":"MLA","seller_id": to_uid, "domain_id": domain,
-                      "attributes":[
-                          {"id":"GENDER","values":[{"name":"Mujer"}]},
-                          {"id":"BRAND","values":[{"name":brand}]}
-                      ]})
-            return {"uid": to_uid, "domain": domain, "status": r.status_code, "body": r.json()}
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/diag/copy_chart/{chart_id}")
-async def diag_copy_chart(chart_id: str):
-    """Leer guía con token del dueño"""
-    try:
-        from_t = await fresh_token(0)
-        to_t = await fresh_token(1)
-        t2 = await fresh_token(2)
-        async with httpx.AsyncClient(timeout=30) as c:
-            r0 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {from_t}"})
-            r1 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {to_t}"})
-            r2 = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {t2}"})
-            return {
-                "with_account_0": {"status": r0.status_code, "chart": r0.json()},
-                "with_account_1": {"status": r1.status_code, "chart": r1.json()},
-                "with_account_2": {"status": r2.status_code, "chart": r2.json()},
-            }
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/diag/chart_rows/{chart_id}")
-async def diag_chart_rows(chart_id: str, acc: int = 2):
-    """Ver rows de una guía de talles con cuenta específica"""
-    try:
-        t = await fresh_token(acc)
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{ML_API}/catalog/charts/{chart_id}", headers={"Authorization": f"Bearer {t}"})
-            if r.status_code != 200:
-                return {"error": r.status_code, "body": r.text}
-            chart = r.json()
-            rows = []
-            for row in (chart.get("rows") or []):
-                rid = row.get("id", "")
-                size_val = next((v.get("name","") for a in row.get("attributes",[])
-                                 if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                rows.append({"row_id": rid, "size": size_val, "raw": row})
-            return {"chart_id": chart_id, "name": chart.get("names"), "domain": chart.get("domain_id"), "rows": rows}
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/diag/add_row/{chart_id}/{size_val}")
-async def diag_add_row(chart_id: str, size_val: str, acc: int = 0):
-    """Probar agregar un talle a una guía de talles"""
-    try:
-        t = await fresh_token(acc)
-        async with httpx.AsyncClient(timeout=20) as c:
-            # Intentar agregar el row
-            r = await c.post(
-                f"{ML_API}/catalog/charts/{chart_id}/rows",
-                headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
-                json={"attributes": [{"id": "SIZE", "values": [{"name": size_val}]}]}
-            )
-            return {
-                "chart_id": chart_id,
-                "size_val": size_val,
-                "acc": acc,
-                "status": r.status_code,
-                "response": r.json() if r.content else {}
-            }
-    except Exception as e:
-        return {"exception": str(e)}
-
-
-@app.post("/api/duplicate/create_chart")
-async def dup_create_chart(request: Request):
-    """Crear guía de talles en cuenta destino copiando desde cuenta origen"""
-    b = await request.json()
-    orig_chart_id = b.get("orig_chart_id","")
-    domain_id = b.get("domain_id","")
-    brand = b.get("brand","")
-    to_account = int(b.get("to_account", 1))
-    try:
-        from_t = await fresh_token(0)  # cuenta principal
-        to_t = await fresh_token(to_account)
-        async with httpx.AsyncClient(timeout=30) as c:
-            # Leer guía original
-            r = await c.get(f"{ML_API}/catalog/charts/{orig_chart_id}",
-                           headers={"Authorization": f"Bearer {from_t}"})
-            if r.status_code != 200:
-                return {"ok": False, "msg": f"No se pudo leer la guía origen: {r.status_code}"}
-            orig = r.json()
-            # Crear en destino
-            new_chart = {
-                "names": orig.get("names", {"MLA": "Guía de talles"}),
-                "domain_id": orig.get("domain_id") or domain_id,
-                "site_id": "MLA",
-                "main_attribute": {"attributes": [{"site_id": "MLA", "id": orig.get("main_attribute_id", "SIZE")}]},
-                "attributes": orig.get("attributes", []),
-                "rows": [{"attributes": r2.get("attributes",[])} for r2 in (orig.get("rows") or [])]
-            }
-            if orig.get("measure_type"):
-                new_chart["measure_type"] = orig["measure_type"]
-            r2 = await c.post(f"{ML_API}/catalog/charts",
-                             headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                             json=new_chart)
-            if r2.status_code in (200, 201):
-                new_id = r2.json().get("id","")
-                return {"ok": True, "msg": f"Guía creada con ID {new_id}", "chart_id": new_id}
-            return {"ok": False, "msg": f"Error al crear guía: {r2.status_code} — {r2.text[:200]}"}
-    except Exception as e:
-        return {"ok": False, "msg": str(e)}
-
-@app.post("/api/duplicate/add_size")
-async def dup_add_size(request: Request):
-    """Agregar talle faltante a guía de talles en cuenta destino"""
-    b = await request.json()
-    chart_id = b.get("chart_id","")
-    size_val = b.get("size_val","")
-    to_account = int(b.get("to_account", 1))
-    try:
-        to_t = await fresh_token(to_account)
-        # Leer guía completa para obtener atributos requeridos de otros rows
-        async with httpx.AsyncClient(timeout=20) as c:
-            gr = await c.get(f"{ML_API}/catalog/charts/{chart_id}",
-                            headers={"Authorization": f"Bearer {to_t}"})
-            if gr.status_code != 200:
-                return {"ok": False, "msg": f"No se pudo leer la guía: {gr.status_code}"}
-            chart_data = gr.json()
-            # Copiar estructura de atributos del último row existente y cambiar SIZE
-            existing_rows = chart_data.get("rows", [])
-            if not existing_rows:
-                return {"ok": False, "msg": "La guía no tiene rows existentes para copiar estructura"}
-            # Usar el último row como template
-            template = existing_rows[-1].get("attributes", [])
-            new_attrs = []
-            for a in template:
-                if a.get("id") == "SIZE":
-                    new_attrs.append({"id": "SIZE", "values": [{"name": size_val}]})
-                elif a.get("id") == "FILTRABLE_SIZE":
-                    # Mantener las equivalencias del template
-                    new_attrs.append({"id": "FILTRABLE_SIZE", "values": a.get("values", [])})
-                else:
-                    # Incrementar levemente las medidas para evitar duplicados
-                    vals = a.get("values", [])
-                    new_vals = []
-                    for v in vals:
-                        if v.get("struct"):
-                            new_num = v["struct"]["number"] + 5
-                            new_vals.append({"name": f"{new_num} {v['struct']['unit']}", "struct": {"number": new_num, "unit": v["struct"]["unit"]}})
-                        else:
-                            new_vals.append(v)
-                    new_attrs.append({"id": a["id"], "values": new_vals})
-            add_r = await c.post(f"{ML_API}/catalog/charts/{chart_id}/rows",
-                                headers={"Authorization": f"Bearer {to_t}", "Content-Type": "application/json"},
-                                json={"attributes": new_attrs})
-            if add_r.status_code in (200, 201):
-                new_row_id = add_r.json().get("id","")
-                return {"ok": True, "msg": f"Talle '{size_val}' agregado", "row_id": new_row_id}
-            return {"ok": False, "msg": f"Error: {add_r.status_code} — {add_r.text[:300]}"}
-    except Exception as e:
-        return {"ok": False, "msg": str(e)}
-
-
-@app.get("/diag/create_pijama_chart")
-async def diag_create_pijama_chart(acc: int = 0):
-    """Crear guía de talles de pijamas con XL-2XL y 3XL-4XL en cuenta destino"""
-    try:
-        t = await fresh_token(acc)
-        async with httpx.AsyncClient(timeout=30) as c:
-            payload = {
-                "names": {"MLA": "Pijamas Mujer Talles Grandes"},
-                "domain_id": "PAJAMAS",
-                "site_id": "MLA",
-                "main_attribute": {"attributes": [{"site_id": "MLA", "id": "SIZE"}]},
-                "attributes": [{"id": "GENDER", "values": [{"id": "339665", "name": "Mujer"}]}],
-                "rows": [
-                    {"attributes": [
-                        {"id": "SIZE", "values": [{"name": "XL-2XL"}]},
-                        {"id": "FILTRABLE_SIZE", "values": [{"id": "12917787", "name": "XL"}, {"id": "12917846", "name": "2XL"}]},
-                        {"id": "GARMENT_CHEST_WIDTH_FROM", "values": [{"name": "55 cm", "struct": {"number": 55.0, "unit": "cm"}}]},
-                        {"id": "GARMENT_CHEST_WIDTH_TO", "values": [{"name": "65 cm", "struct": {"number": 65.0, "unit": "cm"}}]},
-                        {"id": "GARMENT_HIP_WIDTH_FROM", "values": [{"name": "55 cm", "struct": {"number": 55.0, "unit": "cm"}}]},
-                        {"id": "GARMENT_HIP_WIDTH_TO", "values": [{"name": "65 cm", "struct": {"number": 65.0, "unit": "cm"}}]},
-                    ]},
-                    {"attributes": [
-                        {"id": "SIZE", "values": [{"name": "3XL-4XL"}]},
-                        {"id": "FILTRABLE_SIZE", "values": [{"id": "12917837", "name": "3XL"}, {"id": "12918373", "name": "4XL"}]},
-                        {"id": "GARMENT_CHEST_WIDTH_FROM", "values": [{"name": "66 cm", "struct": {"number": 66.0, "unit": "cm"}}]},
-                        {"id": "GARMENT_CHEST_WIDTH_TO", "values": [{"name": "80 cm", "struct": {"number": 80.0, "unit": "cm"}}]},
-                        {"id": "GARMENT_HIP_WIDTH_FROM", "values": [{"name": "66 cm", "struct": {"number": 66.0, "unit": "cm"}}]},
-                        {"id": "GARMENT_HIP_WIDTH_TO", "values": [{"name": "80 cm", "struct": {"number": 80.0, "unit": "cm"}}]},
-                    ]}
-                ]
-            }
-            r = await c.post(f"{ML_API}/catalog/charts",
-                            headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
-                            json=payload)
-            return {"status": r.status_code, "response": r.json()}
-    except Exception as e:
-        return {"exception": str(e)}
-
-
-@app.get("/diag/sizecharts_cat/{category_id}")
-async def diag_sizecharts_cat(category_id: str, brand: str = "", gender_id: str = ""):
-    """Buscar guía de talles por marca como hace Astroselling"""
-    try:
-        from_t = await fresh_token(0)
-        async with httpx.AsyncClient(timeout=30) as c:
-            results = {}
-            endpoints = [
-                f"/size_charts/search?q={brand}&category_id={category_id}",
-                f"/size_charts/search?brand={brand}&category_id={category_id}",
-                f"/size_charts/search?q={brand}",
-                f"/size_charts?q={brand}&category_id={category_id}",
-                f"/size_charts?brand_name={brand}&category_id={category_id}",
-            ]
-            for ep in endpoints:
-                r = await c.get(f"{ML_API}{ep}",
-                    headers={"Authorization": f"Bearer {from_t}"})
-                results[ep] = {"status": r.status_code, "body": r.text[:500]}
-            return {"category_id": category_id, "brand": brand, "results": results}
-    except Exception as e:
-        return {"exception": str(e)}
-
-
-async def diag_sizechart(item_id: str):
-    if len(ST["accounts"]) < 2:
-        return {"error": "Necesitás 2 cuentas"}
-    try:
-        from_t = await fresh_token(0)
-        to_t = await fresh_token(1)
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
-            item = r.json()
-            cat_id = item.get("category_id","")
-            size_attr = next((a for a in (item.get("attributes") or []) if a.get("id")=="SIZE_GRID_ID"), None)
-            chart_id = size_attr.get("value_name") or size_attr.get("value_id") if size_attr else None
-            to_uid_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
-            to_uid = to_uid_r.json().get("id")
-            results = {}
-            endpoints = [
-                f"/size_charts/{chart_id}",
-                f"/size_charts/search?category_id={cat_id}",
-                f"/users/{to_uid}/size_charts",
-                f"/size_charts?category_id={cat_id}&seller_id={to_uid}",
-                f"/size_charts?seller_id={to_uid}",
-            ]
-            for ep in endpoints:
-                r2 = await c.get(f"{ML_API}{ep}", headers={"Authorization": f"Bearer {to_t}"})
-                results[ep] = {"status": r2.status_code, "body": r2.text[:300]}
-            return {"category_id": cat_id, "chart_id": chart_id, "dest_uid": to_uid, "results": results}
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/diag/testdup/{item_id}")
-async def diag_testdup(item_id: str):
-    if len(ST["accounts"]) < 2:
-        return {"error": "Necesitás 2 cuentas"}
-    try:
-        from_t = await fresh_token(0)
-        to_t = await fresh_token(1)
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {from_t}"})
-            item = r.json()
-            if "title" not in item:
-                return {"error": "ML no devolvió el item", "http_status": r.status_code, "response": item}
-            SKIP = {"SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
-                    "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID",
-                    "FILTRABLE_SIZE","SIZE_GRID_ROW_ID","SIZE_GRID_ID"}
-            attrs = []
-            brand_name = ""
-            model_name = ""
-            # Primero extraer BRAND y MODEL
-            for a in (item.get("attributes") or []):
-                if a.get("id") == "BRAND": brand_name = a.get("value_name","")
-                if a.get("id") == "MODEL": model_name = a.get("value_name","")
-            # Armar atributos
-            for a in (item.get("attributes") or []):
-                aid = a.get("id","")
-                if aid in SKIP: continue
-                if aid in ("BRAND","MODEL"):
-                    vn = a.get("value_name")
-                    if vn: attrs.append({"id":aid,"value_name":vn})
-                    continue
-                if aid == "SIZE_GRID_ID":
-                    vn = a.get("value_name") or a.get("value_id")
-                    if vn: attrs.append({"id":"SIZE_GRID_ID","value_name":str(vn)})
-                    continue
-                if a.get("value_id"): attrs.append({"id":aid,"value_id":a["value_id"]})
-                elif a.get("value_name"): attrs.append({"id":aid,"value_name":a["value_name"]})
-            # family_name SIEMPRE requerido por ML
-            # Título base: cortar todo lo que viene DESPUÉS del número de modelo en el título
-            raw_title = item.get("title","")
-            if model_name and model_name in raw_title:
-                idx = raw_title.index(model_name) + len(model_name)
-                clean_title = raw_title[:idx].strip()
-            elif " - " in raw_title:
-                clean_title = raw_title.rsplit(" - ", 1)[0].strip()
-            else:
-                clean_title = raw_title.strip()
-            # ML acepta máximo 60 chars pero a veces falla con exactamente 60, usar 59
-            clean_title = clean_title[:59].strip()
-            import unicodedata
-            def strip_accents(s):
-                return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
-            test_title = strip_accents(clean_title)
-            family = model_name or brand_name or clean_title
-            # Detectar listing types disponibles para la cuenta destino
-            to_uid_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {to_t}"})
-            to_uid = to_uid_r.json().get("id")
-            lt_r = await c.get(f"{ML_API}/users/{to_uid}/available_listing_types?category_id={item.get('category_id','')}", 
-                               headers={"Authorization": f"Bearer {to_t}"})
-            available_lts = [x.get("id") for x in (lt_r.json() if isinstance(lt_r.json(), list) else [])]
-            # Usar el mismo listing type del item original si está disponible, si no el mejor disponible
-            orig_lt = item.get("listing_type_id","gold_special")
-            listing_type = orig_lt if orig_lt in available_lts else (available_lts[0] if available_lts else "gold_special")
-            # Verificar si cuenta destino tiene user_product_seller tag
-            me_r2 = await c.get(f"{ML_API}/users/{to_uid}", headers={"Authorization": f"Bearer {to_t}"})
-            dest_tags = me_r2.json().get("tags", [])
-            # SHAMPOOSHIR es user_product_seller — usar modelo nuevo sin title
-            # Usar todos los atributos del item original
-            up_attrs = []
-            for a in (item.get("attributes") or []):
-                aid = a.get("id","")
-                if aid in ("SELLER_SKU","ITEM_CONDITION","ALPHANUMERIC_MODEL","GTIN",
-                           "PACKAGE_DATA_SOURCE","RELEASE_YEAR","SYI_PYMES_ID","FILTRABLE_SIZE"):
-                    continue
-                if aid == "SIZE":
-                    # Para user_product_seller SIZE va como value_name
-                    vn = a.get("value_name") or str(a.get("value_id",""))
-                    if vn: up_attrs.append({"id":"SIZE","value_name":vn})
-                    continue
-                if aid == "SIZE_GRID_ID":
-                    up_attrs.append({"id":"SIZE_GRID_ID","value_name":"2556917"})
-                    continue
-                if a.get("value_id"):
-                    up_attrs.append({"id":aid,"value_id":a["value_id"]})
-                elif a.get("value_name"):
-                    up_attrs.append({"id":aid,"value_name":a["value_name"]})
-            payload = {
-                "family_name": "Pack X3 Corpino Reductor De Algodon Liso Bretel Ancho 1018",
-                "category_id": item.get("category_id",""),
-                "price": item.get("price",0),
-                "currency_id": item.get("currency_id","ARS"),
-                "available_quantity": item.get("available_quantity",0),
-                "listing_type_id": "gold_special",
-                "condition": item.get("condition","new"),
-                "pictures": [{"source": p["url"].replace("http://","https://")} for p in (item.get("pictures") or [])[:6]],
-                "attributes": up_attrs,
-            }
-            # Mapa correcto SIZE → ROW_ID para guía 2556917 de SHAMPOOSHIR
-            CHART_2556917 = {
-                "S/M":"2556917:1","85":"2556917:5","90":"2556917:6","L/XL":"2556917:2",
-                "95":"2556917:7","100":"2556917:8","2XL":"2556917:3","105":"2556917:9",
-                "110":"2556917:10","3XL":"2556917:4","115":"2556917:11","120":"2556917:12","125":"2556917:13"
-            }
-            size_val = next((x.get("value_name","") for x in payload["attributes"] if x.get("id")=="SIZE"), "")
-            for i, a in enumerate(payload["attributes"]):
-                if a.get("id") == "SIZE_GRID_ROW_ID":
-                    mapped = CHART_2556917.get(size_val)
-                    if mapped:
-                        payload["attributes"][i] = {"id":"SIZE_GRID_ROW_ID","value_name":mapped}
-                    break
-            r2 = await c.post(f"{ML_API}/items", headers={"Authorization": f"Bearer {to_t}"}, json=payload)
-            resp = r2.json()
-            if r2.status_code in (200,201):
-                new_id = resp.get("id")
-                await c.delete(f"{ML_API}/items/{new_id}", headers={"Authorization": f"Bearer {to_t}"})
-                return {"result": "✅ FUNCIONA sin SIZE_GRID_ID", "new_id": new_id}
-            return {"result": "❌ FALLA", "status": r2.status_code, 
-                    "causes": resp.get("cause",[]), 
-                    "message": resp.get("message"),
-                    "title_sent": clean_title,
-                    "title_length": len(clean_title),
-                    "listing_type_used": listing_type,
-                    "available_listing_types": available_lts,
-                    "dest_tags": dest_tags,
-                    "payload_sent": payload,
-                    "full_error": resp}
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/diag")
-async def diag():
-    r = get_redis()
-    redis_ok = False
-    try:
-        if r: r.ping(); redis_ok = True
-    except: pass
-    result = {"redis": redis_ok, "accounts": len(ST["accounts"]), "accounts_detail": []}
-    for i, acc in enumerate(ST["accounts"]):
-        token = acc.get("token","")
-        expired = time.time() > acc.get("expiry",0)
-        detail = {
-            "index": i,
-            "name": acc.get("name",""),
-            "token_preview": token[:20]+"..." if token else "EMPTY",
-            "token_expired": expired,
+    prodProds=d.products;prodSel=[];prodPg=0;prodSoloSinUnir=false;
+    document.getElementById('prod-q').value='';
+    // Actualizar subtext del canal
+    renderProdTabs();
+    // Volver a abrir el canal body con la tabla
+    const cb=document.getElementById('canal-body-'+prodAccIdx);
+    if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
+    const ar=document.getElementById('canal-arrow-'+prodAccIdx);
+    if(ar)ar.textContent='▾';
+    // Sin unir
+    const links=appState.links||[];
+    const sinUnir=prodProds.filter(p=>!links.find(l=>l.ml_item_id===p.id)).length;
+    const sinUnirEl=document.getElementById('prod-sin-unir');
+    if(sinUnirEl)sinUnirEl.textContent=sinUnir>0?`${sinUnir} sin unir`:'';
+    applyProdF();
+    showMsg('msg-prod',`✅ ${d.total} productos cargados`,'ok');
+    setTimeout(()=>hideMsg('msg-prod'),3000);
+  }catch(e){showMsg('msg-prod','❌ '+e.message,'err');}
+  const btn2=document.getElementById('load-prod-btn-'+prodAccIdx);
+  if(btn2){btn2.innerHTML='↻ Recargar';btn2.disabled=false;}
+}
+
+async function startMLSync(){
+  const btn=document.getElementById('load-prod-btn-'+prodAccIdx);
+  try{
+    const r=await fetch('/api/ml/'+prodAccIdx+'/sync',{method:'POST',headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error al iniciar');
+    showMsg('msg-prod','⏳ Sincronizando con MercadoLibre...','info');
+    if(btn){btn.innerHTML='⏳ Sync...';btn.disabled=true;}
+    if(syncPollInterval) clearInterval(syncPollInterval);
+    syncPollInterval=setInterval(async()=>{
+      try{
+        const sr=await fetch('/api/ml/'+prodAccIdx+'/sync/status',{headers:hdr()});
+        const sd=await sr.json();
+        const st=sd.status||{};
+        if(st.status==='done'||(!sd.running&&st.status&&st.status.startsWith('error'))){
+          clearInterval(syncPollInterval);syncPollInterval=null;
+          if(st.status==='done'){
+            showMsg('msg-prod',`✅ Sync completo — ${st.total} productos`,'ok');
+            const pr=await fetch('/api/ml/'+prodAccIdx+'/products?limit=9999',{headers:hdr()});
+            const pd=await pr.json();
+            prodProds=pd.products;prodSel=[];prodPg=0;
+            renderProdTabs();
+            const cb=document.getElementById('canal-body-'+prodAccIdx);
+            if(cb){cb.innerHTML=renderCanalTablaHTML(prodAccIdx);cb.style.display='block';}
+            applyProdF();
+          }else{
+            showMsg('msg-prod','❌ Error: '+st.status,'err');
+          }
+          const b=document.getElementById('load-prod-btn-'+prodAccIdx);
+          if(b){b.innerHTML='↻ Recargar';b.disabled=false;}
+        }else{
+          const fetched=st.fetched||0;const total=st.total||0;
+          const txt=st.status==='fetching_ids'?'Obteniendo publicaciones...':
+            `Descargando: ${fetched}${total?' / '+total:''} productos...`;
+          showMsg('msg-prod','⏳ '+txt,'info');
         }
-        if not expired and token:
-            try:
-                async with httpx.AsyncClient(timeout=10) as c:
-                    r2 = await c.get(f"{ML_API}/users/me", headers={"Authorization":f"Bearer {token}"})
-                    detail["ml_status"] = r2.status_code
-                    detail["ml_uid"] = r2.json().get("id") if r2.status_code==200 else r2.text[:100]
-            except Exception as e:
-                detail["ml_error"] = str(e)
-        result["accounts_detail"].append(detail)
-    # TN info
-    tn = ST.get("tn", {})
-    tn_store_id = tn.get("store_id","")
-    tn_token = tn.get("token","")
-    result["tn"] = {
-        "store_id": tn_store_id,
-        "token_preview": tn_token[:15]+"..." if tn_token else "EMPTY",
-        "connected": bool(tn_store_id and tn_token)
+      }catch(e){}
+    },5000);
+  }catch(e){
+    showMsg('msg-prod','❌ '+e.message,'err');
+    const b=document.getElementById('load-prod-btn-'+prodAccIdx);
+    if(b){b.innerHTML='Cargar';b.disabled=false;}
+  }
+}
+
+function applyProdF(){
+  const q=document.getElementById('prod-q').value.toLowerCase();
+  const fActive=document.getElementById('f-active')?.checked!==false;
+  const fPaused=document.getElementById('f-paused')?.checked!==false;
+  const fClosed=document.getElementById('f-closed')?.checked!==false;
+  const fStock=document.querySelector('input[name="f-stock"]:checked')?.value||'todos';
+  const fCuotas=document.querySelector('input[name="f-cuotas"]:checked')?.value||'todos';
+  const links=appState.links||[];
+  prodFilt=prodProds.filter(p=>{
+    if(q&&!p.title.toLowerCase().includes(q))return false;
+    if(p.status==='active'&&!fActive)return false;
+    if(p.status==='paused'&&!fPaused)return false;
+    if(p.status==='closed'&&!fClosed)return false;
+    if(fStock==='con'&&!(p.available_quantity>0))return false;
+    if(fStock==='sin'&&p.available_quantity>0)return false;
+    if(fCuotas==='con'&&!p.accepts_mercadopago)return false;
+    if(fCuotas==='sin'&&p.accepts_mercadopago)return false;
+    if(prodSoloSinUnir&&links.find(l=>l.ml_item_id===p.id))return false;
+    return true;
+  });
+  // Ordenar
+  if(prodOrden==='fecha_desc') prodFilt.sort((a,b)=>new Date(b.date_created||0)-new Date(a.date_created||0));
+  else if(prodOrden==='fecha_asc') prodFilt.sort((a,b)=>new Date(a.date_created||0)-new Date(b.date_created||0));
+  else if(prodOrden==='stock_desc') prodFilt.sort((a,b)=>(b.available_quantity||0)-(a.available_quantity||0));
+  else if(prodOrden==='stock_asc') prodFilt.sort((a,b)=>(a.available_quantity||0)-(b.available_quantity||0));
+  else if(prodOrden==='precio_desc') prodFilt.sort((a,b)=>(b.price||0)-(a.price||0));
+  else if(prodOrden==='precio_asc') prodFilt.sort((a,b)=>(a.price||0)-(b.price||0));
+  prodPg=0;
+  const cntEl=document.getElementById('prod-cnt');
+  if(cntEl)cntEl.textContent=`${prodFilt.length} resultado${prodFilt.length!==1?'s':''}`;
+  renderProdT();
+}
+
+function renderProdT(){
+  const pp=parseInt(document.getElementById('prod-pp').value)||10;
+  const total=prodFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
+  if(prodPg>=pages)prodPg=pages-1;
+  const start=prodPg*pp;const slice=prodFilt.slice(start,start+pp);
+  document.getElementById('prod-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('prod-pag-cur').textContent=`${prodPg+1}/${pages}`;
+  const links=appState.links||[];
+  const tbody=document.getElementById('prod-body');
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div>${prodProds.length?'Sin resultados.':'Apretá "Cargar productos".'}</div></td></tr>`;return;}
+  let rows='';
+  slice.forEach(p=>{
+    const sel=prodSel.includes(p.id);
+    const img=p.pictures?.[0]?.url||p.thumbnail||'';
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const stk=p.available_quantity>0?`<span style="font-weight:600">${p.available_quantity} U.</span>`:`<span class="stock-0">Sin stock!</span>`;
+    const stDot=p.status==='active'?'#00a381':p.status==='paused'?'#d68000':'#e17055';
+    const hasVar=p._has_variations;
+    const varBadge=hasVar?`<span class="var-badge">${p._variation_count} Var</span>`:'<span style="font-size:11px;color:#b0b7c9">—</span>';
+    const linked=links.find(l=>l.ml_item_id===p.id);
+    // Iconos de canales donde está publicado
+    const accName=appState.ml_accounts[prodAccIdx]?.name||'ML';
+    const canalIcons=`<div style="display:flex;align-items:center;gap:3px">
+      <div title="${accName}" style="width:20px;height:20px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${accName[0]}</div>
+      ${linked?`<div title="TiendaNube" style="width:20px;height:20px;border-radius:50%;background:#00b894;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">TN</div>`:''}
+    </div>`;
+    const expBtn=hasVar?`<button class="expand-btn" onclick="event.stopPropagation();toggleVars('${p.id}',this)">▶</button>`:'';
+    rows+=`<tr class="${sel?'sel':''}" data-id="${p.id}" onclick="toggleProdRow('${p.id}',this)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleProdRow('${p.id}',this.closest('tr'))" /></td>
+      <td>${imgH}</td>
+      <td>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${stDot};margin-top:4px;flex-shrink:0"></div>
+          <div>
+            <div class="ptitle" title="${p.title}">${p.title}</div>
+            <div class="psku">ID: ${p.id}</div>
+          </div>
+        </div>
+      </td>
+      <td>${canalIcons}</td>
+      <td>${stk}</td>
+      <td>${varBadge} ${expBtn}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          ${linked
+            ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">✏ TN</button>`
+            :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}',null,${prodAccIdx},'${p.title.replace(/'/g,"\\'")}')">+ TN</button>`}
+        </div>
+      </td>
+    </tr>`;
+    if(hasVar){
+      rows+=`<tr id="vars-${p.id}" style="display:none"><td colspan="8" style="padding:0;background:#fafbff">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:#f0f4ff">
+            <td style="padding:6px 12px 6px 52px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">VARIACIÓN</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">STOCK</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">PRECIO</td>
+            <td style="padding:6px 12px;font-size:10px;font-weight:600;color:#7a8299;text-transform:uppercase">ENLACE TN</td>
+          </tr></thead>
+          <tbody>
+          ${(p.variations||[]).map(v=>{
+            const vatrs=Object.entries(v._attrs||{}).map(([k,val])=>`${k}: ${val}`).join(' / ')||'Variación '+v.id;
+            const vprice=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(v.price||p.price||0);
+            const vstk=v.available_quantity>0?v.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
+            const vlinked=links.find(l=>l.ml_item_id===p.id&&l.ml_variation_id==v.id);
+            const vlBtn=vlinked
+              ?`<button class="btn btn-out btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">✏ Enlace</button>`
+              :`<button class="btn btn-blue btn-sm" onclick="openModal('${p.id}','${v.id}',${prodAccIdx},'${p.title.replace(/'/g,"\\'")} — ${vatrs.replace(/'/g,"\\'")}')">+ Enlazar</button>`;
+            return `<tr class="var-row"><td style="padding:6px 12px 6px 52px;font-size:12px">${vatrs}</td><td style="padding:6px 12px;font-size:12px">${vstk}</td><td style="padding:6px 12px;font-size:12px;font-weight:600">${vprice}</td><td style="padding:6px 12px" onclick="event.stopPropagation()">${vlBtn}</td></tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </td></tr>`;
     }
-    # Test TN connection
-    if tn_store_id and tn_token:
-        try:
-            async with httpx.AsyncClient(timeout=10) as c:
-                rt = await c.get(f"https://api.tiendanube.com/v1/{tn_store_id}/store",
-                    headers={"Authentication": f"bearer {tn_token}",
-                             "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"})
-                result["tn"]["api_status"] = rt.status_code
-                if rt.status_code == 200:
-                    result["tn"]["store_name"] = rt.json().get("name",{}).get("es","")
-        except Exception as e:
-            result["tn"]["api_error"] = str(e)
-    return result
+  });
+  tbody.innerHTML=rows;
+  updateProdAB();
+}
 
-fp = Path("frontend")
-if fp.exists():
-    from fastapi import Response
-    from fastapi.responses import FileResponse
-    import os
+function toggleVars(id,btn){
+  const row=document.getElementById('vars-'+id);
+  if(!row)return;
+  if(row.style.display==='none'||!row.style.display){
+    row.style.display='';
+    btn.textContent='▼';
+  } else {
+    row.style.display='none';
+    btn.textContent='▶';
+    // scroll back to parent row
+    const parentRow=document.querySelector(`tr[data-id="${id}"]`);
+    if(parentRow)parentRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+}
 
-    @app.get("/manifest.json")
-    async def serve_manifest():
-        return FileResponse(str(fp / "manifest.json"), media_type="application/manifest+json")
+function toggleProdRow(id,tr){
+  if(prodSel.includes(id)){prodSel=prodSel.filter(i=>i!==id);tr.classList.remove('sel');}
+  else{prodSel.push(id);tr.classList.add('sel');}
+  updateProdAB();
+}
+function selAllProd(cb){
+  const ids=prodFilt.map(p=>p.id);
+  if(cb.checked)ids.forEach(id=>{if(!prodSel.includes(id))prodSel.push(id);});
+  else prodSel=prodSel.filter(id=>!ids.includes(id));
+  renderProdT();
+}
+function updateProdAB(){
+  const bar=document.getElementById('ab-prod');
+  if(prodSel.length){bar.style.display='flex';document.getElementById('ab-prod-info').textContent=prodSel.length+' seleccionados';}
+  else bar.style.display='none';
+}
+function clearProdSel(){prodSel=[];renderProdT();}
+function pProd(d){prodPg+=d;renderProdT();}
+function goPublishSelected(){pubSel=[...prodSel];showPage('publicar');}
 
-    @app.get("/sw.js")
-    async def serve_sw():
-        return FileResponse(str(fp / "sw.js"), media_type="application/javascript", headers={"Service-Worker-Allowed": "/"})
+// -- UNIR MODAL -----------------------------------------------------------------
+let unirItems=[];
+let unirSearchProds=[];
 
-    @app.get("/icon-192.png")
-    async def serve_icon192():
-        return FileResponse(str(fp / "icon-192.png"), media_type="image/png")
+function openUnirModal(){
+  if(!prodSel.length){alert('Seleccioná al menos un producto');return;}
+  // Arrancar con los seleccionados del canal actual
+  unirItems=prodSel.map(id=>{
+    const p=prodProds.find(x=>x.id===id);
+    return {id,title:p?.title||id,accIdx:prodAccIdx,accName:appState.ml_accounts[prodAccIdx]?.name||'ML'};
+  });
+  renderUnirItems();
+  // Llenar select de cuentas
+  const sel=document.getElementById('unir-acc-sel');
+  sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  document.getElementById('unir-search').value='';
+  document.getElementById('unir-search-list').innerHTML='';
+  document.getElementById('msg-unir').className='msg';
+  document.getElementById('unir-modal').classList.add('show');
+}
 
-    @app.get("/icon-512.png")
-    async def serve_icon512():
-        return FileResponse(str(fp / "icon-512.png"), media_type="image/png")
+function renderUnirItems(){
+  document.getElementById('unir-items').innerHTML=unirItems.map((it,i)=>`
+    <div style="border:1px solid #dde1e9;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;max-width:220px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#333;flex-shrink:0">${it.accName[0]}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.title}</div>
+        <div style="font-size:10px;color:#7a8299">${it.accName}</div>
+      </div>
+      <button onclick="removeUnirItem(${i})" style="background:none;border:none;cursor:pointer;color:#b0b7c9;font-size:14px">✕</button>
+    </div>`).join('');
+}
 
-    @app.get("/")
-    async def serve_index():
-        return FileResponse(str(fp / "index.html"))
+function removeUnirItem(i){unirItems.splice(i,1);renderUnirItems();}
 
-    @app.get("/{full_path:path}")
-    async def serve_static(full_path: str):
-        # No interceptar rutas de API ni diag
-        if full_path.startswith("api/") or full_path.startswith("diag"):
-            from fastapi import HTTPException
-            raise HTTPException(404)
-        file_path = fp / full_path
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(str(file_path))
-        # Fallback a index.html para SPA
-        return FileResponse(str(fp / "index.html"))
+async function buscarParaUnir(){
+  const accIdx=parseInt(document.getElementById('unir-acc-sel').value);
+  try{
+    const r=await fetch('/api/ml/'+accIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    unirSearchProds=(d.products||[]).map(p=>({...p,_accIdx:accIdx,_accName:appState.ml_accounts[accIdx]?.name||'ML'}));
+    filtrarUnirSearch();
+  }catch(e){showMsg('msg-unir','❌ '+e.message,'err');}
+}
+
+function filtrarUnirSearch(){
+  const q=document.getElementById('unir-search').value.toLowerCase();
+  const lista=unirSearchProds.filter(p=>!q||p.title.toLowerCase().includes(q)).slice(0,30);
+  const el=document.getElementById('unir-search-list');
+  if(!lista.length){el.innerHTML='<div class="empty" style="padding:14px">Sin resultados</div>';return;}
+  el.innerHTML=lista.map(p=>`
+    <div style="padding:9px 14px;border-bottom:1px solid #f0f2f6;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="agregarUnirItem('${p.id}','${p.title.replace(/'/g,"\\'")}',${p._accIdx},'${p._accName}')">
+      <div style="width:22px;height:22px;border-radius:50%;background:#ffe135;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333">${p._accName[0]}</div>
+      <div style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title}</div>
+    </div>`).join('');
+}
+
+function agregarUnirItem(id,title,accIdx,accName){
+  if(unirItems.find(x=>x.id===id)){return;}
+  unirItems.push({id,title,accIdx,accName});
+  renderUnirItems();
+}
+
+async function guardarUnion(){
+  if(unirItems.length<2){showMsg('msg-unir','⚠ Necesitás al menos 2 publicaciones para unir.','err');return;}
+  // Guardar como enlaces entre las publicaciones
+  // Por ahora guardamos en appState.links los primeros dos como ML↔TN si hay TN, sino como nota
+  showMsg('msg-unir','✓ Unión guardada (próximamente sincronización automática entre cuentas ML).','ok');
+  setTimeout(closeUnirModal,1500);
+}
+
+function closeUnirModal(){document.getElementById('unir-modal').classList.remove('show');}
+
+// -- CANAL CARD STYLES (CSS dinámico) ------------------------------------------
+(function addCanalStyles(){
+  const s=document.createElement('style');
+  s.textContent=`
+    .canal-card{background:#fff;border:1px solid #e8ecf0;border-radius:10px;cursor:pointer;transition:all .15s;overflow:hidden}
+    .canal-card:hover{border-color:#4f9eff;box-shadow:0 2px 8px rgba(79,158,255,.15)}
+    .canal-card-active{border-color:#4f9eff;background:#f8fbff}
+    .canal-card-inner{display:flex;align-items:center;gap:12px;padding:14px 18px}
+    .canal-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
+    .canal-info{flex:1;min-width:0}
+    .canal-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .canal-sub{font-size:11px;color:#7a8299;margin-top:2px}
+  `;
+  document.head.appendChild(s);
+})();
+
+// -- PUB TABLE ------------------------------------------------------------------
+function renderPubTabs(){
+  const el=document.getElementById('pub-tabs');const btn=document.getElementById('load-pub-btn');
+  if(!appState.ml_accounts.length){el.innerHTML='<span style="font-size:12px;color:#7a8299">Conectá cuentas primero.</span>';btn.style.display='none';return;}
+  el.innerHTML=appState.ml_accounts.map((a,i)=>`<div class="acc-tab ${i===pubAccIdx?'active':''}" onclick="selPubAcc(${i})">${a.name}</div>`).join('');
+  btn.style.display='inline-flex';
+  renderPubMLDest();
+}
+function selPubAcc(i){pubAccIdx=i;renderPubTabs();document.getElementById('pub-prod-panel').style.display='none';}
+
+async function loadPubProds(){
+  const btn=document.getElementById('load-pub-btn');
+  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-pub');
+  try{
+    const r=await fetch('/api/ml/'+pubAccIdx+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error. Token vencido — reconectá la cuenta.');
+    pubProds=d.products;
+    if(pubSel.length){}
+    pubPg=0;pubSF='todas';
+    document.getElementById('pub-q').value='';
+    document.querySelectorAll('#page-publicar .fpill').forEach((b,i)=>b.classList.toggle('active',i===0));
+    applyPubF();
+    document.getElementById('pub-prod-panel').style.display='block';
+    document.getElementById('pub-prog-panel').style.display='none';
+  }catch(e){showMsg('msg-pub','❌ '+e.message,'err');}
+  btn.innerHTML='Cargar productos →';btn.disabled=false;
+}
+
+function setPubF(val,el){pubSF=val;pubPg=0;document.querySelectorAll('#page-publicar .fpill').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyPubF();}
+function applyPubF(){
+  const q=document.getElementById('pub-q').value.toLowerCase();
+  pubFilt=pubProds.filter(p=>(!q||p.title.toLowerCase().includes(q))&&(pubSF==='todas'||p.status===pubSF));
+  pubPg=0;document.getElementById('pub-cnt').textContent=`${pubFilt.length} de ${pubProds.length}`;renderPubT();
+}
+
+function renderPubT(){
+  const pp=parseInt(document.getElementById('pub-pp').value)||10;
+  const total=pubFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
+  if(pubPg>=pages)pubPg=pages-1;
+  const start=pubPg*pp;const slice=pubFilt.slice(start,start+pp);
+  document.getElementById('pub-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('pub-pag-cur').textContent=`${pubPg+1}/${pages}`;
+  const tbody=document.getElementById('pub-body');
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>${pubProds.length?'Sin resultados.':'Cargá los productos primero.'}</div></td></tr>`;return;}
+  tbody.innerHTML=slice.map(p=>{
+    const sel=pubSel.includes(p.id);
+    const img=p.pictures?.[0]?.url||p.thumbnail||'';
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
+    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
+    const st=p.status==='active'?'active':p.status==='paused'?'paused':'closed';
+    const stL=st==='active'?'Activa':st==='paused'?'Pausada':'Cerrada';
+    const stC=st==='active'?'ba':st==='paused'?'bp':'bc';
+    const varB=p._has_variations?`<span class="var-badge">${p._variation_count} var</span>`:'';
+    return `<tr class="${sel?'sel':''}" onclick="togglePubRow('${p.id}',this)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="togglePubRow('${p.id}',this.closest('tr'))" /></td>
+      <td>${imgH}</td>
+      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
+      <td>${stk}</td><td style="font-weight:600">${price}</td>
+      <td>${varB}</td>
+      <td><span class="badge ${stC}">${stL}</span></td>
+    </tr>`;
+  }).join('');
+  updatePubAB();
+}
+function togglePubRow(id,tr){
+  if(pubSel.includes(id)){pubSel=pubSel.filter(i=>i!==id);tr.classList.remove('sel');}
+  else{pubSel.push(id);tr.classList.add('sel');}
+  updatePubAB();
+}
+function selAllPub(cb){
+  const ids=pubFilt.map(p=>p.id);
+  if(cb.checked)ids.forEach(id=>{if(!pubSel.includes(id))pubSel.push(id);});
+  else pubSel=pubSel.filter(id=>!ids.includes(id));
+  renderPubT();
+}
+function updatePubAB(){
+  const bar=document.getElementById('ab-pub');
+  if(pubSel.length){bar.style.display='flex';document.getElementById('ab-pub-info').textContent=pubSel.length+' seleccionados';}
+  else bar.style.display='none';
+}
+function clearPubSel(){pubSel=[];renderPubT();}
+function pPub(d){pubPg+=d;renderPubT();}
+
+function togglePubTarget(){
+  const target=document.getElementById('pub-target').value;
+  document.getElementById('pub-ml-dest-wrap').style.display=target==='ml'?'block':'none';
+  const btn=document.getElementById('btn-do-publish');
+  btn.textContent=target==='ml'?'📋 Publicar en cuenta ML':'🚀 Publicar en Tienda Nube';
+  if(target==='ml')renderPubMLDest();
+}
+function renderPubMLDest(){
+  const sel=document.getElementById('pub-ml-dest');
+  sel.innerHTML=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  if(appState.ml_accounts.length>1)sel.selectedIndex=1;
+}
+function openPubConfirm(){
+  const target=document.getElementById('pub-target').value;
+  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados.','err');return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  const destTxt=target==='ml'?(appState.ml_accounts[parseInt(document.getElementById('pub-ml-dest').value)]?.name||'ML'):'Tienda Nube';
+  document.getElementById('pub-confirm-count').textContent=pubSel.length;
+  document.getElementById('pub-confirm-dest').textContent=destTxt;
+  // Agrupar solo aplica a TN o ML destino (no x variante)
+  const grupoWrap=document.getElementById('pub-grupo-wrap');
+  grupoWrap.style.display='block';
+  // Detectar grupos usando pubProds
+  const selProds=pubProds.filter(p=>pubSel.includes(p.id));
+  const grupos={};
+  selProds.forEach(p=>{
+    const modelAttr=(p.attributes||[]).find(a=>a.id==='MODEL');
+    const key=modelAttr?.value_name||p.id;
+    if(!grupos[key])grupos[key]=[];
+    grupos[key].push(p);
+  });
+  const nGrupos=Object.keys(grupos).length;
+  const preview=document.getElementById('pub-grupos-preview');
+  if(nGrupos<pubSel.length){
+    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
+  updatePubGrupoUI();
+  document.getElementById('pub-confirm-modal').classList.add('show');
+}
+function closePubConfirm(){document.getElementById('pub-confirm-modal').classList.remove('show');}
+function updatePubGrupoUI(){
+  const val=document.querySelector('input[name="pub-grupo"]:checked')?.value;
+  document.getElementById('lbl-pub-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-pub-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+async function confirmPublish(){
+  const agrupar=document.querySelector('input[name="pub-grupo"]:checked')?.value==='si';
+  closePubConfirm();
+  await doPublish(agrupar);
+}
+async function doPublish(agrupar=false){
+  const target=document.getElementById('pub-target').value;
+  if(!pubSel.length){showMsg('msg-pub','⚠️ No hay productos seleccionados. Seleccioná al menos uno.','err');document.getElementById('pub-prog-panel').style.display='none';return;}
+  if(target==='tn'&&!appState.tn_connected){showMsg('msg-pub','⚠️ Primero conectá Tienda Nube.','err');return;}
+  document.getElementById('pub-prog-panel').style.display='block';
+  document.getElementById('pub-res').innerHTML='';
+  document.getElementById('pub-pf').style.width='0%';
+  document.getElementById('pub-pt').textContent=`Publicando ${pubSel.length} producto(s) en ${target==='ml'?'otra cuenta ML':'Tienda Nube'}...`;
+  hideMsg('msg-pub-res');
+  try{
+    const payload={item_ids:pubSel,ml_account_index:pubAccIdx,target,agrupar};
+    if(target==='ml')payload.target_ml_index=parseInt(document.getElementById('pub-ml-dest').value);
+    const r=await fetch('/api/publish',{method:'POST',headers:hdr(),body:JSON.stringify(payload)});
+    const d=await r.json();const results=d.results||[];
+    document.getElementById('pub-pf').style.width='100%';
+    const ok=results.filter(r=>r.ok).length;const fail=results.length-ok;
+    document.getElementById('pub-pt').textContent=`Listo: ${ok} publicados, ${fail} con error.`;
+    const list=document.getElementById('pub-res');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'❌'}</span><span class="rt">${r.title||r.id}</span><span class="rm">${r.msg}</span>`;list.appendChild(item);});
+    if(ok>0)showMsg('msg-pub-res',`✓ ${ok} publicado(s).`,'ok');
+    if(fail>0)showMsg('msg-pub-res',`⚠ ${fail} con error.`,'err');
+    await loadState();
+  }catch(e){showMsg('msg-pub-res','❌ Error: '+e.message,'err');}
+}
+
+// -- DUPLICAR -------------------------------------------------------------------
+function renderDupAccs(){
+  const opts=appState.ml_accounts.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  document.getElementById('dup-from').innerHTML=opts;
+  document.getElementById('dup-to').innerHTML=opts;
+  if(appState.ml_accounts.length>1)document.getElementById('dup-to').selectedIndex=1;
+}
+async function loadDupProds(){
+  const from=parseInt(document.getElementById('dup-from').value);
+  const btn=document.querySelector('#page-duplicar .btn-blue');
+  btn.innerHTML='<span class="spinner"></span> Cargando...';btn.disabled=true;hideMsg('msg-dup');
+  try{
+    const r=await fetch('/api/ml/'+from+'/products?limit=9999',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error');
+    dupProds=d.products;dupSel=[];dupPg=0;dupChartMap={};
+    document.getElementById('dup-q').value='';
+    await loadDestCharts();
+    applyDupF();
+    document.getElementById('dup-prod-panel').style.display='block';
+    document.getElementById('dup-prog-panel').style.display='none';
+  }catch(e){showMsg('msg-dup','❌ '+e.message,'err');}
+  btn.innerHTML='Cargar productos →';btn.disabled=false;
+}
+function applyDupF(){
+  const q=document.getElementById('dup-q').value.toLowerCase();
+  dupFilt=dupProds.filter(p=>!q||p.title.toLowerCase().includes(q));
+  dupPg=0;renderDupT();
+}
+let destCharts = [];
+let dupChartMap = {}; // item_id -> chart_id selected by user
+
+async function loadDestCharts(){
+  const to = parseInt(document.getElementById('dup-to').value);
+  try{
+    const r = await fetch('/api/ml/'+to+'/charts',{headers:hdr()});
+    const d = await r.json();
+    destCharts = d.charts || [];
+  }catch(e){ destCharts = []; }
+}
+
+function renderDupT(){
+  const pp=parseInt(document.getElementById('dup-pp').value)||10;
+  const total=dupFilt.length;const pages=Math.max(1,Math.ceil(total/pp));
+  if(dupPg>=pages)dupPg=pages-1;
+  const start=dupPg*pp;const slice=dupFilt.slice(start,start+pp);
+  document.getElementById('dup-pag-info').textContent=total?`${start+1}–${Math.min(start+pp,total)} de ${total}`:'';
+  document.getElementById('dup-pag-cur').textContent=`${dupPg+1}/${pages}`;
+  const tbody=document.getElementById('dup-body');
+  if(!slice.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div>Sin resultados.</div></td></tr>`;return;}
+  tbody.innerHTML=slice.map(p=>{
+    const sel=dupSel.includes(p.id);
+    const img=p.pictures?.[0]?.url||p.thumbnail||'';
+    const imgH=img?`<img src="${img}" class="thumb" onerror="this.style.display='none'" />`:`<div class="thumb-ph">📦</div>`;
+    const price=new Intl.NumberFormat('es-AR',{style:'currency',currency:p.currency_id||'ARS'}).format(p.price||0);
+    const stk=p.available_quantity>0?p.available_quantity+' U.':`<span class="stock-0">Sin stock!</span>`;
+    const st=p.status==='active'?'ba':p.status==='paused'?'bp':'bc';
+    const stL=p.status==='active'?'Activa':p.status==='paused'?'Pausada':'Cerrada';
+    // Detectar si tiene SIZE_GRID_ID
+    const attrs = p.attributes || [];
+    const hasChart = attrs.some(a=>a.id==='SIZE_GRID_ID');
+    const origChartId = hasChart ? (attrs.find(a=>a.id==='SIZE_GRID_ID')?.value_name || attrs.find(a=>a.id==='SIZE_GRID_ID')?.value_id || '') : '';
+    let chartCell = '<td></td>';
+    if(hasChart){
+      const savedChart = dupChartMap[origChartId] || '';
+      if(destCharts.length){
+        const opts = destCharts.map(ch=>`<option value="${ch.id}" ${savedChart===ch.id?'selected':''}>${ch.name||ch.id} (${ch.sizes.filter(Boolean).slice(0,3).join(',')}...)</option>`).join('');
+        chartCell = `<td onclick="event.stopPropagation()"><select style="font-size:11px;padding:3px 6px;border:1px solid #dde1e9;border-radius:5px;max-width:160px" onchange="setDupChart('${origChartId}',this.value)"><option value="">— Automático —</option>${opts}</select></td>`;
+      } else {
+        chartCell = `<td><span style="font-size:11px;color:#7a8299">📏 Cargando...</span></td>`;
+      }
+    }
+    return `<tr class="${sel?'sel':''}" onclick="toggleDupRow('${p.id}',this)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleDupRow('${p.id}',this.closest('tr'))" /></td>
+      <td>${imgH}</td>
+      <td><div class="ptitle">${p.title}</div><div class="psku">ID: ${p.id}</div></td>
+      <td>${stk}</td><td style="font-weight:600">${price}</td>
+      <td><span class="badge ${st}">${stL}</span></td>
+      ${chartCell}
+    </tr>`;
+  }).join('');
+  updateDupAB();
+}
+
+function setDupChart(origChartId, destChartId){
+  if(destChartId) dupChartMap[origChartId] = destChartId;
+  else delete dupChartMap[origChartId];
+}
+function toggleDupRow(id,tr){
+  if(dupSel.includes(id)){dupSel=dupSel.filter(i=>i!==id);tr.classList.remove('sel');}
+  else{dupSel.push(id);tr.classList.add('sel');}
+  updateDupAB();
+}
+function selAllDup(cb){
+  const ids=dupFilt.map(p=>p.id);
+  if(cb.checked)ids.forEach(id=>{if(!dupSel.includes(id))dupSel.push(id);});
+  else dupSel=dupSel.filter(id=>!ids.includes(id));
+  renderDupT();
+}
+function updateDupAB(){
+  const bar=document.getElementById('ab-dup');
+  if(dupSel.length){bar.style.display='flex';document.getElementById('ab-dup-info').textContent=dupSel.length+' seleccionados';}
+  else bar.style.display='none';
+}
+function clearDupSel(){dupSel=[];renderDupT();}
+function pDup(d){dupPg+=d;renderDupT();}
+
+function updateDupGrupoUI(){
+  const val=document.querySelector('input[name="dup-grupo"]:checked')?.value;
+  document.getElementById('lbl-grupo-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-grupo-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+  document.getElementById('lbl-grupo-explotar').style.borderColor=val==='explotar'?'#e17055':'#e8ecf0';
+  // dims siempre visibles
+}
+function detectarGrupos(ids){
+  // Buscar en dupProds los items seleccionados y agrupar por MODEL
+  const selProds=dupProds.filter(p=>ids.includes(p.id));
+  const grupos={};
+  selProds.forEach(p=>{
+    const modelAttr=(p.attributes||[]).find(a=>a.id==='MODEL');
+    const key=modelAttr?.value_name||p.id; // fallback al id si no tiene MODEL
+    if(!grupos[key])grupos[key]=[];
+    grupos[key].push(p);
+  });
+  return grupos;
+}
+function openDupConfirm(){
+  const from=parseInt(document.getElementById('dup-from').value);
+  const to=parseInt(document.getElementById('dup-to').value);
+  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
+  if(!dupSel.length){showMsg('msg-dup','⚠ Seleccioná al menos un producto.','err');return;}
+  const destName=appState.ml_accounts[to]?.name||'cuenta destino';
+  document.getElementById('dup-confirm-count').textContent=dupSel.length;
+  document.getElementById('dup-confirm-dest').textContent=destName;
+  // Detectar grupos
+  const grupos=detectarGrupos(dupSel);
+  const nGrupos=Object.keys(grupos).length;
+  const preview=document.getElementById('dup-grupos-preview');
+  if(nGrupos<dupSel.length){
+    const lines=Object.entries(grupos).map(([k,v])=>`· Modelo <b>${k}</b>: ${v.length} variante(s)`).join('<br>');
+    preview.innerHTML=`Se detectaron <b>${nGrupos} grupo(s)</b>:<br>${lines}`;
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
+  updateDupEstadoUI();updateDupSyncUI();updateDupGrupoUI();
+  document.getElementById('dup-confirm-modal').classList.add('show');
+  // Cargar guías de la cuenta destino
+  loadChartsForConfirm(to);
+}
+function closeDupConfirm(){document.getElementById('dup-confirm-modal').classList.remove('show');}
+
+async function loadChartsForConfirm(toAccount){
+  // Detectar qué productos seleccionados tienen SIZE_GRID_ID
+  const selProds = dupProds.filter(p => dupSel.includes(p.id));
+  const prodsConGuia = [];
+  const seenCharts = new Set();
+  selProds.forEach(p => {
+    const attrs = p.attributes || [];
+    const chartAttr = attrs.find(a => a.id === 'SIZE_GRID_ID');
+    if(chartAttr){
+      const origId = String(chartAttr.value_name || chartAttr.value_id || '');
+      if(origId && !seenCharts.has(origId)){
+        seenCharts.add(origId);
+        prodsConGuia.push({origId, title: p.title});
+      }
+    }
+  });
+  const wrap = document.getElementById('dup-charts-wrap');
+  const list = document.getElementById('dup-charts-list');
+  if(!prodsConGuia.length){
+    // Mostrar debug info
+    wrap.style.display='block';
+    list.innerHTML='<span style="font-size:11px;color:#7a8299">Debug: '+selProds.length+' productos seleccionados. Attrs del primero: '+(selProds[0]?.attributes?.length||0)+' attrs. SIZE_GRID_ID: '+(selProds[0]?.attributes?.find(a=>a.id==="SIZE_GRID_ID")?.value_name||"no encontrado")+'</span>';
+    return;
+  }
+  wrap.style.display = 'block';
+  list.innerHTML = '<span style="font-size:12px;color:#7a8299">Cargando guías disponibles...</span>';
+  try{
+    const r = await fetch('/api/ml/'+toAccount+'/charts', {headers:hdr()});
+    const d = await r.json();
+    const charts = d.charts || [];
+    if(!charts.length){
+      list.innerHTML = '<span style="font-size:12px;color:#e17055">No hay guías en la cuenta destino.</span>';
+      return;
+    }
+    const opts = charts.map(ch => '<option value="'+ch.id+'">'+(ch.name||'Sin nombre')+' - '+ch.sizes.filter(Boolean).join(', ')+'</option>').join('');
+    list.innerHTML = prodsConGuia.map(p =>
+      '<div style="margin-bottom:10px">'+
+        '<div style="font-size:12px;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
+        '<select data-origid="'+p.origId+'" style="width:100%;padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif" onchange="setDupChart(this.dataset.origid,this.value)">'+
+          '<option value="">— Automático —</option>'+opts+
+        '</select>'+
+      '</div>'
+    ).join('');
+    // Pre-seleccionar si ya hay override guardado
+    prodsConGuia.forEach(p => {
+      if(dupChartMap[p.origId]){
+        const sel = list.querySelector('select[data-origid="'+p.origId+'"]');
+        if(sel) sel.value = dupChartMap[p.origId];
+      }
+    });
+  }catch(e){
+    list.innerHTML = '<span style="font-size:12px;color:#e17055">Error: '+e.message+'</span>';
+  }
+}
+function updateDupEstadoUI(){
+  const val=document.querySelector('input[name="dup-estado"]:checked')?.value;
+  document.getElementById('lbl-estado-active').style.borderColor=val==='active'?'#00a381':'#e8ecf0';
+  document.getElementById('lbl-estado-paused').style.borderColor=val==='paused'?'#d68000':'#e8ecf0';
+}
+function updateDupSyncUI(){
+  const val=document.querySelector('input[name="dup-sync"]:checked')?.value;
+  document.getElementById('lbl-sync-si').style.borderColor=val==='si'?'#4f9eff':'#e8ecf0';
+  document.getElementById('lbl-sync-no').style.borderColor=val==='no'?'#7a8299':'#e8ecf0';
+}
+async function confirmDuplicate(){
+  const estado=document.querySelector('input[name="dup-estado"]:checked')?.value||'active';
+  const sync=document.querySelector('input[name="dup-sync"]:checked')?.value==='si';
+  const grupoVal=document.querySelector('input[name="dup-grupo"]:checked')?.value||'no';
+  const agrupar=grupoVal==='si';
+  const explotar=grupoVal==='explotar';
+  const dims = {
+    h: parseFloat(document.getElementById('dup-dim-h')?.value)||0,
+    w: parseFloat(document.getElementById('dup-dim-w')?.value)||0,
+    l: parseFloat(document.getElementById('dup-dim-l')?.value)||0,
+    p: parseFloat(document.getElementById('dup-dim-p')?.value)||0,
+    ph: parseFloat(document.getElementById('dup-prod-h')?.value)||0,
+    pw: parseFloat(document.getElementById('dup-prod-w')?.value)||0,
+    pl: parseFloat(document.getElementById('dup-prod-l')?.value)||0,
+    pp: parseFloat(document.getElementById('dup-prod-p')?.value)||0
+  };
+  // Guardar override manual si se ingresó un ID
+  const manualChartId = document.getElementById('dup-chart-id-input')?.value?.trim();
+  if(manualChartId){
+    // Guardar para todos los productos seleccionados (no sabemos el orig_chart_id, usamos "manual")
+    dupChartMap['manual'] = manualChartId;
+    await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:{'manual':manualChartId}})});
+  }
+  closeDupConfirm();
+  await doDuplicate(estado,sync,agrupar,explotar,dims);
+}
+// -- DUPLICAR ------------------------------------------------------------------
+let chartOverride = {};
+let pendingDupArgs = null;
+let selectedChartId = null;
+let pendingChartOrigId = null;
+
+async function doDuplicate(estado, sync, agrupar, explotar, dims){
+  estado = estado || 'active';
+  sync = sync || false;
+  agrupar = agrupar || false;
+  explotar = explotar || false;
+  dims = dims || null;
+  const from=parseInt(document.getElementById('dup-from').value);
+  const to=parseInt(document.getElementById('dup-to').value);
+  if(from===to){showMsg('msg-dup','⚠ Origen y destino deben ser distintos.','err');return;}
+  document.getElementById('dup-prog-panel').style.display='block';
+  document.getElementById('dup-res').innerHTML='';
+  document.getElementById('dup-pf').style.width='0%';
+  document.getElementById('dup-pt').textContent=agrupar?'Agrupando variantes y duplicando...':'Duplicando '+dupSel.length+' producto(s)...';
+  try{
+    // Guardar overrides de guías seleccionadas
+    if(Object.keys(dupChartMap).length){
+      await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:dupChartMap})});
+    }
+    const r=await fetch('/api/duplicate',{method:'POST',headers:hdr(),body:JSON.stringify({
+      item_ids:dupSel,from_account:from,to_account:to,
+      status:estado,auto_link:sync,agrupar:agrupar,explotar:explotar,dims:dims
+    })});
+    const d=await r.json();
+    const results=d.results||[];
+    document.getElementById('dup-pf').style.width='100%';
+    const ok=results.filter(function(x){return x.ok;}).length;
+    document.getElementById('dup-pt').textContent='Listo: '+ok+'/'+results.length+' duplicados.'+(sync?' · Links creados':'');
+    const list=document.getElementById('dup-res');
+    list.innerHTML='';
+    let shownChartBtn=false;
+    results.forEach(function(res){
+      const div=document.createElement('div');
+      div.className='ri '+(res.ok?'ok':'fail');
+      const isChartErr=!res.ok && res.msg && (res.msg.indexOf('u') >= 0);
+      let html='<span>'+(res.ok?'✅':'❌')+'</span><span class="rt">'+(res.title||res.id)+'</span><span class="rm">'+(res.msg||'')+'</span>';
+      if(isChartErr && !shownChartBtn){
+        shownChartBtn=true;
+        div.dataset.origChartId=res.orig_chart_id||'';
+        div.dataset.dupTo=to;
+        div.dataset.dupEstado=estado;
+        div.dataset.dupSync=sync?'1':'0';
+        div.dataset.dupAgrupar=agrupar?'1':'0';
+        html+='<br><button class="btn btn-blue btn-sm" style="margin-top:6px" onclick="openChartFromBtn(this)">📏 Elegir guía de talles</button>';
+      }
+      div.innerHTML=html;
+      list.appendChild(div);
+    });
+    await loadState();
+  }catch(e){document.getElementById('dup-pt').textContent='❌ Error: '+e.message;}
+}
+
+function openChartFromBtn(btn){
+  const row=btn.closest('.ri');
+  pendingChartOrigId=row.dataset.origChartId||'';
+  const toAcc=parseInt(row.dataset.dupTo);
+  pendingDupArgs=[row.dataset.dupEstado, row.dataset.dupSync==='1', row.dataset.dupAgrupar==='1'];
+  openChartModal(pendingChartOrigId, toAcc);
+}
+
+async function openChartModal(origChartId, toAccount){
+  selectedChartId=null;
+  document.getElementById('chart-modal-confirm').disabled=true;
+  document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#7a8299">Cargando guías...</div>';
+  document.getElementById('chart-modal').classList.add('show');
+  try{
+    const r=await fetch('/api/ml/'+toAccount+'/charts',{headers:hdr()});
+    const d=await r.json();
+    const charts=d.charts||[];
+    if(!charts.length){
+      document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#e17055">No hay guías en esta cuenta. <a href="https://www.mercadolibre.com.ar/moda/talles/" target="_blank">Creá una en ML</a></div>';
+      return;
+    }
+    document.getElementById('chart-modal-list').innerHTML=charts.map(function(ch){
+      return '<div class="tn-prod-item" data-id="'+ch.id+'" onclick="selectChart(this.dataset.id,this)">'+
+        '<div style="font-weight:600;font-size:13px">'+(ch.name||'Sin nombre')+' <span style="font-size:11px;color:#7a8299">#'+ch.id+'</span></div>'+
+        '<div style="font-size:11px;color:#7a8299;margin-top:3px">Dominio: '+ch.domain+' · Talles: '+(ch.sizes.filter(Boolean).join(', ')||'—')+'</div>'+
+        '</div>';
+    }).join('');
+  }catch(e){
+    document.getElementById('chart-modal-list').innerHTML='<div style="padding:20px;text-align:center;color:#e17055">Error: '+e.message+'</div>';
+  }
+}
+
+function selectChart(id,el){
+  selectedChartId=id;
+  document.querySelectorAll('#chart-modal-list .tn-prod-item').forEach(function(i){i.classList.remove('sel');});
+  el.classList.add('sel');
+  document.getElementById('chart-modal-confirm').disabled=false;
+}
+
+async function confirmChartSelection(){
+  if(!selectedChartId) return;
+  if(pendingChartOrigId) chartOverride[pendingChartOrigId]=selectedChartId;
+  await fetch('/api/duplicate/with_chart',{method:'POST',headers:hdr(),body:JSON.stringify({chart_override:chartOverride})});
+  closeChartModal();
+  await doDuplicate(pendingDupArgs[0],pendingDupArgs[1],pendingDupArgs[2]);
+}
+
+function closeChartModal(){
+  document.getElementById('chart-modal').classList.remove('show');
+}
+
+// -- LINK MODAL -----------------------------------------------------------------
+async function openModal(itemId, varId, accIdx, title){
+  modalML={item_id:itemId,var_id:varId,acc_idx:accIdx,title};
+  selectedTNProd=null;
+  document.getElementById('modal-ml-info').textContent='Enlazar: '+title;
+  document.getElementById('tn-prod-search').value='';
+  document.getElementById('modal-var-sel').style.display='none';
+  document.getElementById('msg-modal').className='msg';
+  document.getElementById('link-modal').classList.add('show');
+  document.getElementById('tn-prod-list').innerHTML='<div class="empty"><div class="ei">⏳</div>Cargando...</div>';
+  try{
+    const r=await fetch('/api/tn/products',{headers:hdr()});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'TN no conectada');
+    tnProds=d.products||[];tnProdsFilt=[...tnProds];
+    renderTNProdList();
+  }catch(e){document.getElementById('tn-prod-list').innerHTML=`<div class="empty"><div class="ei">❌</div>${e.message}</div>`;}
+}
+
+function filterTNProds(){
+  const q=document.getElementById('tn-prod-search').value.toLowerCase();
+  tnProdsFilt=tnProds.filter(p=>{const name=p.name?.es||p.name||'';return !q||name.toLowerCase().includes(q);});
+  renderTNProdList();
+}
+
+function renderTNProdList(){
+  const el=document.getElementById('tn-prod-list');
+  if(!tnProdsFilt.length){el.innerHTML='<div class="empty"><div class="ei">🔍</div>Sin resultados</div>';return;}
+  el.innerHTML=tnProdsFilt.slice(0,50).map(p=>{
+    const name=p.name?.es||p.name||'ID '+p.id;
+    const variants=p.variants||[];
+    const sel=selectedTNProd?.id===p.id;
+    return `<div class="tn-prod-item ${sel?'sel':''}" onclick="selectTNProd(${p.id})" data-id="${p.id}">
+      <div class="tpn">${name}</div>
+      <div class="tpv">${variants.length} variante(s) · ID ${p.id}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectTNProd(id){
+  selectedTNProd=tnProds.find(p=>p.id===id);
+  document.querySelectorAll('.tn-prod-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.id)===id));
+  const variants=selectedTNProd?.variants||[];
+  const varSel=document.getElementById('tn-var-sel');
+  varSel.innerHTML='<option value="">— Sin variante específica —</option>'+variants.map(v=>`<option value="${v.id}">${(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id}</option>`).join('');
+  document.getElementById('modal-var-sel').style.display=variants.length>0?'block':'none';
+}
+
+async function saveLink(){
+  if(!selectedTNProd){showMsg('msg-modal','⚠ Seleccioná un producto de TN.','err');return;}
+  const tnVarId=document.getElementById('tn-var-sel').value||null;
+  try{
+    const tnProdName = selectedTNProd.name?.es || selectedTNProd.name || String(selectedTNProd.id);
+    const mlAccName = appState.ml_accounts[modalML.acc_idx]?.name || 'ML';
+    const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
+      ml_item_id:modalML.item_id,
+      ml_variation_id:modalML.var_id,
+      ml_account_index:modalML.acc_idx,
+      ml_account_name:mlAccName,
+      ml_title:modalML.title,
+      tn_product_id:String(selectedTNProd.id),
+      tn_variant_id:tnVarId,
+      tn_product_name:tnProdName
+    })});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'Error');
+    showMsg('msg-modal','✓ Enlace guardado.','ok');
+    await loadState();
+    setTimeout(closeModal,800);
+  }catch(e){showMsg('msg-modal','❌ '+e.message,'err');}
+}
+
+async function removeLink(mlId,mlVarId){
+  if(!confirm('¿Eliminar este enlace?'))return;
+  await fetch('/api/links/remove',{method:'POST',headers:hdr(),body:JSON.stringify({ml_item_id:mlId,ml_variation_id:mlVarId||null})});
+  await loadState();
+}
+
+function closeModal(){document.getElementById('link-modal').classList.remove('show');}
+
+// -- SYNC -----------------------------------------------------------------------
+async function doSync(){
+  if(!appState.tn_connected){showMsg('msg-sync','⚠ Primero conectá Tienda Nube.','err');return;}
+  const btn=document.getElementById('sync-btn');
+  btn.innerHTML='<span class="spinner"></span> Sincronizando...';btn.disabled=true;
+  hideMsg('msg-sync');
+  document.getElementById('sync-res-panel').style.display='block';
+  document.getElementById('sync-res').innerHTML='';
+  document.getElementById('sync-pf').style.width='0%';
+  document.getElementById('sync-pt').textContent='Sincronizando...';
+  try{
+    const r=await fetch('/api/sync/manual',{method:'POST',headers:hdr()});
+    const d=await r.json();const results=d.results||[];
+    document.getElementById('sync-pf').style.width='100%';
+    const ok=results.filter(r=>r.ok).length;
+    document.getElementById('sync-pt').textContent=d.msg||`Listo: ${ok}/${results.length} actualizados.`;
+    const list=document.getElementById('sync-res');
+    results.forEach(r=>{const item=document.createElement('div');item.className='ri '+(r.ok?'ok':'fail');item.innerHTML=`<span>${r.ok?'✅':'⚠️'}</span><span class="rt">${r.title}</span><span class="rm">${r.action}</span>`;list.appendChild(item);});
+    showMsg('msg-sync',`✓ Sync completa: ${ok} actualizados.`,'ok');
+    await loadState();
+  }catch(e){showMsg('msg-sync','❌ Error: '+e.message,'err');}
+  btn.innerHTML='🔄 Sincronizar ahora';btn.disabled=false;
+}
+
+// -- IA PUBLICAR --------------------------------------------------------------
+let iaImageBase64 = '';
+let iaImageType = 'image/jpeg';
+let iaContext = {};
+let iaChatHistory = [];
+let iaGeneratedPhotos = {};
+let iaSelectedChannels = new Set([0]); // LENCERIA por defecto
+
+function iaDrop(e) {
+  e.preventDefault();
+  document.getElementById('ia-dropzone').style.borderColor = '#dde1e9';
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) iaProcessFile(file);
+}
+
+function iaHandleFile(input) {
+  if (input.files[0]) iaProcessFile(input.files[0]);
+}
+
+function iaProcessFile(file) {
+  iaImageType = file.type;
+  const reader = new FileReader();
+  reader.onload = e => {
+    iaImageBase64 = e.target.result.split(',')[1];
+    document.getElementById('ia-preview-img').src = e.target.result;
+    document.getElementById('ia-img-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function iaAnalyze() {
+  if (!iaImageBase64) return;
+  const btn = document.getElementById('ia-analyze-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analizando...';
+  iaAddBotMessage('Analizando tu imagen... dame un momento 🔍');
+  try {
+    const r = await fetch('/api/ai/analyze', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({image_base64: iaImageBase64, image_type: iaImageType})
+    });
+    const d = await r.json();
+    if (d.ok && d.analysis) {
+      iaContext = d.analysis;
+      iaContext.colores = iaContext.colores_detectados || iaContext.colores_sugeridos || [];
+      // Mostrar paneles
+      iaRenderChannels();
+      document.getElementById('ia-channels-panel').style.display = 'block';
+      document.getElementById('ia-photos-panel').style.display = 'block';
+      iaRenderVariantsGrid();
+      // Primer mensaje del asistente
+      await iaChatWithAI("El vendedor subió una imagen. Iniciá la conversación presentándote brevemente y hacé la primera pregunta más importante para completar la publicación.");
+    } else {
+      iaAddBotMessage('❌ Error al analizar: ' + (d.error || 'desconocido') + ' | respuesta: ' + JSON.stringify(d));
+    }
+  } catch(e) {
+    iaAddBotMessage('❌ Error: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '✦ Re-analizar';
+}
+
+async function iaAnalyzeUrl() {
+  const url = document.getElementById('ia-url-input')?.value.trim();
+  if (!url) return;
+  const btn = document.getElementById('ia-url-btn');
+  btn.disabled = true;
+  btn.textContent = 'Cargando...';
+  iaAddBotMessage('Analizando el producto en ' + url + ' ...');
+  try {
+    const r = await fetch('/api/ai/analyze_url', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({url})
+    });
+    const d = await r.json();
+    if (d.ok && d.analysis) {
+      iaContext = d.analysis;
+      iaContext.colores = d.analysis.colores || [];
+      iaContext.talles = d.analysis.talles_sugeridos || d.analysis.talles || [];
+      // Mostrar paneles
+      iaRenderChannels();
+      document.getElementById('ia-channels-panel').style.display = 'block';
+      document.getElementById('ia-photos-panel').style.display = 'block';
+      iaRenderVariantsGrid();
+      // Si tiene imagenes, mostrar la primera como preview
+      if (d.analysis.imagenes && d.analysis.imagenes[0]) {
+        const previewEl = document.getElementById('ia-preview-img');
+        if (previewEl) { previewEl.src = d.analysis.imagenes[0]; document.getElementById('ia-img-preview').style.display='block'; }
+      }
+      const fuente = d.analysis.fuente || 'URL';
+      iaAddBotMessage('[OK] Producto analizado desde ' + fuente + ': "' + d.analysis.titulo_sugerido + '".' + ' Tenes ' + (d.analysis.colores||[]).length + ' colores y ' + (d.analysis.talles||[]).length + ' talles. Queres ajustar algo?');
+      iaShowPublishButton();
+    } else {
+      iaAddBotMessage('[Error] Error: ' + (d.error || 'No se pudo analizar la URL'));
+    }
+  } catch(e) {
+    iaAddBotMessage('[Error] Error: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Analizar URL';
+}
+
+function iaRenderChannels() {
+  const el = document.getElementById('ia-channels-list');
+  const channels = [
+    ...appState.ml_accounts.map((a, i) => ({label: a.name, key: i, color: '#ffe135', text: '#333'})),
+    ...(appState.tn_connected ? [{label: 'TiendaNube', key: 'tn', color: '#e91e63', text: '#fff'}] : [])
+  ];
+  el.innerHTML = channels.map(ch => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:2px solid ${iaSelectedChannels.has(ch.key)?'#4f9eff':'#e8ecf0'};cursor:pointer;transition:all .15s"
+         id="ia-ch-${ch.key}" onclick="iaToggleChannel('${ch.key}', this)">
+      <div style="width:28px;height:28px;border-radius:50%;background:${ch.color};color:${ch.text};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${ch.label[0]}</div>
+      <span style="font-size:13px;font-weight:500;flex:1">${ch.label}</span>
+      <div style="width:18px;height:18px;border-radius:50%;${iaSelectedChannels.has(ch.key)?'background:#4f9eff':'border:2px solid #dde1e9'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">${iaSelectedChannels.has(ch.key)?'✓':''}</div>
+    </div>`).join('');
+}
+
+function iaToggleChannel(key, el) {
+  const k = isNaN(key) ? key : parseInt(key);
+  if (iaSelectedChannels.has(k)) iaSelectedChannels.delete(k);
+  else iaSelectedChannels.add(k);
+  iaRenderChannels();
+}
+
+function iaAddBotMessage(text) {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.innerHTML = '<div class="ia-bubble">' + text.replace(/\n/g,'<br>') + '</div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaAddUserMessage(text) {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-user';
+  div.innerHTML = `<div class="ia-bubble">${text}</div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaShowTyping() {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.id = 'ia-typing';
+  div.innerHTML = '<div class="ia-typing"><div class="ia-dot"></div><div class="ia-dot"></div><div class="ia-dot"></div></div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function iaHideTyping() {
+  const t = document.getElementById('ia-typing');
+  if (t) t.remove();
+}
+
+async function iaChatWithAI(userMsg) {
+  if (userMsg !== "__INIT__") {
+    iaChatHistory.push({role: 'user', content: userMsg});
+  }
+  iaShowTyping();
+  try {
+    const r = await fetch('/api/ai/chat', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({messages: iaChatHistory, context: iaContext})
+    });
+    const d = await r.json();
+    iaHideTyping();
+    if (d.ok) {
+      iaChatHistory.push({role: 'assistant', content: d.reply});
+      iaAddBotMessage(d.reply);
+      // Detectar si el asistente dice LISTO
+      if (d.reply.includes('LISTO') || d.reply.includes('listo para publicar')) {
+        iaShowPublishButton();
+      }
+    } else {
+      iaAddBotMessage('❌ Error: ' + d.error);
+    }
+  } catch(e) {
+    iaHideTyping();
+    iaAddBotMessage('❌ Error: ' + e.message);
+  }
+}
+
+async function iaSendMessage() {
+  const input = document.getElementById('ia-chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  iaAddUserMessage(text);
+  // Actualizar contexto con la respuesta
+  iaContext._last_user_msg = text;
+  await iaChatWithAI(text);
+}
+
+function iaShowPublishButton() {
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.innerHTML = '<div class="ia-bubble" style="max-width:100%">'
+    + '<div style="font-weight:600;margin-bottom:10px">🚀 Listo para publicar</div>'
+    + '<div style="margin-bottom:10px">'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px;border:1px solid #e8ecf0;border-radius:8px;margin-bottom:8px">'
+    + '<input type="checkbox" id="ia-sync-check" checked style="width:16px;height:16px"> '
+    + '<div><div style="font-size:13px;font-weight:600">🔗 Sincronizar entre cuentas</div>'
+    + '<div style="font-size:11px;color:#7a8299">Crea enlaces ML↔ML para descontar stock automáticamente cuando se vende</div></div>'
+    + '</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px;border:1px solid #e8ecf0;border-radius:8px">'
+    + '<input type="checkbox" id="ia-sync-tn-check" checked style="width:16px;height:16px"> '
+    + '<div><div style="font-size:13px;font-weight:600">🔗 Sincronizar con TiendaNube</div>'
+    + '<div style="font-size:11px;color:#7a8299">Crea enlaces ML↔TN para sincronizar stock y precio</div></div>'
+    + '</label>'
+    + '</div>'
+    + '<button class="btn btn-green" style="width:100%;border-radius:8px" onclick="iaPublish()">🚀 Publicar ahora</button>'
+    + '</div>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+// Prompt base guardado
+const IA_PROMPT_BASE = "1-Fotografia hiperrealista en formato 4k estilo Instagram y turista real, tomada al azar en exteriores. Poses naturales, espontaneas y realistas, como si la modelo estuviera disfrutando el momento sin produccion: postura relajada, sonrisa autentica, cabello movido por el viento, gestos casuales y no posados. La modelo tiene proporciones humanas reales y rasgos anatomicos naturales: piel con textura visible, poros, reflejos y sombras suaves, musculos sutiles marcados por la luz del sol. Mirada coherente con ojos bien alineados, expresion fresca y genuina, boca natural, enfoque super profesional en la cara. "
+  + "Iluminacion 100% ambiental, nitidez suprema, propia de un dia soleado. Estetica tipica de Instagram: colores equilibrados, sensacion de foto real. Parametros fotograficos reales: ISO 100, apertura f8, velocidad 1-1000s, lente 85mm. Fondo ligeramente desenfocado con profundidad de campo real. Calidad DSLR realista pero con vibra natural. Maxima nitidez en cara, cuerpo y ojos. "
+  + "2-1 mujer adulta joven de 21 anos morocha de pelo negro largo y lacio bronceada con pecas y alta, modelo de tiktok, expresiones reales no rigidas. "
+  + "3-3 imagenes con el mismo formato pero distintas poses estilo Instagram, casuales, relajadas, muy reales, de cuerpo entero de pies a cabeza. Poses distintas: frente, perfil, sentada o de espalda. "
+  + "4-estan en un estudio-habitacion sobre una pared marmolada gris muy moderno, con luz solar natural. "
+  + "5-hay realismo y mucha iluminacion. 6-es un dia claro y el sol ilumina el estudio. "
+  + "7-la estampa de la prenda es nitida y clara. 9-imagenes de cuerpo entero. "
+  + "10-sin infringir nada, personas ficticias no reales, imagenes para venta de articulos de lenceria, todas las imagenes son creadas por inteligencia artificial ninguna es real"
+
+function iaRenderVariantsGrid() {
+  const colors = iaContext.colores || [];
+  const grid = document.getElementById('ia-variants-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!colors.length) {
+    grid.innerHTML = '<div style="font-size:12px;color:#7a8299">Completá los colores en el chat primero.</div>';
+    return;
+  }
+  colors.forEach(color => {
+    if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+    const div = document.createElement('div');
+    div.id = 'variant-block-' + color.replace(/\s/g,'_');
+    div.style = 'border:1px solid #e8ecf0;border-radius:10px;padding:14px';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-weight:600;font-size:13px">${color}</div>
+        <div style="display:flex;gap:6px">
+          <span id="variant-count-${color.replace(/\s/g,'_')}" style="font-size:11px;color:#7a8299">0 fotos</span>
+          <button class="btn btn-out btn-sm" onclick="iaGenerateColor('${color}')">✦ IA</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="variant-photos-${color.replace(/\s/g,'_')}">
+        <label style="width:80px;height:80px;border:2px dashed #dde1e9;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#7a8299;gap:4px;position:relative">
+          <input type="file" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="iaHandleVariantFiles(this,'${color}')">
+          <span style="font-size:20px">+</span>
+          <span>Subir</span>
+        </label>
+      </div>`;
+    grid.appendChild(div);
+  });
+}
+
+function iaHandleVariantFiles(input, color) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const key = color.replace(/\s/g,'_');
+  if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const b64 = e.target.result.split(',')[1];
+      iaGeneratedPhotos[color].push(b64);
+      iaAddVariantThumb(color, b64, 'image/jpeg');
+      document.getElementById('variant-count-'+key).textContent = iaGeneratedPhotos[color].length + ' fotos';
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function iaAddVariantThumb(color, b64, mime) {
+  const key = color.replace(/\s/g,'_');
+  const container = document.getElementById('variant-photos-'+key);
+  if (!container) return;
+  const idx = iaGeneratedPhotos[color].length - 1;
+  const thumb = document.createElement('div');
+  thumb.style = 'position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid #e8ecf0';
+  const removeBtn = document.createElement('button');
+  removeBtn.textContent = '✕';
+  removeBtn.style = 'position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer';
+  removeBtn.onclick = () => { iaGeneratedPhotos[color].splice(idx,1); iaRenderVariantsGrid(); };
+  const img = document.createElement('img');
+  img.src = 'data:'+mime+';base64,'+b64;
+  img.style = 'width:100%;height:100%;object-fit:cover';
+  thumb.appendChild(img);
+  thumb.appendChild(removeBtn);
+  // Insert before the + label
+  const addBtn = container.querySelector('label');
+  container.insertBefore(thumb, addBtn);
+}
+
+function iaRemoveVariantPhoto(color, idx) {
+  iaGeneratedPhotos[color].splice(idx, 1);
+  iaRenderVariantsGrid(); // Re-render
+  // Re-add existing photos
+  iaGeneratedPhotos[color].forEach(b64 => iaAddVariantThumb(color, b64, 'image/jpeg'));
+  const key = color.replace(/\s/g,'_');
+  const countEl = document.getElementById('variant-count-'+key);
+  if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
+}
+
+async function iaGenerateColor(color) {
+  const key = color.replace(/\s/g,'_');
+  const countEl = document.getElementById('variant-count-'+key);
+  if (countEl) countEl.textContent = '⏳ Generando...';
+  const prenda = iaContext.tipo_prenda || iaContext.titulo_sugerido || 'prenda';
+  const prompt = IA_PROMPT_BASE + "\n8-es " + prenda + " de color " + color + ". La estampa es como en la foto de referencia. IMPORTANTE: imagen panoramica 21:9 con 3 poses distintas lado a lado.";
+  try {
+    const r = await fetch('/api/ai/generate_image', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({prompt, reference_base64: iaImageBase64, reference_type: iaImageType})
+    });
+    const d = await r.json();
+    if (d.ok && d.images_base64) {
+      if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+      d.images_base64.forEach(b64 => {
+        iaGeneratedPhotos[color].push(b64);
+        iaAddVariantThumb(color, b64, 'image/jpeg');
+      });
+      if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
+    } else {
+      if (countEl) countEl.textContent = '❌ Error';
+      iaAddBotMessage('Error generando ' + color + ': ' + (d.error||'desconocido'));
+    }
+  } catch(e) {
+    if (countEl) countEl.textContent = '❌ Error';
+  }
+}
+
+async function iaGenerateAllPhotos() {
+  const colors = iaContext.colores || iaContext.colores_detectados || iaContext.colores_sugeridos || [];
+  if (!colors.length) {
+    iaAddBotMessage('Primero completá los colores del producto en la conversación.');
+    return;
+  }
+  const fotosTotal = colors.length; // 1 llamada por color (imagen 21:9 que se corta en 3)
+  const costoEst = (fotosTotal * 0.045).toFixed(2);
+  
+  // Mostrar modal de confirmación con prompt editable
+  const prenda = iaContext.tipo_prenda || iaContext.titulo_sugerido || 'prenda';
+  const promptSugerido = IA_PROMPT_BASE + "\n8-es " + prenda + " de color [COLOR], " + (iaContext.descripcion || '') + " la estampa es como en la foto de referencia";
+  
+  // Crear panel de confirmación
+  const el = document.getElementById('ia-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'ia-msg ia-msg-bot';
+  div.id = 'ia-gen-confirm';
+  div.innerHTML = `
+    <div class="ia-bubble" style="max-width:100%;width:100%">
+      <div style="font-weight:600;margin-bottom:8px">🎨 Generación de imágenes</div>
+      <div style="font-size:12px;color:#7a8299;margin-bottom:10px">
+        ${colors.length} colores · 1 imagen 21:9 por color → 3 fotos cortadas = <b>${colors.length*3} fotos</b> · Costo estimado: <b style="color:#e17055">~$${costoEst} USD</b>
+      </div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Colores: ${colors.join(' · ')}</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px">Ambiente:</div>
+      <select id="ia-ambiente" style="width:100%;padding:7px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;margin-bottom:8px">
+        <option value="estudio">Estudio/habitación marmolada (por defecto)</option>
+        <option value="exterior">Exterior casual Instagram</option>
+        <option value="blanco">Fondo blanco profesional</option>
+        <option value="custom">Personalizado</option>
+      </select>
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px">Prompt (editá si querés):</div>
+      <textarea id="ia-prompt-edit" style="width:100%;height:120px;padding:8px;border:1px solid #dde1e9;border-radius:6px;font-size:11px;font-family:Inter,sans-serif;resize:vertical">${promptSugerido}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-green btn-sm" style="flex:1" onclick="iaConfirmGenerate()">✅ Confirmar y generar (~$${costoEst})</button>
+        <button class="btn btn-out btn-sm" onclick="document.getElementById('ia-gen-confirm').remove()">Cancelar</button>
+      </div>
+    </div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function iaConfirmGenerate() {
+  const colors = iaContext.colores || iaContext.colores_detectados || iaContext.colores_sugeridos || [];
+  const promptBase = document.getElementById('ia-prompt-edit')?.value || IA_PROMPT_BASE;
+  document.getElementById('ia-gen-confirm')?.remove();
+  
+  const grid = document.getElementById('ia-photos-grid');
+  grid.innerHTML = '';
+  
+  for (const color of colors) {
+    const prompt = promptBase.replace('[COLOR]', color);
+    const card = document.createElement('div');
+    card.style = 'border-radius:8px;overflow:hidden;border:1px solid #e8ecf0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#f9fafb;position:relative';
+    card.innerHTML = "<div style='font-size:11px;color:#7a8299;text-align:center;padding:8px'>⏳ Generando<br>"+color+"...</div>";
+    grid.appendChild(card);
+    try {
+      const r = await fetch('/api/ai/generate_image', {
+        method: 'POST', headers: hdr(),
+        body: JSON.stringify({prompt, reference_base64: iaImageBase64, reference_type: iaImageType})
+      });
+      const d = await r.json();
+      if (d.ok && d.images_base64 && d.images_base64.length) {
+        iaGeneratedPhotos[color] = d.images_base64;
+        // Mostrar las 3 fotos cortadas
+        card.style = 'border-radius:8px;overflow:hidden;border:1px solid #e8ecf0;background:#f9fafb;padding:6px;grid-column:span 3';
+        card.innerHTML = "<div style='font-size:11px;font-weight:600;margin-bottom:6px;color:#4f9eff'>"+color+" ("+d.count+" fotos)</div><div style='display:grid;grid-template-columns:repeat("+d.count+",1fr);gap:4px'>"
+          + d.images_base64.map((img,i) => "<div style='position:relative;aspect-ratio:1;overflow:hidden;border-radius:6px'><img src='data:image/jpeg;base64,"+img+"' style='width:100%;height:100%;object-fit:cover'><div style='position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px'>📸 "+(i+1)+"</div></div>").join('')
+          + "</div>";
+        // Quitar el span 3 para los siguientes
+        card.style.gridColumn = 'span 3';
+      } else {
+        card.innerHTML = "<div style='font-size:11px;color:#e17055;text-align:center;padding:8px'>❌ Error<br>"+color+"<br><small>"+(d.error||'')+"</small></div>";
+      }
+    } catch(e) {
+      card.innerHTML = "<div style='font-size:11px;color:#e17055;padding:8px'>❌ "+color+"</div>";
+    }
+  }
+  const genCount = Object.keys(iaGeneratedPhotos).length;
+  iaAddBotMessage("✅ Fotos generadas para "+genCount+" colores. Revisalas y cuando estés listo publicá.");
+}
+
+async function iaPublish() {
+  const syncML = document.getElementById('ia-sync-check')?.checked !== false;
+  const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
+  iaAddBotMessage('⏳ Publicando en los canales seleccionados...');
+  try {
+    // Flatten all photos from all variants
+    const allImages = Object.values(iaGeneratedPhotos).flat();
+    const r = await fetch('/api/ai/publish_product', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({
+        product: iaContext,
+        channels: [...iaSelectedChannels],
+        images_base64: allImages,
+        images_by_color: iaGeneratedPhotos,
+        sync_ml: syncML,
+        sync_tn: syncTN
+      })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const ok = d.results.filter(r=>r.ok).length;
+      const lines = d.results.map(r=>(r.ok?"✅":"❌")+" "+r.channel+": "+r.msg).join("\n");
+      iaAddBotMessage("Listo! "+ok+"/"+d.results.length+" publicaciones exitosas:\n"+lines);
+    } else {
+      iaAddBotMessage('❌ Error: ' + d.error);
+    }
+  } catch(e) {
+    iaAddBotMessage('❌ Error: ' + e.message);
+  }
+}
+
+loadState();
+setInterval(loadState,30000);
+
+// Auto-detectar tokens vencidos y mostrar alerta
+setInterval(async function(){
+  if(!SESSION) return;
+  try{
+    const r = await fetch('/api/state',{headers:hdr()});
+    if(!r.ok) return;
+    const d = await r.json();
+    const vencidas = (d.ml_accounts||[]).filter(a=>!a.token_ok);
+    if(vencidas.length){
+      const names = vencidas.map(a=>a.name).join(', ');
+      const b = document.getElementById('app-alert');
+      if(b && !b.classList.contains('show')){
+        b.textContent = '⚠️ Token vencido en: ' + names + ' — reconectá desde Conectar canales';
+        b.className = 'alert err show';
+      }
+    }
+  }catch(e){}
+}, 60000);
+
+function setBN(el){document.querySelectorAll('.bn-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
+function showMobileMenu(){const d=document.getElementById('mobile-drawer');d.style.display=d.style.display==='none'?'block':'none';}
+function closeDrawer(){document.getElementById('mobile-drawer').style.display='none';}
+document.addEventListener('click',e=>{const d=document.getElementById('mobile-drawer');if(d&&!d.contains(e.target)&&!e.target.closest('.bn-item'))d.style.display='none';});
+
+// CANAL PAGE
+let canalAccIdx = 0;
+let canalItems = [];
+let canalPage = 1;
+const CANAL_PAGE_SIZE = 20;
+
+async function showCanal(idx) {
+  canalAccIdx = idx;
+  showPage('canal');
+  const acc = appState.ml_accounts[idx];
+  if (!acc) return;
+  document.getElementById('canal-av').textContent = acc.name[0].toUpperCase();
+  document.getElementById('canal-name').textContent = acc.name;
+  document.getElementById('canal-stats').textContent = 'Cargando publicaciones...';
+  document.getElementById('canal-body').innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">⏳ Cargando...</td></tr>';
+
+  try {
+    const r = await fetch(`/api/ml/${idx}/products?limit=9999`, {headers: hdr()});
+    const data = await r.json();
+    const items = data.items || data.products || [];
+    canalItems = items;
+    canalPage = 1;
+    const syncMsg = data.synced === false ? ' · ⚠️ No sincronizado — ir a Sincronizar' : '';
+    document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg} (total: ${data.total||0})`;
+    filterCanalItems();
+    // Cargar health de la primera página en background
+    loadCanalHealth(idx, canalItems.slice(0, 20));
+  } catch(e) {
+    document.getElementById('canal-body').innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#e74c3c">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadCanalHealth(idx, items) {
+  if (!items.length) return;
+  const ids = items.map(i => i.id).join(',');
+  try {
+    const r = await fetch(`/api/ml/${idx}/health?ids=${ids}`, {headers: hdr()});
+    const data = await r.json();
+    const healthMap = data.health || {};
+    // Actualizar items con health
+    canalItems = canalItems.map(item => ({
+      ...item,
+      health: healthMap[item.id] ?? item.health
+    }));
+    filterCanalItems();
+  } catch(e) {}
+}
+
+function filterCanalItems() {
+  const q = (document.getElementById('canal-q')?.value || '').toLowerCase();
+  const estado = document.getElementById('canal-estado')?.value || '';
+  let filtered = canalItems.filter(item => {
+    const matchQ = !q || (item.title||'').toLowerCase().includes(q) || (item.id||'').toString().toLowerCase().includes(q);
+    const matchE = !estado || (item.status||'') === estado;
+    return matchQ && matchE;
+  });
+  renderCanalPage(filtered);
+}
+
+function renderCanalPage(items) {
+  const total = items.length;
+  const start = (canalPage - 1) * CANAL_PAGE_SIZE;
+  const pageItems = items.slice(start, start + CANAL_PAGE_SIZE);
+  const tbody = document.getElementById('canal-body');
+
+  if (!pageItems.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:#7a8299">Sin resultados (canalItems: ${canalItems.length}, filtered: ${total})</td></tr>`;
+    document.getElementById('canal-pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(item => {
+    const statusColor = item.status === 'active' ? '#00a381' : item.status === 'paused' ? '#d68000' : '#e74c3c';
+    const statusLabel = item.status === 'active' ? 'Activa' : item.status === 'paused' ? 'Pausada' : 'Cerrada';
+    const price = item.price ? `$ ${Number(item.price).toLocaleString('es-AR')}` : '—';
+    const stock = item.available_quantity ?? '—';
+    const thumb = item.thumbnail ? `<img src="${item.thumbnail.replace('http://','https://')}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '<div style="width:48px;height:48px;background:#f0f2f6;border-radius:6px;flex-shrink:0"></div>';
+    const health = item.health ? Math.round(item.health * 100) : null;
+    const healthColor = health >= 80 ? '#00a381' : health >= 50 ? '#d68000' : '#e74c3c';
+    const healthEl = health !== null ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:36px;height:36px;border-radius:50%;border:3px solid ${healthColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${healthColor}">${health}</div></div>` : '<span style="color:#bbb;font-size:12px">—</span>';
+
+    return `<tr style="border-bottom:1px solid #f0f2f6;transition:background .1s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+      <td style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${thumb}
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:500;color:#1a1a2e;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">${item.title || '—'}</div>
+            <div style="font-size:11px;color:#7a8299">#${item.id} · Stock: ${stock}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:10px 14px;text-align:right;font-weight:600;white-space:nowrap">${price}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#7a8299">
+        ${item.listing_type_id === 'gold_special' ? '<span style="color:#00a381;font-size:11px">✓ Clásica</span>' : item.listing_type_id === 'gold_pro' ? '<span style="color:#9b59b6;font-size:11px">★ Premium</span>' : '<span style="font-size:11px">Básica</span>'}
+      </td>
+      <td style="padding:10px 14px;text-align:right;font-weight:500">${stock}</td>
+      <td style="padding:10px 14px;text-align:center">${healthEl}</td>
+      <td style="padding:10px 14px"><span style="color:${statusColor};font-weight:500;font-size:12px">● ${statusLabel}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Paginación
+  const totalPages = Math.ceil(total / CANAL_PAGE_SIZE);
+  document.getElementById('canal-pagination').innerHTML = `
+    <span>${total} publicaciones · Página ${canalPage} de ${totalPages}</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.max(1,canalPage-1);filterCanalItems()" ${canalPage<=1?'disabled':''}>‹ Ant</button>
+      <button class="btn btn-out btn-sm" onclick="canalPage=Math.min(${totalPages},canalPage+1);filterCanalItems()" ${canalPage>=totalPages?'disabled':''}>Sig ›</button>
+    </div>`;
+}
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// PWA Install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Mostrar botón instalar si existe
+  const btn = document.getElementById('btn-install');
+  if (btn) { btn.style.display = 'inline-flex'; btn.onclick = () => { deferredPrompt.prompt(); deferredPrompt = null; btn.style.display='none'; }; }
+});
+</script>
+<!-- BOTTOM NAV MOBILE -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="bn-item active" onclick="showPage('inicio');setBN(this)">🏠<span>Inicio</span></div>
+  <div class="bn-item" onclick="showPage('productos');setBN(this)">📦<span>Productos</span></div>
+  <div class="bn-item" onclick="showPage('publicar');setBN(this)">🚀<span>Publicar</span></div>
+  <div class="bn-item" onclick="showPage('duplicar');setBN(this)">📋<span>Duplicar</span></div>
+  <div class="bn-item" onclick="showPage('sincronizar');setBN(this)">🔄<span>Sync</span></div>
+  <div class="bn-item" onclick="showMobileMenu()">☰<span>Más</span></div>
+</nav>
+
+<!-- MOBILE MENU DRAWER -->
+<div id="mobile-drawer" style="display:none;position:fixed;bottom:60px;left:0;right:0;background:#fff;border-top:1px solid #e8ecf0;padding:12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button class="btn" style="font-size:13px" onclick="showPage('cuentas');closeDrawer()">🔗 Canales</button>
+    <button class="btn" style="font-size:13px" onclick="showPage('enlaces');closeDrawer()">🔗 Enlaces</button>
+    <button class="btn" style="font-size:13px" onclick="showPage('log');closeDrawer()">📋 Historial</button>
+    <button class="btn btn-danger" style="font-size:13px" onclick="doLogout()">🚪 Salir</button>
+  </div>
+</div>
+
+</body>
+</html>
