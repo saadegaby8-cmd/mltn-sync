@@ -50,6 +50,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 ML_APP_ID     = os.getenv("ML_CLIENT_ID", "4576804985048120")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 ML_SECRET     = os.getenv("ML_CLIENT_SECRET", "j0FhuZVrZ3XUhdZIsdddpGISWt39JuHY")
 APP_URL       = os.getenv("APP_URL", "https://mltn-sync-production.up.railway.app")
 REDIRECT_URI  = f"{APP_URL}/auth/callback"
@@ -614,180 +615,7 @@ async def publish(req: Request, _=Depends(auth)):
     tn = ST["tn"]
     tn_hdrs = {"Authentication":f"bearer {tn['token']}","Content-Type":"application/json"}
     agrupar = b.get("agrupar", False)
-    explotar = b.get("explotar", False)
-    auto_link = b.get("auto_link", False)
-    dims = b.get("dims", None)
-    print(f"Publish TN: items={item_ids} agrupar={agrupar} explotar={explotar}")
     results = []
-
-    # Modo explotar_agrupar: explota variantes de items separados y crea 1 producto TN unificado
-    if explotar:
-        # Agrupar todos los items por modelo
-        all_items_data = []
-        async with httpx.AsyncClient(timeout=20) as c:
-            for iid in item_ids:
-                await asyncio.sleep(1)
-                try:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
-                    item = r.json()
-                    if "error" not in item:
-                        all_items_data.append(item)
-                except Exception:
-                    pass
-        # Agrupar por modelo
-        grupos = {}
-        for item in all_items_data:
-            model_attr = next((a for a in (item.get("attributes") or []) if a.get("id") == "MODEL"), None)
-            key = model_attr.get("value_name", item["id"]) if model_attr else item["id"]
-            if key not in grupos:
-                grupos[key] = []
-            grupos[key].append(item)
-        # Para cada grupo, crear 1 producto TN con variantes explotadas
-        async with httpx.AsyncClient(timeout=30) as c:
-            for model_key, items_grupo in grupos.items():
-                try:
-                    base = items_grupo[0]
-                    _t = base.get("title","")
-                    _m = next((a.get("value_name","") for a in (base.get("attributes") or []) if a.get("id")=="MODEL"), "")
-                    if _m and _m in _t:
-                        title = _t[:_t.index(_m)+len(_m)].strip()
-                    elif " - " in _t:
-                        title = _t.rsplit(" - ", 1)[0].strip()
-                    else:
-                        title = _t
-                    # Construir variantes — una por cada item (o por cada variante interna)
-                    variants = []
-                    pics = []
-                    seen_pics = set()
-                    for item in items_grupo:
-                        # Fotos — todas las del item
-                        for p in (item.get("pictures") or []):
-                            url = p.get("url","")
-                            if url and url not in seen_pics:
-                                pics.append({"src": url})
-                                seen_pics.add(url)
-                        # Variantes internas del item
-                        variations = item.get("variations", [])
-                        if variations:
-                            for v in variations:
-                                vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                                talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
-                                color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
-                                # TN necesita valores separados por atributo
-                                # Primer valor = Color, Segundo valor = Talle
-                                values = []
-                                if color: values.append({"es": color})
-                                if talle and talle != color: values.append({"es": talle})
-                                vt = {"price": str(v.get("price") or item.get("price",0)),
-                                      "stock_management": True,
-                                      "stock": v.get("available_quantity", 0)}
-                                if values: vt["values"] = values
-                                variants.append(vt)
-                        else:
-                            attrs = {a["id"]: a for a in (item.get("attributes") or [])}
-                            color = attrs.get("COLOR",{}).get("value_name","")
-                            size = attrs.get("SIZE",{}).get("value_name","")
-                            values = []
-                            if color: values.append({"es": color})
-                            if size and size != color: values.append({"es": size})
-                            vt = {"price": str(item.get("price",0)),
-                                  "stock_management": True,
-                                  "stock": item.get("available_quantity",0)}
-                            if values: vt["values"] = values
-                            variants.append(vt)
-                    # Deduplicar variantes por combinación de valores
-                    seen_values = set()
-                    unique_variants = []
-                    for vt in variants:
-                        key = tuple(sorted(v.get("es","") for v in vt.get("values",[])))
-                        if key not in seen_values:
-                            seen_values.add(key)
-                            unique_variants.append(vt)
-                    print(f"Variantes antes: {len(variants)}, después dedup: {len(unique_variants)}")
-                    for vi, vt in enumerate(unique_variants[:3]):
-                        print(f"  Variante {vi}: values={vt.get('values')} price={vt.get('price')} stock={vt.get('stock')}")
-                    variants = unique_variants if unique_variants else [{"price": str(base.get("price",0)), "stock_management": True, "stock": base.get("available_quantity",0)}]
-                    # Determinar atributos del producto (Color, Talle)
-                    has_color = any(len(v.get("values",[])) > 0 for v in variants)
-                    has_talle = any(len(v.get("values",[])) > 1 for v in variants)
-                    product_attrs = []
-                    if has_color: product_attrs.append("Color")
-                    if has_talle: product_attrs.append("Talle")
-                    payload = {
-                        "name": {"es": title},
-                        "description": {"es": title},
-                        "published": True,
-                        "attributes": product_attrs,
-                        "variants": variants,
-                        "images": pics
-                    }
-                    print(f"TN payload attrs={product_attrs} variants={len(variants)}")
-                    pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
-                                      headers=tn_hdrs, json=payload)
-                    ok = pr.status_code in (200, 201)
-                    print(f"TN POST status={pr.status_code} body={pr.text[:300]}")
-                    tn_id = pr.json().get("id","") if ok else ""
-                    msg = f"✓ {len(variants)} variantes en 1 producto TN" if ok else pr.json().get("description","Error")
-                    if ok and auto_link and tn_id:
-                        for item in items_grupo:
-                            ST["links"].append({"ml_item_id": item["id"], "ml_account_index": idx,
-                                                "ml_account_name": ST["accounts"][idx].get("name","ML"),
-                                                "ml_title": title, "tn_product_id": str(tn_id),
-                                                "created_at": int(time.time())})
-                    results.append({"id": base["id"], "title": title, "ok": ok, "msg": msg})
-                    ST["log"].append({"ts":int(time.time()),"action":"publish_tn","product":title,"status":"ok" if ok else "error"})
-                except Exception as e:
-                    results.append({"id": model_key, "title": model_key, "ok": False, "msg": str(e)})
-        if auto_link: save_state()
-        return {"results": results}
-
-    # Modo explotar=True (legado) — productos separados en TN
-    if False:
-        async with httpx.AsyncClient(timeout=30) as c:
-            for iid in item_ids:
-                await asyncio.sleep(1)
-                try:
-                    r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
-                    item = r.json()
-                    if "error" in item:
-                        results.append({"id": iid, "title": iid, "ok": False, "msg": item.get("message","Error")})
-                        continue
-                    variations = item.get("variations", [])
-                    if not variations:
-                        # Sin variantes — publicar tal cual
-                        variants = [{"price": str(item.get("price",0)), "stock_management": True, "stock": item.get("available_quantity",0)}]
-                        dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
-                        desc = dr.json().get("plain_text", item.get("title",""))
-                        payload = {"name":{"es":item["title"]},"description":{"es":desc},"published":True,
-                                   "variants":variants,"images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:5]]}
-                        pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products", headers=tn_hdrs, json=payload)
-                        ok = pr.status_code in (200,201)
-                        results.append({"id":iid,"title":item.get("title",""),"ok":ok,"msg":"Publicado" if ok else pr.json().get("description","Error")})
-                    else:
-                        for v in variations:
-                            vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                            talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
-                            color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
-                            suffix = " - ".join(filter(None, [talle.replace("/","-") if talle else "", color]))
-                            new_title = f"{item['title']} - {suffix}" if suffix else item["title"]
-                            price = v.get("price") or item.get("price", 0)
-                            stock = v.get("available_quantity", item.get("available_quantity", 0))
-                            variants = [{"price": str(price), "stock_management": True, "stock": stock}]
-                            payload = {"name":{"es":new_title},"description":{"es":item.get("title","")},"published":True,
-                                       "variants":variants,"images":[{"src":p["url"]} for p in (item.get("pictures") or [])[:3]]}
-                            await asyncio.sleep(0.5)
-                            pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products", headers=tn_hdrs, json=payload)
-                            ok = pr.status_code in (200,201)
-                            tn_id = pr.json().get("id","") if ok else ""
-                            if ok and auto_link and tn_id:
-                                ST["links"].append({"ml_item_id":iid,"ml_variation_id":str(v.get("id","")),"ml_account_index":idx,
-                                                    "ml_account_name":ST["accounts"][idx].get("name","ML"),"ml_title":new_title,
-                                                    "tn_product_id":str(tn_id),"created_at":int(time.time())})
-                            results.append({"id":iid,"title":new_title,"ok":ok,"msg":"Publicado" if ok else pr.json().get("description","Error")})
-                except Exception as e:
-                    results.append({"id":iid,"title":iid,"ok":False,"msg":str(e)})
-        if auto_link: save_state()
-        return {"results": results}
 
     async with httpx.AsyncClient(timeout=20) as c:
 
@@ -796,21 +624,15 @@ async def publish(req: Request, _=Depends(auth)):
             all_items = []
             for iid in item_ids:
                 try:
-                    await asyncio.sleep(1)
                     r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
-                    if r.status_code == 429:
-                        await asyncio.sleep(15)
-                        r = await c.get(f"{ML_API}/items/{iid}", headers=ml_hdrs)
                     item = r.json()
                     dr = await c.get(f"{ML_API}/items/{iid}/description", headers=ml_hdrs)
                     item["_desc"] = dr.json().get("plain_text", item.get("title",""))
                     if "error" not in item:
                         all_items.append(item)
-                        print(f"Bajado item {iid}: {item.get('title','')[:40]}")
-                    else:
-                        print(f"Error item {iid}: {item.get('message','')}")
-                except Exception as e:
-                    print(f"Exception item {iid}: {e}")
+                    await asyncio.sleep(0.3)
+                except Exception:
+                    pass
 
             # Agrupar por MODEL
             grupos = {}
@@ -856,34 +678,19 @@ async def publish(req: Request, _=Depends(auth)):
                     pics = []
                     seen = set()
                     for item in items_grupo:
-                        for p in (item.get("pictures") or []):
+                        for p in (item.get("pictures") or [])[:2]:
                             url = p.get("url","")
                             if url and url not in seen:
                                 pics.append({"src": url})
                                 seen.add(url)
+                        if len(pics) >= 10: break
 
-                    # Deduplicar variantes
-                    seen_vals = set()
-                    unique_variants = []
-                    for vt in variants:
-                        key = tuple(sorted(x.get("es","") for x in vt.get("values",[])))
-                        if key not in seen_vals:
-                            seen_vals.add(key)
-                            unique_variants.append(vt)
-                    variants = unique_variants or variants
-                    # Definir atributos
-                    has_color = any(len(v.get("values",[])) > 0 for v in variants)
-                    has_talle = any(len(v.get("values",[])) > 1 for v in variants)
-                    product_attrs = []
-                    if has_color: product_attrs.append("Color")
-                    if has_talle: product_attrs.append("Talle")
                     payload = {
                         "name": {"es": title},
                         "description": {"es": desc},
                         "published": True,
-                        "attributes": product_attrs,
                         "variants": variants,
-                        "images": pics,
+                        "images": pics[:10],
                     }
                     pr = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
                                       headers=tn_hdrs, json=payload)
@@ -1884,46 +1691,306 @@ async def sync_item_to_tn(model: str, price: float, stock: int):
         print(f"sync_item_to_tn error: {e}")
 
 
-@app.get("/diag/tn_variants/{i}/{item_id}")
-async def diag_tn_variants(i: int, item_id: str):
-    """Ver qué variantes se armarían para publicar en TN"""
+@app.post("/api/ai/analyze")
+async def ai_analyze(req: Request, _=Depends(auth)):
+    """Analizar imagen con Claude y devolver datos del producto"""
     try:
-        token = await fresh_token(i)
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {token}"})
-            item = r.json()
-        variations = item.get("variations", [])
-        result_variants = []
-        if variations:
-            for v in variations:
-                vcombos = {a["name"]: a["value_name"] for a in v.get("attribute_combinations", [])}
-                talle = vcombos.get("Talle") or vcombos.get("Size") or next((val for k,val in vcombos.items() if "tall" in k.lower()), "")
-                color = vcombos.get("Color") or next((val for k,val in vcombos.items() if "color" in k.lower()), "")
-                values = []
-                if color: values.append({"es": color})
-                if talle: values.append({"es": talle})
-                result_variants.append({"values": values, "price": v.get("price") or item.get("price",0), "stock": v.get("available_quantity",0)})
-        else:
-            attrs = {a["id"]: a for a in (item.get("attributes") or [])}
-            color = attrs.get("COLOR",{}).get("value_name","")
-            size = attrs.get("SIZE",{}).get("value_name","")
-            values = []
-            if color: values.append({"es": color})
-            if size: values.append({"es": size})
-            result_variants.append({"values": values, "price": item.get("price",0), "stock": item.get("available_quantity",0)})
-        # Check duplicates
-        seen = set()
-        dupes = []
-        for v in result_variants:
-            key = tuple(sorted(x.get("es","") for x in v.get("values",[])))
-            if key in seen:
-                dupes.append(key)
-            seen.add(key)
-        return {"item_id": item_id, "title": item.get("title",""), 
-                "total_variants": len(result_variants), "duplicates": dupes,
-                "variants": result_variants}
+        b = await req.json()
+        image_base64 = b.get("image_base64", "")
+        image_type = b.get("image_type", "image/jpeg")
+        
+        prompt = """Sos un experto en publicaciones de MercadoLibre Argentina, especializado en ropa y lencería.
+Analizá esta imagen de un producto y respondé SOLO con JSON válido (sin markdown) con esta estructura:
+{
+  "tipo_prenda": "descripción del tipo de prenda",
+  "titulo_sugerido": "título para ML máximo 60 caracteres, descriptivo y comercial",
+  "colores_detectados": ["color1", "color2"],
+  "colores_sugeridos": ["otros colores típicos de esta prenda"],
+  "talles_sugeridos": ["S/M", "L/XL", "2XL/3XL"],
+  "descripcion": "descripción comercial del producto en 2-3 oraciones",
+  "genero": "Mujer/Hombre/Unisex",
+  "preguntas": ["pregunta1 que necesito hacerle al vendedor para completar la publicación", "pregunta2"],
+  "categoria_ml": "categoría sugerida para ML"
+}"""
+
+        response = await httpx.AsyncClient(timeout=30).post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"Content-Type": "application/json", "x-api-key": os.getenv("ANTHROPIC_API_KEY", ""),
+                     "anthropic-version": "2023-06-01"},
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 1000,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": image_type, "data": image_base64}},
+                        {"type": "text", "text": prompt}
+                    ]
+                }]
+            }
+        )
+        
+        data = response.json()
+        text = data["content"][0]["text"].strip()
+        import json as json_mod
+        clean = text.replace("```json", "").replace("```", "").strip()
+        result = json_mod.loads(clean)
+        return {"ok": True, "analysis": result}
     except Exception as e:
-        return {"error": str(e)}
+        return {"ok": False, "error": str(e)}
+
+@app.post("/api/ai/chat")
+async def ai_chat(req: Request, _=Depends(auth)):
+    """Chat con el asistente publicador IA"""
+    try:
+        b = await req.json()
+        messages = b.get("messages", [])
+        context = b.get("context", {})
+        
+        system = f"""Sos un asistente experto en publicaciones de MercadoLibre Argentina, especializado en ropa y lencería femenina.
+Tu trabajo es ayudar al vendedor a crear publicaciones perfectas paso a paso.
+
+CONOCIMIENTO DE ML ARGENTINA:
+- Las publicaciones requieren: título (max 60 chars), descripción, precio, stock, categoría, atributos obligatorios
+- Para ropa: BRAND (marca), MODEL (modelo/número), GENDER (género), COLOR, SIZE son obligatorios
+- Si tiene guía de talles: necesitás el ID de la guía (SIZE_GRID_ID)
+- Las fotos: mínimo 3 por variante, fondo blanco o neutro, buena iluminación
+- Dimensiones del paquete: alto, ancho, largo (cm) y peso (kg) - obligatorio para envíos
+- El título debe incluir: tipo de prenda, marca, modelo, característica principal
+
+CONTEXTO ACTUAL DEL PRODUCTO:
+{json.dumps(context, ensure_ascii=False)}
+
+INSTRUCCIONES:
+1. Hacé UNA pregunta a la vez, la más importante que falta
+2. Cuando tengas toda la info, decí "LISTO" y mostrá un resumen completo
+3. Si el vendedor dice algo ambiguo, pedí aclaración
+4. Siempre pensá en qué necesita ML para publicar correctamente
+5. Respondé en español, tono amigable y profesional"""
+
+        response = await httpx.AsyncClient(timeout=30).post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"Content-Type": "application/json", "x-api-key": os.getenv("ANTHROPIC_API_KEY", ""),
+                     "anthropic-version": "2023-06-01"},
+            json={"model": "claude-sonnet-4-20250514", "max_tokens": 500, "system": system, "messages": messages}
+        )
+        
+        data = response.json()
+        reply = data["content"][0]["text"]
+        return {"ok": True, "reply": reply}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@app.post("/api/ai/generate_image")
+async def ai_generate_image(req: Request, _=Depends(auth)):
+    """Generar imagen 21:9 con 3 poses y cortarla en 3 imágenes separadas"""
+    try:
+        b = await req.json()
+        prompt = b.get("prompt", "")
+        reference_base64 = b.get("reference_base64", "")
+        reference_type = b.get("reference_type", "image/jpeg")
+        
+        if not GEMINI_API_KEY:
+            return {"ok": False, "error": "GEMINI_API_KEY no configurada"}
+        
+        from google import genai as google_genai
+        from google.genai import types as google_types
+        import base64 as b64
+        import io
+        
+        client = google_genai.Client(api_key=GEMINI_API_KEY)
+        
+        # Prompt para imagen 21:9 con 3 poses lado a lado
+        full_prompt = prompt + """
+IMPORTANTE: Generá UNA SOLA imagen en formato panorámico 21:9 (muy ancha) que contenga exactamente 3 escenas/poses SEPARADAS de la misma modelo con la misma prenda, dispuestas horizontalmente de izquierda a derecha. Cada escena ocupa exactamente 1/3 del ancho total. Las 3 poses deben ser distintas (frente, perfil, sentada o de espalda). Formato final: imagen panorámica 4K 21:9."""
+        
+        contents = []
+        if reference_base64:
+            img_bytes = b64.b64decode(reference_base64)
+            contents.append(google_types.Part.from_bytes(data=img_bytes, mime_type=reference_type))
+        contents.append(full_prompt)
+        
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-image-preview",
+            contents=contents,
+            config=google_types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"]
+            )
+        )
+        
+        # Obtener imagen generada
+        img_data = None
+        img_mime = "image/png"
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, 'inline_data') and part.inline_data:
+                img_data = part.inline_data.data
+                img_mime = part.inline_data.mime_type
+                break
+        
+        if not img_data:
+            return {"ok": False, "error": "No se generó imagen"}
+        
+        # Cortar la imagen 21:9 en 3 partes iguales
+        try:
+            from PIL import Image as PILImage
+            import io
+            
+            img = PILImage.open(io.BytesIO(img_data))
+            width, height = img.size
+            third = width // 3
+            
+            parts_b64 = []
+            for i in range(3):
+                left = i * third
+                right = left + third
+                crop = img.crop((left, 0, right, height))
+                # Optimizar para ML (max 10MB) — guardar como JPEG calidad 92
+                buf = io.BytesIO()
+                crop.convert("RGB").save(buf, format="JPEG", quality=92, optimize=True)
+                buf.seek(0)
+                size_mb = buf.tell() / (1024*1024)
+                # Si pesa más de 9MB, bajar calidad
+                if size_mb > 9:
+                    buf = io.BytesIO()
+                    crop.convert("RGB").save(buf, format="JPEG", quality=75, optimize=True)
+                    buf.seek(0)
+                parts_b64.append(b64.b64encode(buf.read()).decode())
+            
+            return {"ok": True, "images_base64": parts_b64, "mime_type": "image/jpeg", "count": 3}
+        
+        except ImportError:
+            # Sin PIL, devolver imagen completa
+            img_b64 = b64.b64encode(img_data).decode()
+            return {"ok": True, "images_base64": [img_b64], "mime_type": img_mime, "count": 1}
+    
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@app.post("/api/ai/publish_product")
+async def ai_publish_product(req: Request, _=Depends(auth)):
+    """Publicar producto generado por IA en los canales seleccionados"""
+    try:
+        b = await req.json()
+        product = b.get("product", {})
+        channels = b.get("channels", [])  # lista de índices ML + "tn"
+        images_base64 = b.get("images_base64", [])  # fotos ya generadas
+        
+        results = []
+        
+        # Subir fotos a ML primero (cuenta 0 = LENCERIA)
+        ml_picture_ids = []
+        if images_base64:
+            try:
+                token = await fresh_token(0)
+                async with httpx.AsyncClient(timeout=30) as c:
+                    for img_b64 in images_base64[:10]:
+                        import base64 as b64
+                        img_bytes = b64.b64decode(img_b64)
+                        r = await c.post(f"{ML_API}/pictures/items/upload",
+                            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                            json={"source": f"data:image/jpeg;base64,{img_b64}"})
+                        if r.status_code in (200, 201):
+                            ml_picture_ids.append({"id": r.json().get("id","")})
+            except Exception as e:
+                print(f"Error subiendo fotos: {e}")
+        
+        title = product.get("titulo", "")
+        price = product.get("precio", 0)
+        stock = product.get("stock_por_variante", 100)
+        colors = product.get("colores", [])
+        sizes = product.get("talles", [])
+        brand = product.get("marca", "")
+        model_num = product.get("modelo", "")
+        desc = product.get("descripcion", title)
+        
+        # Construir variantes
+        variations = []
+        for color in colors:
+            for size in sizes:
+                variations.append({
+                    "attribute_combinations": [
+                        {"id": "COLOR", "value_name": color},
+                        {"id": "SIZE", "value_name": size}
+                    ],
+                    "price": price,
+                    "available_quantity": stock
+                })
+        
+        # Atributos ML
+        attrs = [
+            {"id": "GENDER", "value_name": product.get("genero", "Mujer")},
+        ]
+        if brand: attrs.append({"id": "BRAND", "value_name": brand})
+        if model_num: attrs.append({"id": "MODEL", "value_name": model_num})
+        
+        # Publicar en cuentas ML
+        for ch_idx in [c for c in channels if isinstance(c, int)]:
+            try:
+                token = await fresh_token(ch_idx)
+                payload = {
+                    "title": title,
+                    "category_id": product.get("category_id", "MLA109255"),
+                    "price": price,
+                    "currency_id": "ARS",
+                    "available_quantity": stock,
+                    "buying_mode": "buy_it_now",
+                    "listing_type_id": "gold_special",
+                    "condition": "new",
+                    "pictures": ml_picture_ids or [{"source": ""}],
+                    "attributes": attrs,
+                    "variations": variations,
+                    "family_name": title[:60]
+                }
+                if product.get("dims"):
+                    dims = product["dims"]
+                    payload["attributes"] += [
+                        {"id": "SELLER_PACKAGE_HEIGHT", "value_name": f"{dims.get('h',0)} cm"},
+                        {"id": "SELLER_PACKAGE_WIDTH", "value_name": f"{dims.get('w',0)} cm"},
+                        {"id": "SELLER_PACKAGE_LENGTH", "value_name": f"{dims.get('l',0)} cm"},
+                        {"id": "SELLER_PACKAGE_WEIGHT", "value_name": f"{int(float(dims.get('p',0))*1000)} g"},
+                    ]
+                async with httpx.AsyncClient(timeout=30) as c:
+                    r = await c.post(f"{ML_API}/items",
+                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                        json=payload)
+                ok = r.status_code in (200, 201)
+                results.append({"channel": ST["accounts"][ch_idx].get("name","ML"), "ok": ok,
+                                 "msg": "Publicado" if ok else r.json().get("message","Error")})
+            except Exception as e:
+                results.append({"channel": f"cuenta_{ch_idx}", "ok": False, "msg": str(e)})
+        
+        # Publicar en TN
+        if "tn" in channels and ST.get("tn", {}).get("store_id"):
+            try:
+                tn = ST["tn"]
+                tn_hdrs = {"Authentication": f"bearer {tn['token']}", "Content-Type": "application/json",
+                           "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"}
+                tn_variants = []
+                seen = set()
+                for color in colors:
+                    for size in sizes:
+                        key = (color, size)
+                        if key not in seen:
+                            seen.add(key)
+                            tn_variants.append({"price": str(price), "stock_management": True, "stock": stock,
+                                                "values": [{"es": color}, {"es": size}]})
+                tn_images = [{"src": f"data:image/jpeg;base64,{img}"} for img in images_base64[:10]] if images_base64 else []
+                tn_payload = {"name": {"es": title}, "description": {"es": desc}, "published": True,
+                              "attributes": ["Color", "Talle"], "variants": tn_variants, "images": tn_images}
+                async with httpx.AsyncClient(timeout=30) as c:
+                    r = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                        headers=tn_hdrs, json=tn_payload)
+                ok = r.status_code in (200, 201)
+                results.append({"channel": "TiendaNube", "ok": ok,
+                                 "msg": "Publicado" if ok else r.json().get("description","Error")})
+            except Exception as e:
+                results.append({"channel": "TiendaNube", "ok": False, "msg": str(e)})
+        
+        save_state()
+        return {"ok": True, "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
 
 @app.get("/diag/prod_attrs/{i}")
 async def diag_prod_attrs(i: int, q: str = ""):
