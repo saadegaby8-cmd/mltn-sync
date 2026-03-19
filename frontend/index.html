@@ -843,6 +843,16 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
                   <div style="font-weight:600;margin-bottom:4px">Subí una foto</div>
                   <div style="font-size:12px;color:#7a8299">JPG, PNG o WEBP</div>
                 </div>
+                <div style="margin-top:12px">
+                  <div style="font-size:11px;color:#7a8299;margin-bottom:6px;text-align:center">— o pegá una URL de producto —</div>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="ia-url-input" placeholder="https://articulo.mercadolibre.com.ar/... o cualquier tienda" 
+                           style="flex:1;padding:9px 12px;border:1px solid #dde1e9;border-radius:8px;font-size:12px;outline:none;font-family:Inter,sans-serif"
+                           onkeydown="if(event.key==='Enter')iaAnalyzeUrl()">
+                    <button class="btn btn-blue btn-sm" onclick="iaAnalyzeUrl()" id="ia-url-btn">🔍 Analizar</button>
+                  </div>
+                </div>
+
                 <div id="ia-img-preview" style="display:none;margin-top:12px">
                   <img id="ia-preview-img" style="width:100%;max-height:280px;object-fit:contain;border-radius:10px;border:1px solid #e8ecf0">
                   <button class="btn btn-blue btn-sm" style="width:100%;margin-top:10px" onclick="iaAnalyze()" id="ia-analyze-btn">✦ Analizar con IA</button>
@@ -2355,6 +2365,46 @@ async function iaAnalyze() {
   btn.textContent = '✦ Re-analizar';
 }
 
+async function iaAnalyzeUrl() {
+  const url = document.getElementById('ia-url-input')?.value.trim();
+  if (!url) return;
+  const btn = document.getElementById('ia-url-btn');
+  btn.disabled = true;
+  btn.textContent = 'Cargando...';
+  iaAddBotMessage('Analizando el producto en ' + url + ' ...');
+  try {
+    const r = await fetch('/api/ai/analyze_url', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({url})
+    });
+    const d = await r.json();
+    if (d.ok && d.analysis) {
+      iaContext = d.analysis;
+      iaContext.colores = d.analysis.colores || [];
+      iaContext.talles = d.analysis.talles_sugeridos || d.analysis.talles || [];
+      // Mostrar paneles
+      iaRenderChannels();
+      document.getElementById('ia-channels-panel').style.display = 'block';
+      document.getElementById('ia-photos-panel').style.display = 'block';
+      iaRenderVariantsGrid();
+      // Si tiene imagenes, mostrar la primera como preview
+      if (d.analysis.imagenes && d.analysis.imagenes[0]) {
+        const previewEl = document.getElementById('ia-preview-img');
+        if (previewEl) { previewEl.src = d.analysis.imagenes[0]; document.getElementById('ia-img-preview').style.display='block'; }
+      }
+      const fuente = d.analysis.fuente || 'URL';
+      iaAddBotMessage('[OK] Producto analizado desde ' + fuente + ': "' + d.analysis.titulo_sugerido + '".' + ' Tenes ' + (d.analysis.colores||[]).length + ' colores y ' + (d.analysis.talles||[]).length + ' talles. Queres ajustar algo?');
+      iaShowPublishButton();
+    } else {
+      iaAddBotMessage('[Error] Error: ' + (d.error || 'No se pudo analizar la URL'));
+    }
+  } catch(e) {
+    iaAddBotMessage('[Error] Error: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Analizar URL';
+}
+
 function iaRenderChannels() {
   const el = document.getElementById('ia-channels-list');
   const channels = [
@@ -2453,7 +2503,22 @@ function iaShowPublishButton() {
   const el = document.getElementById('ia-chat-messages');
   const div = document.createElement('div');
   div.className = 'ia-msg ia-msg-bot';
-  div.innerHTML = `<button class="btn btn-green" style="margin-top:8px;border-radius:20px" onclick="iaPublish()">🚀 Publicar ahora en los canales seleccionados</button>`;
+  div.innerHTML = '<div class="ia-bubble" style="max-width:100%">'
+    + '<div style="font-weight:600;margin-bottom:10px">🚀 Listo para publicar</div>'
+    + '<div style="margin-bottom:10px">'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px;border:1px solid #e8ecf0;border-radius:8px;margin-bottom:8px">'
+    + '<input type="checkbox" id="ia-sync-check" checked style="width:16px;height:16px"> '
+    + '<div><div style="font-size:13px;font-weight:600">🔗 Sincronizar entre cuentas</div>'
+    + '<div style="font-size:11px;color:#7a8299">Crea enlaces ML↔ML para descontar stock automáticamente cuando se vende</div></div>'
+    + '</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px;border:1px solid #e8ecf0;border-radius:8px">'
+    + '<input type="checkbox" id="ia-sync-tn-check" checked style="width:16px;height:16px"> '
+    + '<div><div style="font-size:13px;font-weight:600">🔗 Sincronizar con TiendaNube</div>'
+    + '<div style="font-size:11px;color:#7a8299">Crea enlaces ML↔TN para sincronizar stock y precio</div></div>'
+    + '</label>'
+    + '</div>'
+    + '<button class="btn btn-green" style="width:100%;border-radius:8px" onclick="iaPublish()">🚀 Publicar ahora</button>'
+    + '</div>';
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
@@ -2661,15 +2726,21 @@ async function iaConfirmGenerate() {
 }
 
 async function iaPublish() {
+  const syncML = document.getElementById('ia-sync-check')?.checked !== false;
+  const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
   iaAddBotMessage('⏳ Publicando en los canales seleccionados...');
   try {
-    const images = Object.values(iaGeneratedPhotos);
+    // Flatten all photos from all variants
+    const allImages = Object.values(iaGeneratedPhotos).flat();
     const r = await fetch('/api/ai/publish_product', {
       method: 'POST', headers: hdr(),
       body: JSON.stringify({
         product: iaContext,
         channels: [...iaSelectedChannels],
-        images_base64: images
+        images_base64: allImages,
+        images_by_color: iaGeneratedPhotos,
+        sync_ml: syncML,
+        sync_tn: syncTN
       })
     });
     const d = await r.json();
