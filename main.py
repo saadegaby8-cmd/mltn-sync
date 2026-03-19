@@ -2058,6 +2058,7 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                             ] if pid]
                         else:
                             pics = ml_picture_ids[:5] or []
+                        family = f"{brand} {model_num}".strip() or title[:60]
                         payload = {
                             "title": item_title,
                             "category_id": product.get("category_id", "MLA109255"),
@@ -2067,8 +2068,9 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                             "buying_mode": "buy_it_now",
                             "listing_type_id": "gold_special",
                             "condition": "new",
-                            "pictures": pics or [{"source": "https://http.cat/404"}],
+                            "pictures": pics or [],
                             "attributes": item_attrs,
+                            "family_name": family[:60],
                         }
                         await asyncio.sleep(1)
                         async with httpx.AsyncClient(timeout=30) as c:
