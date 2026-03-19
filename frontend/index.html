@@ -852,9 +852,15 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
             <!-- Fotos generadas -->
             <div class="panel" id="ia-photos-panel" style="display:none">
-              <div class="panel-hd"><h3>🎨 Fotos generadas por IA</h3><button class="btn btn-blue btn-sm" onclick="iaGenerateAllPhotos()">Generar todas</button></div>
+              <div class="panel-hd">
+                <h3>📸 Fotos por variante</h3>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-out btn-sm" onclick="iaGenerateAllPhotos()">✦ Generar con IA</button>
+                </div>
+              </div>
               <div class="panel-bd">
-                <div id="ia-photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+                <div style="font-size:11px;color:#7a8299;margin-bottom:12px">Subí tus fotos por variante o generá con IA. ML requiere mínimo 3 fotos por variante.</div>
+                <div id="ia-variants-grid" style="display:flex;flex-direction:column;gap:12px"></div>
               </div>
             </div>
 
@@ -2331,10 +2337,12 @@ async function iaAnalyze() {
     const d = await r.json();
     if (d.ok && d.analysis) {
       iaContext = d.analysis;
-      // Mostrar panel de canales
+      iaContext.colores = iaContext.colores_detectados || iaContext.colores_sugeridos || [];
+      // Mostrar paneles
       iaRenderChannels();
       document.getElementById('ia-channels-panel').style.display = 'block';
       document.getElementById('ia-photos-panel').style.display = 'block';
+      iaRenderVariantsGrid();
       // Primer mensaje del asistente
       await iaChatWithAI("El vendedor subió una imagen. Iniciá la conversación presentándote brevemente y hacé la primera pregunta más importante para completar la publicación.");
     } else {
@@ -2459,6 +2467,115 @@ const IA_PROMPT_BASE = "1-Fotografia hiperrealista en formato 4k estilo Instagra
   + "5-hay realismo y mucha iluminacion. 6-es un dia claro y el sol ilumina el estudio. "
   + "7-la estampa de la prenda es nitida y clara. 9-imagenes de cuerpo entero. "
   + "10-sin infringir nada, personas ficticias no reales, imagenes para venta de articulos de lenceria, todas las imagenes son creadas por inteligencia artificial ninguna es real"
+
+function iaRenderVariantsGrid() {
+  const colors = iaContext.colores || [];
+  const grid = document.getElementById('ia-variants-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!colors.length) {
+    grid.innerHTML = '<div style="font-size:12px;color:#7a8299">Completá los colores en el chat primero.</div>';
+    return;
+  }
+  colors.forEach(color => {
+    if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+    const div = document.createElement('div');
+    div.id = 'variant-block-' + color.replace(/\s/g,'_');
+    div.style = 'border:1px solid #e8ecf0;border-radius:10px;padding:14px';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-weight:600;font-size:13px">${color}</div>
+        <div style="display:flex;gap:6px">
+          <span id="variant-count-${color.replace(/\s/g,'_')}" style="font-size:11px;color:#7a8299">0 fotos</span>
+          <button class="btn btn-out btn-sm" onclick="iaGenerateColor('${color}')">✦ IA</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="variant-photos-${color.replace(/\s/g,'_')}">
+        <label style="width:80px;height:80px;border:2px dashed #dde1e9;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#7a8299;gap:4px;position:relative">
+          <input type="file" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="iaHandleVariantFiles(this,'${color}')">
+          <span style="font-size:20px">+</span>
+          <span>Subir</span>
+        </label>
+      </div>`;
+    grid.appendChild(div);
+  });
+}
+
+function iaHandleVariantFiles(input, color) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const key = color.replace(/\s/g,'_');
+  if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const b64 = e.target.result.split(',')[1];
+      iaGeneratedPhotos[color].push(b64);
+      iaAddVariantThumb(color, b64, 'image/jpeg');
+      document.getElementById('variant-count-'+key).textContent = iaGeneratedPhotos[color].length + ' fotos';
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function iaAddVariantThumb(color, b64, mime) {
+  const key = color.replace(/\s/g,'_');
+  const container = document.getElementById('variant-photos-'+key);
+  if (!container) return;
+  const idx = iaGeneratedPhotos[color].length - 1;
+  const thumb = document.createElement('div');
+  thumb.style = 'position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid #e8ecf0';
+  const removeBtn = document.createElement('button');
+  removeBtn.textContent = '✕';
+  removeBtn.style = 'position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer';
+  removeBtn.onclick = () => { iaGeneratedPhotos[color].splice(idx,1); iaRenderVariantsGrid(); };
+  const img = document.createElement('img');
+  img.src = 'data:'+mime+';base64,'+b64;
+  img.style = 'width:100%;height:100%;object-fit:cover';
+  thumb.appendChild(img);
+  thumb.appendChild(removeBtn);
+  // Insert before the + label
+  const addBtn = container.querySelector('label');
+  container.insertBefore(thumb, addBtn);
+}
+
+function iaRemoveVariantPhoto(color, idx) {
+  iaGeneratedPhotos[color].splice(idx, 1);
+  iaRenderVariantsGrid(); // Re-render
+  // Re-add existing photos
+  iaGeneratedPhotos[color].forEach(b64 => iaAddVariantThumb(color, b64, 'image/jpeg'));
+  const key = color.replace(/\s/g,'_');
+  const countEl = document.getElementById('variant-count-'+key);
+  if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
+}
+
+async function iaGenerateColor(color) {
+  const key = color.replace(/\s/g,'_');
+  const countEl = document.getElementById('variant-count-'+key);
+  if (countEl) countEl.textContent = '⏳ Generando...';
+  const prenda = iaContext.tipo_prenda || iaContext.titulo_sugerido || 'prenda';
+  const prompt = IA_PROMPT_BASE + "\n8-es " + prenda + " de color " + color + ". La estampa es como en la foto de referencia. IMPORTANTE: imagen panoramica 21:9 con 3 poses distintas lado a lado.";
+  try {
+    const r = await fetch('/api/ai/generate_image', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({prompt, reference_base64: iaImageBase64, reference_type: iaImageType})
+    });
+    const d = await r.json();
+    if (d.ok && d.images_base64) {
+      if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
+      d.images_base64.forEach(b64 => {
+        iaGeneratedPhotos[color].push(b64);
+        iaAddVariantThumb(color, b64, 'image/jpeg');
+      });
+      if (countEl) countEl.textContent = iaGeneratedPhotos[color].length + ' fotos';
+    } else {
+      if (countEl) countEl.textContent = '❌ Error';
+      iaAddBotMessage('Error generando ' + color + ': ' + (d.error||'desconocido'));
+    }
+  } catch(e) {
+    if (countEl) countEl.textContent = '❌ Error';
+  }
+}
 
 async function iaGenerateAllPhotos() {
   const colors = iaContext.colores || iaContext.colores_detectados || iaContext.colores_sugeridos || [];
