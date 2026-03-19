@@ -1744,6 +1744,106 @@ Analizá esta imagen de un producto y respondé SOLO con JSON válido (sin markd
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+@app.post("/api/ai/analyze_url")
+async def ai_analyze_url(req: Request, _=Depends(auth)):
+    """Analizar producto desde una URL usando web scraping + Claude"""
+    try:
+        b = await req.json()
+        url = b.get("url", "").strip()
+        if not url:
+            return {"ok": False, "error": "URL requerida"}
+        
+        # 1. Detectar si es ML para usar API directamente
+        import re
+        ml_match = re.search(r'MLA\d+', url)
+        if ml_match and "mercadolibre" in url:
+            item_id = ml_match.group(0)
+            # Usar API de ML con la cuenta 0
+            token = await fresh_token(0)
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.get(f"{ML_API}/items/{item_id}", headers={"Authorization": f"Bearer {token}"})
+                dr = await c.get(f"{ML_API}/items/{item_id}/description", headers={"Authorization": f"Bearer {token}"})
+            item = r.json()
+            desc = dr.json().get("plain_text", "")
+            attrs = {a["id"]: a.get("value_name","") for a in (item.get("attributes") or [])}
+            result = {
+                "titulo_sugerido": item.get("title",""),
+                "descripcion": desc or item.get("title",""),
+                "precio": item.get("price", 0),
+                "colores": [],
+                "talles": [],
+                "tipo_prenda": attrs.get("ITEM_TYPE",""),
+                "genero": attrs.get("GENDER","Mujer"),
+                "marca": attrs.get("BRAND",""),
+                "modelo": attrs.get("MODEL",""),
+                "imagenes": [p.get("url","") for p in (item.get("pictures") or [])],
+                "category_id": item.get("category_id",""),
+                "fuente": "MercadoLibre API",
+                "item_id_original": item_id
+            }
+            # Extraer colores y talles de variantes
+            for v in (item.get("variations") or []):
+                for combo in (v.get("attribute_combinations") or []):
+                    if combo.get("id") == "COLOR" and combo.get("value_name") not in result["colores"]:
+                        result["colores"].append(combo["value_name"])
+                    if combo.get("id") == "SIZE" and combo.get("value_name") not in result["talles"]:
+                        result["talles"].append(combo["value_name"])
+            # Si no hay variantes, buscar en atributos
+            if not result["colores"] and attrs.get("COLOR"):
+                result["colores"] = [attrs["COLOR"]]
+            if not result["talles"] and attrs.get("SIZE"):
+                result["talles"] = [attrs["SIZE"]]
+            return {"ok": True, "analysis": result, "source": "ml_api"}
+        
+        # 2. Para otras URLs: scraping + Claude
+        ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+        if not ANTHROPIC_KEY:
+            return {"ok": False, "error": "ANTHROPIC_API_KEY no configurada"}
+        
+        # Hacer scraping de la página
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True, 
+                                      headers={"User-Agent": "Mozilla/5.0 (compatible; MLTNSync/1.0)"}) as c:
+            r = await c.get(url)
+            html = r.text[:15000]  # Limitar tamaño
+        
+        prompt = f"""Analizá este HTML de una página de producto de e-commerce y extraé los datos.
+URL: {url}
+HTML (primeros 15000 chars):
+{html}
+
+Respondé SOLO con JSON válido (sin markdown):
+{{
+  "titulo_sugerido": "título del producto",
+  "descripcion": "descripción completa",
+  "precio": 0,
+  "colores": ["color1", "color2"],
+  "talles": ["S/M", "L/XL"],
+  "tipo_prenda": "tipo de prenda",
+  "genero": "Mujer/Hombre/Unisex",
+  "marca": "marca si aparece",
+  "modelo": "número de modelo si aparece",
+  "imagenes": ["url_imagen1", "url_imagen2"],
+  "fuente": "nombre de la tienda"
+}}"""
+
+        async with httpx.AsyncClient(timeout=40) as c:
+            response = await c.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY,
+                         "anthropic-version": "2023-06-01"},
+                json={"model": "claude-sonnet-4-20250514", "max_tokens": 1000,
+                      "messages": [{"role": "user", "content": prompt}]}
+            )
+        data = response.json()
+        if "error" in data:
+            return {"ok": False, "error": data["error"].get("message","Error API")}
+        text = data["content"][0]["text"].strip().replace("```json","").replace("```","").strip()
+        import json as json_mod
+        result = json_mod.loads(text)
+        return {"ok": True, "analysis": result, "source": "scraping"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
 @app.post("/api/ai/chat")
 async def ai_chat(req: Request, _=Depends(auth)):
     """Chat con el asistente publicador IA"""
@@ -1879,6 +1979,8 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
         product = b.get("product", {})
         channels = b.get("channels", [])  # lista de índices ML + "tn"
         images_base64 = b.get("images_base64", [])  # fotos ya generadas
+        sync_ml = b.get("sync_ml", False)  # crear enlaces ML↔ML
+        sync_tn = b.get("sync_tn", False)  # crear enlaces ML↔TN
         
         results = []
         
@@ -1959,8 +2061,10 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                         json=payload)
                 ok = r.status_code in (200, 201)
+                new_id = r.json().get("id","") if ok else ""
                 results.append({"channel": ST["accounts"][ch_idx].get("name","ML"), "ok": ok,
-                                 "msg": "Publicado" if ok else r.json().get("message","Error")})
+                                 "msg": "Publicado" if ok else r.json().get("message","Error"),
+                                 "new_id": new_id})
             except Exception as e:
                 results.append({"channel": f"cuenta_{ch_idx}", "ok": False, "msg": str(e)})
         
@@ -1986,10 +2090,36 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                     r = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
                         headers=tn_hdrs, json=tn_payload)
                 ok = r.status_code in (200, 201)
+                tn_new_id = r.json().get("id","") if ok else ""
                 results.append({"channel": "TiendaNube", "ok": ok,
-                                 "msg": "Publicado" if ok else r.json().get("description","Error")})
+                                 "msg": "Publicado" if ok else r.json().get("description","Error"),
+                                 "new_id": tn_new_id})
             except Exception as e:
                 results.append({"channel": "TiendaNube", "ok": False, "msg": str(e)})
+        
+        # Crear enlaces ML↔ML entre las cuentas publicadas
+        if sync_ml:
+            ml_published = [(r["channel"], r.get("new_id","")) for r in results if r.get("ok") and r.get("new_id")]
+            for i, (ch1, id1) in enumerate(ml_published):
+                for ch2, id2 in ml_published[i+1:]:
+                    ST["links"].append({
+                        "ml_item_id": id1, "ml_account_name": ch1, "ml_account_index": 0,
+                        "ml_title": product.get("titulo",""), "linked_ml_item_id": id2,
+                        "linked_ml_account": ch2, "created_at": int(time.time())
+                    })
+        
+        # Crear enlaces ML↔TN
+        if sync_tn:
+            tn_result = next((r for r in results if r.get("channel") == "TiendaNube" and r.get("ok")), None)
+            if tn_result and tn_result.get("new_id"):
+                ml_results = [r for r in results if r.get("ok") and r.get("channel") != "TiendaNube" and r.get("new_id")]
+                for r in ml_results:
+                    acc_idx = next((i for i,a in enumerate(ST["accounts"]) if a.get("name") == r["channel"]), 0)
+                    ST["links"].append({
+                        "ml_item_id": r["new_id"], "ml_account_index": acc_idx,
+                        "ml_account_name": r["channel"], "ml_title": product.get("titulo",""),
+                        "tn_product_id": str(tn_result["new_id"]), "created_at": int(time.time())
+                    })
         
         save_state()
         return {"ok": True, "results": results}
