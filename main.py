@@ -2076,6 +2076,164 @@ async def debug_publish(req: Request, _=Depends(auth)):
         import traceback
         return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:500]}
 
+@app.post("/api/ai/publish_one")
+async def ai_publish_one(req: Request, _=Depends(auth)):
+    """Publica en UN solo canal - llamar una vez por canal para mostrar progreso"""
+    try:
+        b = await req.json()
+        product    = b.get("product", {})
+        channel    = b.get("channel")     # int (ML idx) o "tn"
+        images_by_color = b.get("images_by_color", {})
+        images_base64   = b.get("images_base64", [])
+        chart_id   = b.get("chart_id", "")
+        free_ship  = b.get("free_shipping", False)
+        pickup     = b.get("pickup", False)
+        garantia   = int(b.get("garantia", 90) or 90)
+        sync_link  = b.get("sync_link", False)
+
+        title    = (product.get("titulo") or product.get("titulo_sugerido") or "").strip()[:60]
+        price    = float(product.get("precio") or 0)
+        stock    = int(product.get("stock_por_variante") or product.get("stock") or 100)
+        colors   = [c.strip() for c in (product.get("colores") or []) if str(c).strip()]
+        sizes    = [s.strip() for s in (product.get("talles") or product.get("talles_sugeridos") or []) if str(s).strip()]
+        brand    = (product.get("marca") or "Sin marca").strip()
+        modelo   = (product.get("modelo") or "").strip()
+        desc     = (product.get("descripcion") or title).strip()
+        cat_id   = product.get("category_id") or "MLA109255"
+        gender   = product.get("genero") or "Mujer"
+        dims     = product.get("dims") or {}
+
+        if not title:
+            return {"ok": False, "msg": "Falta el titulo"}
+        if price <= 0:
+            return {"ok": False, "msg": "Falta el precio"}
+
+        # ── TiendaNube ───────────────────────────────────────────────────────
+        if channel == "tn":
+            tn = ST.get("tn", {})
+            if not tn.get("store_id"):
+                return {"ok": False, "msg": "TN no conectada"}
+            tn_hdrs = {
+                "Authentication": f"bearer {tn['token']}",
+                "Content-Type": "application/json",
+                "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"
+            }
+            tn_variants = []
+            seen = set()
+            for color in (colors or []):
+                for size in (sizes or []):
+                    if (color, size) not in seen:
+                        seen.add((color, size))
+                        vals = []
+                        if color: vals.append({"es": color})
+                        if size:  vals.append({"es": size})
+                        v = {"price": str(price), "stock_management": True, "stock": stock}
+                        if vals: v["values"] = vals
+                        tn_variants.append(v)
+            if not tn_variants:
+                tn_variants = [{"price": str(price), "stock_management": True, "stock": stock}]
+            all_b64 = []
+            for imgs in images_by_color.values(): all_b64.extend(imgs)
+            if not all_b64: all_b64 = images_base64
+            tn_images = [{"src": f"data:image/jpeg;base64,{img}"} for img in all_b64[:20]]
+            tn_attrs = []
+            if colors and sizes: tn_attrs = ["Color", "Talle"]
+            elif colors:         tn_attrs = ["Color"]
+            elif sizes:          tn_attrs = ["Talle"]
+            tn_payload = {
+                "name": {"es": title}, "description": {"es": desc},
+                "published": True, "attributes": tn_attrs,
+                "variants": tn_variants, "images": tn_images,
+            }
+            async with httpx.AsyncClient(timeout=30) as cl:
+                r = await cl.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                    headers=tn_hdrs, json=tn_payload)
+            ok = r.status_code in (200, 201)
+            try: rb = r.json()
+            except: rb = {}
+            new_id = str(rb.get("id","")) if ok else ""
+            if ok and sync_link and new_id:
+                pass  # links se manejan del lado del llamador
+            save_state()
+            return {"ok": ok, "msg": "Publicado" if ok else rb.get("description", r.text[:200]),
+                    "new_id": new_id, "channel": "tn"}
+
+        # ── MercadoLibre ─────────────────────────────────────────────────────
+        ch_idx = int(channel)
+        token  = await fresh_token(ch_idx)
+        ch_name = ST["accounts"][ch_idx].get("name", f"ML{ch_idx}") if ch_idx < len(ST["accounts"]) else f"ML{ch_idx}"
+
+        sale_terms = []
+        if garantia:
+            sale_terms += [{"id":"WARRANTY_TYPE","value_name":"Garantia del vendedor"},
+                           {"id":"WARRANTY_TIME","value_name":f"{garantia} dias"}]
+        shipping = {"mode":"me2","local_pick_up":pickup,"free_shipping":free_ship}
+
+        ch_ok = 0; ch_err = ""; new_ids = []
+        for color in (colors or [""]):
+            b64_list = images_by_color.get(color, []) or images_base64
+            pics = [{"source": f"data:image/jpeg;base64,{img}"} for img in b64_list[:5]] if b64_list else []
+            for size in (sizes or [""]):
+                suffix     = " - ".join(filter(None, [color, size]))
+                item_title = f"{title} - {suffix}"[:60] if suffix else title
+                attrs = [{"id":"BRAND","value_name":brand},{"id":"GENDER","value_name":gender}]
+                if modelo:    attrs.append({"id":"MODEL",    "value_name":modelo})
+                if color:     attrs.append({"id":"COLOR",    "value_name":color})
+                if size:      attrs.append({"id":"SIZE",     "value_name":size})
+                if chart_id:  attrs.append({"id":"SIZE_GRID_ID","value_name":str(chart_id)})
+                if dims.get("h"): attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":f"{int(float(dims['h']))} cm"})
+                if dims.get("w"): attrs.append({"id":"SELLER_PACKAGE_WIDTH", "value_name":f"{int(float(dims['w']))} cm"})
+                if dims.get("l"): attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":f"{int(float(dims['l']))} cm"})
+                if dims.get("p"): attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":f"{int(float(dims['p'])*1000)} g"})
+                family  = f"{brand} {modelo}".strip() or title
+                payload = {
+                    "title": item_title, "category_id": cat_id,
+                    "price": price, "currency_id": "ARS",
+                    "available_quantity": stock, "buying_mode": "buy_it_now",
+                    "listing_type_id": "gold_special", "condition": "new",
+                    "pictures": pics, "attributes": attrs,
+                    "family_name": family[:60], "shipping": shipping, "sale_terms": sale_terms,
+                }
+                await asyncio.sleep(1)
+                resp = None
+                for attempt in range(3):
+                    try:
+                        async with httpx.AsyncClient(timeout=httpx.Timeout(60, connect=15)) as cl:
+                            resp = await cl.post(f"{ML_API}/items",
+                                headers={"Authorization":f"Bearer {token}","Content-Type":"application/json"},
+                                json=payload)
+                    except httpx.TimeoutException:
+                        if attempt < 2: await asyncio.sleep(5); continue
+                        break
+                    if resp.status_code == 429: await asyncio.sleep((attempt+1)*10); continue
+                    break
+                ok_item = resp.status_code in (200,201) if resp else False
+                try: rb = resp.json() if resp else {}
+                except: rb = {}
+                if ok_item:
+                    ch_ok += 1
+                    new_id = rb.get("id","")
+                    new_ids.append(new_id)
+                    if sync_link and new_id:
+                        ST["links"].append({
+                            "ml_item_id": new_id, "ml_account_index": ch_idx,
+                            "ml_account_name": ch_name, "ml_title": item_title,
+                            "created_at": int(time.time())
+                        })
+                else:
+                    cause = rb.get("cause",[])
+                    ch_err = cause[0].get("message","") if cause else rb.get("message","Error")
+                    print(f"ML error {resp.status_code if resp else '?'}: {json.dumps(rb)[:300]}")
+
+        total = max(1,len(colors or [""]))*max(1,len(sizes or [""]))
+        save_state()
+        return {"ok": ch_ok>0,
+                "msg": f"{ch_ok}/{total} items publicados" if ch_ok>0 else ch_err,
+                "new_ids": new_ids, "channel": ch_name}
+    except Exception as e:
+        import traceback
+        return {"ok": False, "msg": str(e), "trace": traceback.format_exc()[:300]}
+
 @app.post("/api/ai/publish_product")
 async def ai_publish_product(req: Request, _=Depends(auth)):
     try:
@@ -2177,10 +2335,15 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                         await asyncio.sleep(1)
                         resp = None
                         for attempt in range(3):
-                            async with httpx.AsyncClient(timeout=30) as cl:
-                                resp = await cl.post(f"{ML_API}/items",
-                                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                                    json=payload)
+                            try:
+                                async with httpx.AsyncClient(timeout=httpx.Timeout(60, connect=15)) as cl:
+                                    resp = await cl.post(f"{ML_API}/items",
+                                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                                        json=payload)
+                            except httpx.TimeoutException:
+                                print(f"Timeout attempt {attempt+1}")
+                                if attempt < 2: await asyncio.sleep(5); continue
+                                break
                             if resp.status_code == 429:
                                 await asyncio.sleep((attempt+1)*10)
                                 continue
