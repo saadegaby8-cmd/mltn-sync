@@ -2902,8 +2902,8 @@ async function iaDebugPublish() {
       body: JSON.stringify({
         product: {...iaContext, titulo: iaContext.titulo||'', colores: iaContext.colores||[], talles: iaContext.talles||[], precio: iaContext.precio||0, dims},
         channels: [...iaSelectedChannels],
-        images_base64: Object.values(iaGeneratedPhotos).flat(),
-        images_by_color: iaGeneratedPhotos,
+        images_base64: allImages,
+        images_by_color: compressedByColor,
         chart_ids: chartIds
       })
     });
@@ -2917,13 +2917,13 @@ async function iaDebugPublish() {
 async function iaPublish() {
   const syncML = document.getElementById('ia-sync-check')?.checked !== false;
   const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
-  // Read all editable fields
+  // Leer todos los campos editables
   const tituloInput = document.getElementById('ia-titulo-input')?.value?.trim();
   if (tituloInput) iaContext.titulo = tituloInput;
-  const precioInput = parseFloat(document.getElementById('ia-precio-input')?.value || '0');
-  if (precioInput > 0) iaContext.precio = precioInput;
-  const stockInput = parseInt(document.getElementById('ia-stock-input')?.value || '100');
-  if (stockInput > 0) iaContext.stock = stockInput;
+  const precioInput = parseFloat(document.getElementById('ia-precio-input')?.value||'0');
+  if (precioInput>0) iaContext.precio = precioInput;
+  const stockInput = parseInt(document.getElementById('ia-stock-input')?.value||'100');
+  if (stockInput>0) iaContext.stock = stockInput;
   const marcaInput = document.getElementById('ia-marca-input')?.value?.trim();
   if (marcaInput) iaContext.marca = marcaInput;
   const modeloInput = document.getElementById('ia-modelo-input')?.value?.trim();
@@ -2934,63 +2934,125 @@ async function iaPublish() {
   if (tallesInput) iaContext.talles = tallesInput.split(',').map(s=>s.trim()).filter(Boolean);
   const descInput = document.getElementById('ia-desc-input')?.value?.trim();
   if (descInput) iaContext.descripcion = descInput;
-  // Dimensions
   const dims = {
     h: parseFloat(document.getElementById('ia-dim-h')?.value)||0,
     w: parseFloat(document.getElementById('ia-dim-w')?.value)||0,
     l: parseFloat(document.getElementById('ia-dim-l')?.value)||0,
     p: parseFloat(document.getElementById('ia-dim-p')?.value)||0
   };
-  // Size guides
   const chartIds = {};
   (appState.ml_accounts||[]).forEach((acc, i) => {
     const val = document.getElementById('ia-chart-' + i)?.value?.trim();
     if (val) chartIds[i] = val;
   });
-  // Options
-  const freeShipping = document.getElementById('ia-free-shipping')?.checked || false;
-  const flex = document.getElementById('ia-flex')?.checked || false;
-  const pickup = document.getElementById('ia-pickup')?.checked || false;
-  const garantia = parseInt(document.getElementById('ia-garantia')?.value || '90');
-  iaAddBotMessage('... Publicando en los canales seleccionados...');
-  try {
-    // Flatten all photos from all variants
-    const allImages = Object.values(iaGeneratedPhotos).flat();
-    const r = await fetch('/api/ai/publish_product', {
-      method: 'POST', headers: hdr(),
-      body: JSON.stringify({
-        product: {
-          ...iaContext,
-          titulo: iaContext.titulo || iaContext.titulo_sugerido || '',
-          colores: iaContext.colores || [],
-          talles: iaContext.talles || iaContext.talles_sugeridos || [],
-          precio: iaContext.precio || 0,
-          stock_por_variante: iaContext.stock || 100,
-          dims: dims,
-        },
-        free_shipping: freeShipping,
-        flex: flex,
-        pickup: pickup,
-        garantia: garantia,
-        channels: [...iaSelectedChannels],
-        images_base64: allImages,
-        images_by_color: iaGeneratedPhotos,
-        sync_ml: syncML,
-        sync_tn: syncTN,
-        chart_ids: chartIds
-      })
+  const freeShipping = document.getElementById('ia-free-shipping')?.checked||false;
+  const pickup = document.getElementById('ia-pickup')?.checked||false;
+  const garantia = parseInt(document.getElementById('ia-garantia')?.value||'90');
+
+  // Comprimir imagenes
+  async function compressB64(b64, maxPx, quality) {
+    return new Promise(function(res) {
+      var img = new Image();
+      img.onload = function() {
+        var scale = Math.min(1, maxPx/Math.max(img.width||1,img.height||1));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round((img.width||800)*scale);
+        canvas.height = Math.round((img.height||800)*scale);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        res(canvas.toDataURL('image/jpeg',quality).split(',')[1]);
+      };
+      img.onerror = function(){res(b64);};
+      img.src = 'data:image/jpeg;base64,'+b64;
     });
-    const d = await r.json();
-    if (d.ok) {
-      const ok = d.results.filter(r=>r.ok).length;
-      const lines = d.results.map(r=>(r.ok?"[OK]":"[Error]")+" "+r.channel+": "+r.msg).join("\n");
-      iaAddBotMessage("Listo! "+ok+"/"+d.results.length+" publicaciones exitosas:\n"+lines);
-    } else {
-      iaAddBotMessage('[Error] Error: ' + d.error);
-    }
-  } catch(e) {
-    iaAddBotMessage('[Error] Error: ' + e.message);
   }
+  iaAddBotMessage('Comprimiendo fotos...');
+  var compressedByColor = {};
+  for (var col of Object.keys(iaGeneratedPhotos)) {
+    compressedByColor[col] = await Promise.all((iaGeneratedPhotos[col]||[]).slice(0,5).map(function(b){return compressB64(b,900,0.75);}));
+  }
+  var allImages = Object.values(compressedByColor).flat();
+
+  const product = {
+    ...iaContext,
+    titulo: iaContext.titulo||'',
+    colores: iaContext.colores||[],
+    talles: iaContext.talles||[],
+    precio: iaContext.precio||0,
+    stock_por_variante: iaContext.stock||100,
+    dims: dims,
+  };
+
+  // Armar lista de canales con nombres
+  const mlAccounts = appState.ml_accounts||[];
+  const channelList = [];
+  for (const ch of iaSelectedChannels) {
+    if (ch === 'tn') {
+      channelList.push({key: 'tn', name: 'TiendaNube', chart_id: ''});
+    } else {
+      const acc = mlAccounts[ch];
+      channelList.push({key: ch, name: acc ? acc.name : 'ML'+ch, chart_id: chartIds[ch]||''});
+    }
+  }
+
+  // Mostrar estado inicial
+  var statusDiv = document.createElement('div');
+  statusDiv.className = 'ia-msg ia-msg-bot';
+  var statusBubble = document.createElement('div');
+  statusBubble.className = 'ia-bubble';
+  statusBubble.style = 'max-width:100%;background:#f8f9ff;border:1px solid #dde1e9';
+  statusBubble.innerHTML = '<div style="font-weight:600;margin-bottom:8px">Publicando...</div>'
+    + channelList.map(ch => '<div id="pub-status-'+ch.key+'" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f2f6;font-size:13px">'
+      + '<span id="pub-icon-'+ch.key+'">⏳</span>'
+      + '<span style="flex:1">'+ch.name+'</span>'
+      + '<span id="pub-msg-'+ch.key+'" style="font-size:11px;color:#7a8299">esperando...</span>'
+      + '</div>').join('');
+  statusDiv.appendChild(statusBubble);
+  document.getElementById('ia-chat-messages').appendChild(statusDiv);
+  document.getElementById('ia-chat-messages').scrollTop = 99999;
+
+  function setStatus(key, icon, msg, color) {
+    var iconEl = document.getElementById('pub-icon-'+key);
+    var msgEl  = document.getElementById('pub-msg-'+key);
+    if (iconEl) iconEl.textContent = icon;
+    if (msgEl)  { msgEl.textContent = msg; msgEl.style.color = color||'#7a8299'; }
+  }
+
+  // Publicar canal por canal
+  var allNewIds = {};
+  for (const ch of channelList) {
+    setStatus(ch.key, '🔄', 'publicando...', '#2563eb');
+    try {
+      var controller = new AbortController();
+      var tid = setTimeout(function(){controller.abort();}, 120000);
+      var resp = await fetch('/api/ai/publish_one', {
+        method: 'POST', headers: hdr(), signal: controller.signal,
+        body: JSON.stringify({
+          product: product,
+          channel: ch.key,
+          images_base64: allImages,
+          images_by_color: compressedByColor,
+          chart_id: ch.chart_id,
+          free_shipping: freeShipping,
+          pickup: pickup,
+          garantia: garantia,
+          sync_link: syncML,
+        })
+      });
+      clearTimeout(tid);
+      var d = await resp.json();
+      if (d.ok) {
+        setStatus(ch.key, '✅', d.msg||'Publicado', '#00a381');
+        if (d.new_ids) allNewIds[ch.key] = d.new_ids;
+      } else {
+        setStatus(ch.key, '❌', d.msg||'Error', '#dc2626');
+      }
+    } catch(e) {
+      setStatus(ch.key, '❌', e.message||'Error de conexion', '#dc2626');
+    }
+    document.getElementById('ia-chat-messages').scrollTop = 99999;
+  }
+  var ok = Object.keys(allNewIds).length;
+  iaAddBotMessage(ok + '/' + channelList.length + ' publicaciones exitosas.');
 }
 
 loadState();
