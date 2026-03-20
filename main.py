@@ -426,50 +426,35 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
     uid = ST["accounts"][i]["uid"]
     products = get_cached_products(uid) or []
 
-    # Verificar si hay items nuevos en ML que no estan en cache
+    # Si hay diferencia con ML, traer los mas recientes
     try:
         token = await fresh_token(i)
         hdrs = {"Authorization": f"Bearer {token}"}
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{ML_API}/users/{uid}/items/search?status=active&limit=1", headers=hdrs)
+        existing_ids = {p["id"] for p in products}
+        async with httpx.AsyncClient(timeout=15) as c:
+            # Traer los 100 items mas recientes de ML
+            r = await c.get(
+                f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100&status=active",
+                headers=hdrs)
             if r.status_code == 200:
-                ml_total = r.json().get("paging", {}).get("total", 0)
-                cached_count = len(products)
-                if ml_total > cached_count:
-                    # Hay items nuevos — traer los IDs que no tenemos
-                    diff = ml_total - cached_count
-                    existing_ids = {p["id"] for p in products}
-                    new_items = []
-                    offset = 0
-                    async with httpx.AsyncClient(timeout=15) as c2:
-                        while offset < min(diff + 20, 200):
-                            r2 = await c2.get(
-                                f"{ML_API}/users/{uid}/items/search?status=active&limit=50&offset={offset}",
-                                headers=hdrs)
-                            if r2.status_code != 200: break
-                            ids = r2.json().get("results", [])
-                            if not ids: break
-                            missing = [iid for iid in ids if iid not in existing_ids]
-                            if missing:
-                                # Traer detalles de los nuevos
-                                for batch_start in range(0, len(missing), 20):
-                                    batch = missing[batch_start:batch_start+20]
-                                    r3 = await c2.get(
-                                        f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title,price,available_quantity,status,thumbnail,category_id,variations",
-                                        headers=hdrs)
-                                    if r3.status_code == 200:
-                                        for item_wrap in r3.json():
-                                            item = item_wrap.get("body", {}) if "body" in item_wrap else item_wrap
-                                            if item.get("id"):
-                                                new_items.append(item)
-                                                existing_ids.add(item["id"])
-                            if len(missing) < 5: break  # ya no hay nuevos en este offset
-                            offset += 50
-                    if new_items:
-                        products = products + new_items
-                        set_cached_products(uid, products)
+                recent_ids = r.json().get("results", [])
+                missing_ids = [iid for iid in recent_ids if iid not in existing_ids]
+                if missing_ids:
+                    print(f"Encontrados {len(missing_ids)} items nuevos para {uid}")
+                    for batch_start in range(0, len(missing_ids), 20):
+                        batch = missing_ids[batch_start:batch_start+20]
+                        r2 = await c.get(
+                            f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title,price,available_quantity,status,thumbnail,category_id",
+                            headers=hdrs)
+                        if r2.status_code == 200:
+                            for item_wrap in r2.json():
+                                item = item_wrap.get("body", item_wrap) if isinstance(item_wrap, dict) else {}
+                                if item.get("id"):
+                                    products.append(item)
+                                    existing_ids.add(item["id"])
+                    set_cached_products(uid, products)
     except Exception as e:
-        print(f"Auto-refresh check error: {e}")
+        print(f"Auto-refresh error: {e}")
 
     if not products:
         return {"products": [], "total": 0, "synced": False,
