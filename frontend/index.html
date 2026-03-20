@@ -2612,24 +2612,44 @@ function iaShowPublishButton() {
     '<div style="margin-bottom:6px"><label style="font-size:11px;color:#7a8299">' + acc.name + ' - ID guia de talles (opcional):</label>'
     + '<input type="text" id="ia-chart-' + i + '" placeholder="ej: 5127137" style="width:100%;padding:6px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;margin-top:3px"></div>'
   ).join('');
-  const titleVal = iaContext.titulo_sugerido || iaContext.titulo || '';
+  const titleVal = (iaContext.titulo || iaContext.titulo_sugerido || '').replace(/"/g,"'");
+  const precioVal = iaContext.precio || 0;
+  const stockVal = iaContext.stock || 100;
+  const marcaVal = (iaContext.marca || '').replace(/"/g,"'");
+  const modeloVal = (iaContext.modelo || '').replace(/"/g,"'");
+  const colorsList = (iaContext.colores||[]).join(', ');
+  const tallesList = (iaContext.talles||iaContext.talles_sugeridos||[]).join(', ');
+  const inp = (id, val, ph, type='text', extra='') => '<input type="'+type+'" id="'+id+'" value="'+val+'" placeholder="'+ph+'" style="width:100%;padding:6px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;font-family:Inter,sans-serif" '+extra+'>';
   div.innerHTML = '<div class="ia-bubble" style="max-width:100%;background:#f0fff4;border:1px solid #86efac">'
-    + '<div style="font-size:11px;font-weight:600;margin-bottom:4px">Titulo (editable):</div>'
-    + '<input type="text" id="ia-titulo-input" value="' + titleVal.replace(/"/g,"'") + '" maxlength="60" placeholder="Titulo del producto (max 60 chars)" style="width:100%;padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;margin-bottom:10px;font-family:Inter,sans-serif">'
-    + '<div style="font-size:12px;margin-bottom:8px">' + precio + ' | Colores: ' + colors + ' | Talles: ' + sizes + '</div>'
+    + '<div style="font-size:11px;font-weight:700;margin-bottom:4px">Titulo <span style="color:#7a8299;font-weight:400">(max 60 chars)</span></div>'
+    + inp('ia-titulo-input', titleVal, 'Titulo del producto', 'text', 'maxlength="60"') + '<br><br>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+    + '<div><label style="font-size:11px;color:#7a8299">Precio $</label>' + inp('ia-precio-input', precioVal, 'ej: 25000', 'number') + '</div>'
+    + '<div><label style="font-size:11px;color:#7a8299">Stock por variante</label>' + inp('ia-stock-input', stockVal, 'ej: 100', 'number') + '</div>'
+    + '<div><label style="font-size:11px;color:#7a8299">Marca</label>' + inp('ia-marca-input', marcaVal, 'ej: Sin marca') + '</div>'
+    + '<div><label style="font-size:11px;color:#7a8299">Modelo</label>' + inp('ia-modelo-input', modeloVal, 'ej: 2002') + '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:8px"><label style="font-size:11px;color:#7a8299">Colores (separados por coma)</label>' + inp('ia-colores-input', colorsList, 'Rosa, Lila, Verde...') + '</div>'
+    + '<div style="margin-bottom:8px"><label style="font-size:11px;color:#7a8299">Talles (separados por coma)</label>' + inp('ia-talles-input', tallesList, 'S/M, L/XL, 2XL/3XL...') + '</div>'
+    + '<div style="margin-bottom:8px"><label style="font-size:11px;color:#7a8299">Descripcion</label><textarea id="ia-desc-input" style="width:100%;padding:6px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;min-height:50px;font-family:Inter,sans-serif">' + (iaContext.descripcion||'').replace(/</g,'&lt;') + '</textarea></div>'
+    + '<div style="font-size:11px;font-weight:700;margin-bottom:6px">Dimensiones del paquete (cm / kg)</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px">'
+    + '<div><label style="font-size:10px;color:#7a8299">Alto (cm)</label>' + inp('ia-dim-h', '', 'ej: 10', 'number', 'min="0"') + '</div>'
+    + '<div><label style="font-size:10px;color:#7a8299">Ancho (cm)</label>' + inp('ia-dim-w', '', 'ej: 20', 'number', 'min="0"') + '</div>'
+    + '<div><label style="font-size:10px;color:#7a8299">Largo (cm)</label>' + inp('ia-dim-l', '', 'ej: 30', 'number', 'min="0"') + '</div>'
+    + '<div><label style="font-size:10px;color:#7a8299">Peso (kg)</label>' + inp('ia-dim-p', '', 'ej: 0.3', 'number', 'min="0" step="0.01"') + '</div>'
+    + '</div>'
     + photoWarning
     + (sizeGuideInputs ? '<div style="margin-bottom:8px">' + sizeGuideInputs + '</div>' : '')
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-free-shipping"> Envio gratis</label>'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-flex"> Envio Flex</label>'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-pickup"> Retiro en sucursal</label>'
-    + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-cuotas"> Cuotas sin interes</label>'
+    + '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:12px">Garantia:</label>' + inp('ia-garantia', '90', 'dias', 'number', 'style="width:60px;padding:4px 6px;border:1px solid #dde1e9;border-radius:6px;font-size:12px"') + '<span style="font-size:11px;color:#7a8299">dias</span></div>'
     + '</div>'
-    + '<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label style="font-size:11px;color:#7a8299">Garantia (dias)</label><input type="number" id="ia-garantia" value="90" min="0" style="width:100%;padding:6px;border:1px solid #dde1e9;border-radius:6px;font-size:12px"></div></div>'
     + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:12px"><input type="checkbox" id="ia-sync-check" checked> Sincronizar entre cuentas ML</label>'
     + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:12px"><input type="checkbox" id="ia-sync-tn-check" checked> Sincronizar con TiendaNube</label>'
-    + '<button class="btn ' + (totalPhotos === 0 ? 'btn-out' : 'btn-green') + '" style="width:100%" onclick="iaPublish()">'
-    + (totalPhotos === 0 ? 'Publicar sin imagenes (no recomendado)' : 'Publicar ahora') + '</button>'
+    + '<button class="btn btn-green" style="width:100%" onclick="iaPublish()">Publicar ahora</button>'
     + '</div>';
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
@@ -2851,20 +2871,40 @@ async function iaConfirmGenerate() {
 async function iaPublish() {
   const syncML = document.getElementById('ia-sync-check')?.checked !== false;
   const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
-  // Read title from editable input
+  // Read all editable fields
   const tituloInput = document.getElementById('ia-titulo-input')?.value?.trim();
   if (tituloInput) iaContext.titulo = tituloInput;
-  // Read size guides per account
+  const precioInput = parseFloat(document.getElementById('ia-precio-input')?.value || '0');
+  if (precioInput > 0) iaContext.precio = precioInput;
+  const stockInput = parseInt(document.getElementById('ia-stock-input')?.value || '100');
+  if (stockInput > 0) iaContext.stock = stockInput;
+  const marcaInput = document.getElementById('ia-marca-input')?.value?.trim();
+  if (marcaInput) iaContext.marca = marcaInput;
+  const modeloInput = document.getElementById('ia-modelo-input')?.value?.trim();
+  if (modeloInput) iaContext.modelo = modeloInput;
+  const coloresInput = document.getElementById('ia-colores-input')?.value?.trim();
+  if (coloresInput) iaContext.colores = coloresInput.split(',').map(s=>s.trim()).filter(Boolean);
+  const tallesInput = document.getElementById('ia-talles-input')?.value?.trim();
+  if (tallesInput) iaContext.talles = tallesInput.split(',').map(s=>s.trim()).filter(Boolean);
+  const descInput = document.getElementById('ia-desc-input')?.value?.trim();
+  if (descInput) iaContext.descripcion = descInput;
+  // Dimensions
+  const dims = {
+    h: parseFloat(document.getElementById('ia-dim-h')?.value)||0,
+    w: parseFloat(document.getElementById('ia-dim-w')?.value)||0,
+    l: parseFloat(document.getElementById('ia-dim-l')?.value)||0,
+    p: parseFloat(document.getElementById('ia-dim-p')?.value)||0
+  };
+  // Size guides
   const chartIds = {};
   (appState.ml_accounts||[]).forEach((acc, i) => {
     const val = document.getElementById('ia-chart-' + i)?.value?.trim();
     if (val) chartIds[i] = val;
   });
-  // Read shipping/options
+  // Options
   const freeShipping = document.getElementById('ia-free-shipping')?.checked || false;
   const flex = document.getElementById('ia-flex')?.checked || false;
   const pickup = document.getElementById('ia-pickup')?.checked || false;
-  const cuotas = document.getElementById('ia-cuotas')?.checked || false;
   const garantia = parseInt(document.getElementById('ia-garantia')?.value || '90');
   iaAddBotMessage('... Publicando en los canales seleccionados...');
   try {
@@ -2880,12 +2920,12 @@ async function iaPublish() {
           talles: iaContext.talles || iaContext.talles_sugeridos || [],
           precio: iaContext.precio || 0,
           stock_por_variante: iaContext.stock || 100,
-          free_shipping: freeShipping,
-          flex: flex,
-          pickup: pickup,
-          cuotas: cuotas,
-          garantia: garantia,
+          dims: dims,
         },
+        free_shipping: freeShipping,
+        flex: flex,
+        pickup: pickup,
+        garantia: garantia,
         channels: [...iaSelectedChannels],
         images_base64: allImages,
         images_by_color: iaGeneratedPhotos,
