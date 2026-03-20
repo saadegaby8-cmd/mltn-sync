@@ -2084,9 +2084,17 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
         brand = product.get("marca") or product.get("brand") or ""
         model_num = product.get("modelo") or product.get("model") or ""
         desc = product.get("descripcion") or title
+        print(f"AI publish RAW product keys: {list(product.keys())}")
         print(f"AI publish: title={repr(title)} price={price} colors={colors} sizes={sizes}")
         if not title:
-            return {"ok": False, "error": "Falta el titulo del producto"}
+            # Try to build title from available data
+            tipo = product.get("tipo_prenda", "")
+            marca = product.get("marca", "")
+            modelo = product.get("modelo", "")
+            title = " ".join(filter(None, [tipo, marca, modelo]))[:60]
+            print(f"Built title from parts: {repr(title)}")
+            if not title:
+                return {"ok": False, "error": "Falta el titulo. Escribilo en el campo de titulo antes de publicar"}
         if not price:
             return {"ok": False, "error": "Falta el precio del producto"}
         
