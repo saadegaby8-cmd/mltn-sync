@@ -2612,15 +2612,22 @@ function iaShowPublishButton() {
     '<div style="margin-bottom:6px"><label style="font-size:11px;color:#7a8299">' + acc.name + ' - ID guia de talles (opcional):</label>'
     + '<input type="text" id="ia-chart-' + i + '" placeholder="ej: 5127137" style="width:100%;padding:6px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px;margin-top:3px"></div>'
   ).join('');
+  const titleVal = iaContext.titulo_sugerido || iaContext.titulo || '';
   div.innerHTML = '<div class="ia-bubble" style="max-width:100%;background:#f0fff4;border:1px solid #86efac">'
-    + '<div style="font-size:12px;margin-bottom:8px"><b>' + (iaContext.titulo_sugerido||"sin titulo") + '</b><br>'
-    + precio + ' | Colores: ' + colors + ' | Talles: ' + sizes + '</div>'
+    + '<div style="font-size:11px;font-weight:600;margin-bottom:4px">Titulo (editable):</div>'
+    + '<input type="text" id="ia-titulo-input" value="' + titleVal.replace(/"/g,"'") + '" maxlength="60" placeholder="Titulo del producto (max 60 chars)" style="width:100%;padding:7px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:13px;margin-bottom:10px;font-family:Inter,sans-serif">'
+    + '<div style="font-size:12px;margin-bottom:8px">' + precio + ' | Colores: ' + colors + ' | Talles: ' + sizes + '</div>'
     + photoWarning
     + (sizeGuideInputs ? '<div style="margin-bottom:8px">' + sizeGuideInputs + '</div>' : '')
-    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:12px">'
-    + '<input type="checkbox" id="ia-sync-check" checked> Sincronizar entre cuentas ML</label>'
-    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:12px">'
-    + '<input type="checkbox" id="ia-sync-tn-check" checked> Sincronizar con TiendaNube</label>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-free-shipping"> Envio gratis</label>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-flex"> Envio Flex</label>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-pickup"> Retiro en sucursal</label>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ia-cuotas"> Cuotas sin interes</label>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label style="font-size:11px;color:#7a8299">Garantia (dias)</label><input type="number" id="ia-garantia" value="90" min="0" style="width:100%;padding:6px;border:1px solid #dde1e9;border-radius:6px;font-size:12px"></div></div>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:12px"><input type="checkbox" id="ia-sync-check" checked> Sincronizar entre cuentas ML</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:12px"><input type="checkbox" id="ia-sync-tn-check" checked> Sincronizar con TiendaNube</label>'
     + '<button class="btn ' + (totalPhotos === 0 ? 'btn-out' : 'btn-green') + '" style="width:100%" onclick="iaPublish()">'
     + (totalPhotos === 0 ? 'Publicar sin imagenes (no recomendado)' : 'Publicar ahora') + '</button>'
     + '</div>';
@@ -2639,6 +2646,14 @@ function iaRenderVariantsGrid() {
     grid.innerHTML = '<div style="font-size:12px;color:#7a8299">Completa los colores en el chat primero.</div>';
     return;
   }
+  // Save existing photos before clearing
+  const savedPhotos = {};
+  colors.forEach(color => { savedPhotos[color] = iaGeneratedPhotos[color] || []; });
+  // Restore photos object with only current colors
+  iaGeneratedPhotos = savedPhotos;
+  // ALWAYS clear and rebuild to avoid stale blocks
+  grid.innerHTML = '';
+  // dummy return removed - continue below
   colors.forEach(color => {
     if (!iaGeneratedPhotos[color]) iaGeneratedPhotos[color] = [];
     const key = color.replace(/\s/g,'_');
@@ -2836,12 +2851,21 @@ async function iaConfirmGenerate() {
 async function iaPublish() {
   const syncML = document.getElementById('ia-sync-check')?.checked !== false;
   const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
+  // Read title from editable input
+  const tituloInput = document.getElementById('ia-titulo-input')?.value?.trim();
+  if (tituloInput) iaContext.titulo = tituloInput;
   // Read size guides per account
   const chartIds = {};
   (appState.ml_accounts||[]).forEach((acc, i) => {
     const val = document.getElementById('ia-chart-' + i)?.value?.trim();
     if (val) chartIds[i] = val;
   });
+  // Read shipping/options
+  const freeShipping = document.getElementById('ia-free-shipping')?.checked || false;
+  const flex = document.getElementById('ia-flex')?.checked || false;
+  const pickup = document.getElementById('ia-pickup')?.checked || false;
+  const cuotas = document.getElementById('ia-cuotas')?.checked || false;
+  const garantia = parseInt(document.getElementById('ia-garantia')?.value || '90');
   iaAddBotMessage('... Publicando en los canales seleccionados...');
   try {
     // Flatten all photos from all variants
@@ -2851,11 +2875,16 @@ async function iaPublish() {
       body: JSON.stringify({
         product: {
           ...iaContext,
-          titulo: iaContext.titulo_sugerido || iaContext.titulo || '',
+          titulo: iaContext.titulo || iaContext.titulo_sugerido || '',
           colores: iaContext.colores || [],
           talles: iaContext.talles || iaContext.talles_sugeridos || [],
           precio: iaContext.precio || 0,
           stock_por_variante: iaContext.stock || 100,
+          free_shipping: freeShipping,
+          flex: flex,
+          pickup: pickup,
+          cuotas: cuotas,
+          garantia: garantia,
         },
         channels: [...iaSelectedChannels],
         images_base64: allImages,
