@@ -2039,300 +2039,255 @@ async def _upload_pic(token: str, img_b64: str) -> str:
     except: pass
     return ""
 
-@app.post("/api/ai/publish_product")
-async def ai_publish_product(req: Request, _=Depends(auth)):
-    """Publicar producto generado por IA en los canales seleccionados"""
+@app.post("/api/ai/debug_publish")
+async def debug_publish(req: Request, _=Depends(auth)):
+    """Debug: muestra exactamente que llega al backend antes de publicar"""
     try:
         b = await req.json()
         product = b.get("product", {})
-        channels = b.get("channels", [])  # lista de índices ML + "tn"
-        images_base64 = b.get("images_base64", [])  # fotos ya generadas
-        sync_ml = b.get("sync_ml", False)
-        sync_tn = b.get("sync_tn", False)
-        chart_ids = b.get("chart_ids", {})
-        free_shipping = b.get("free_shipping", False)
-        flex_shipping = b.get("flex", False)
-        pickup_point = b.get("pickup", False)
-        cuotas = b.get("cuotas", False)
-        garantia_dias = b.get("garantia", 90)
-        
-        results = []
-        
-        # Subir fotos a ML primero (cuenta 0 = LENCERIA)
-        ml_picture_ids = []
-        if images_base64:
-            try:
-                token = await fresh_token(0)
-                async with httpx.AsyncClient(timeout=30) as c:
-                    for img_b64 in images_base64[:10]:
-                        import base64 as b64
-                        img_bytes = b64.b64decode(img_b64)
-                        r = await c.post(f"{ML_API}/pictures/items/upload",
-                            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                            json={"source": f"data:image/jpeg;base64,{img_b64}"})
-                        if r.status_code in (200, 201):
-                            ml_picture_ids.append({"id": r.json().get("id","")})
-            except Exception as e:
-                print(f"Error subiendo fotos: {e}")
-        
-        # titulo puede venir de varios campos
-        title = (product.get("titulo") or product.get("titulo_sugerido") or "").strip()
-        price = float(product.get("precio") or product.get("price") or 0)
-        stock = int(product.get("stock_por_variante") or product.get("stock") or 100)
-        colors = product.get("colores") or product.get("colores_detectados") or []
+        title = (product.get("titulo") or product.get("titulo_sugerido") or "").strip()[:60]
+        price = float(product.get("precio") or 0)
+        colors = product.get("colores") or []
         sizes = product.get("talles") or product.get("talles_sugeridos") or []
-        brand = product.get("marca") or product.get("brand") or ""
-        model_num = product.get("modelo") or product.get("model") or ""
-        desc = product.get("descripcion") or title
-        print(f"AI publish RAW product keys: {list(product.keys())}")
-        print(f"AI publish: title={repr(title)} price={price} colors={colors} sizes={sizes}")
-        if not title:
-            # Try to build title from available data
-            tipo = product.get("tipo_prenda", "")
-            marca = product.get("marca", "")
-            modelo = product.get("modelo", "")
-            title = " ".join(filter(None, [tipo, marca, modelo]))[:60]
-            print(f"Built title from parts: {repr(title)}")
-            if not title:
-                return {"ok": False, "error": "Falta el titulo. Escribilo en el campo de titulo antes de publicar"}
-        if not price:
-            return {"ok": False, "error": "Falta el precio del producto"}
-        
-        # Atributos ML base
-        base_attrs = [{"id": "GENDER", "value_name": product.get("genero", "Mujer")}]
-        if brand: base_attrs.append({"id": "BRAND", "value_name": brand})
-        if model_num: base_attrs.append({"id": "MODEL", "value_name": model_num})
-        if product.get("dims"):
-            dims = product["dims"]
-            if dims.get("h"): base_attrs.append({"id": "SELLER_PACKAGE_HEIGHT", "value_name": f"{int(dims['h'])} cm"})
-            if dims.get("w"): base_attrs.append({"id": "SELLER_PACKAGE_WIDTH", "value_name": f"{int(dims['w'])} cm"})
-            if dims.get("l"): base_attrs.append({"id": "SELLER_PACKAGE_LENGTH", "value_name": f"{int(dims['l'])} cm"})
-            if dims.get("p"): base_attrs.append({"id": "SELLER_PACKAGE_WEIGHT", "value_name": f"{int(float(dims['p'])*1000)} g"})
+        brand = (product.get("marca") or "Sin marca").strip()
+        images_by_color = b.get("images_by_color", {})
+        images_base64 = b.get("images_base64", [])
+        channels = b.get("channels", [])
+        chart_ids = b.get("chart_ids", {})
+        return {
+            "ok": True,
+            "recibido": {
+                "title": title,
+                "price": price,
+                "colors": colors,
+                "sizes": sizes,
+                "brand": brand,
+                "channels": channels,
+                "chart_ids": chart_ids,
+                "product_keys": list(product.keys()),
+                "product_titulo": product.get("titulo"),
+                "product_titulo_sugerido": product.get("titulo_sugerido"),
+                "total_fotos_globales": len(images_base64),
+                "fotos_por_color": {k: len(v) for k,v in images_by_color.items()},
+                "dims": product.get("dims"),
+            }
+        }
+    except Exception as e:
+        import traceback
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:500]}
 
-        # Publicar en cuentas ML — 1 item por combinación talle+color
-        ml_published_ids = []
-        for ch_idx in [c for c in channels if isinstance(c, int)]:
+@app.post("/api/ai/publish_product")
+async def ai_publish_product(req: Request, _=Depends(auth)):
+    try:
+        b = await req.json()
+        product    = b.get("product", {})
+        channels   = b.get("channels", [])
+        images_by_color = b.get("images_by_color", {})   # {color: [b64, ...]}
+        images_base64   = b.get("images_base64", [])      # fallback global
+        sync_ml    = b.get("sync_ml", False)
+        sync_tn    = b.get("sync_tn", False)
+        chart_ids  = b.get("chart_ids", {})               # {acc_idx_str: chart_id}
+        free_ship  = b.get("free_shipping", False)
+        pickup     = b.get("pickup", False)
+        garantia   = int(b.get("garantia", 90) or 90)
+
+        # ── campos editables ──────────────────────────────────────────────────
+        title    = (product.get("titulo") or product.get("titulo_sugerido") or "").strip()[:60]
+        price    = float(product.get("precio") or 0)
+        stock    = int(product.get("stock_por_variante") or product.get("stock") or 100)
+        colors   = [c.strip() for c in (product.get("colores") or []) if str(c).strip()]
+        sizes    = [s.strip() for s in (product.get("talles") or product.get("talles_sugeridos") or []) if str(s).strip()]
+        brand    = (product.get("marca") or "Sin marca").strip()
+        modelo   = (product.get("modelo") or "").strip()
+        desc     = (product.get("descripcion") or title).strip()
+        cat_id   = product.get("category_id") or "MLA109255"
+        gender   = product.get("genero") or "Mujer"
+        dims     = product.get("dims") or {}
+
+        print(f"AI publish → title={repr(title)} price={price} colors={colors} sizes={sizes}")
+
+        if not title:
+            return {"ok": False, "error": "Falta el titulo. Escribilo en el campo antes de publicar."}
+        if price <= 0:
+            return {"ok": False, "error": "Falta el precio."}
+
+        ml_idxs  = [c for c in channels if isinstance(c, int)]
+        results  = []
+
+        # ── PUBLICAR EN ML ────────────────────────────────────────────────────
+        for ch_idx in ml_idxs:
             try:
-                token = await fresh_token(ch_idx)
-                ch_ok = 0
-                ch_err = ""
+                token     = await fresh_token(ch_idx)
+                chart_id  = chart_ids.get(str(ch_idx)) or chart_ids.get(ch_idx) or ""
+                ch_name   = ST["accounts"][ch_idx].get("name", f"ML{ch_idx}") if ch_idx < len(ST["accounts"]) else f"ML{ch_idx}"
+                ch_ok     = 0
+                ch_err    = ""
+                new_ids   = []
+
+                # garantia
+                sale_terms = []
+                if garantia:
+                    sale_terms += [
+                        {"id": "WARRANTY_TYPE", "value_name": "Garantia del vendedor"},
+                        {"id": "WARRANTY_TIME", "value_name": f"{garantia} dias"},
+                    ]
+
+                # shipping
+                shipping = {"mode": "me2", "local_pick_up": pickup, "free_shipping": free_ship}
+
                 for color in (colors or [""]):
+                    # fotos de este color como source (igual que duplicador)
+                    b64_list = images_by_color.get(color, []) or images_base64
+                    pics = [{"source": f"data:image/jpeg;base64,{img}"} for img in b64_list[:12]] if b64_list else []
+
                     for size in (sizes or [""]):
-                        # Título con talle y color
-                        suffix_parts = [s for s in [color, size] if s]
-                        item_title = f"{title} - {' - '.join(suffix_parts)}" if suffix_parts else title
-                        item_title = item_title[:60]
-                        # Atributos específicos de esta variante
-                        item_attrs = list(base_attrs)
-                        if color: item_attrs.append({"id": "COLOR", "value_name": color})
-                        if size: item_attrs.append({"id": "SIZE", "value_name": size})
-                        # Agregar guia de talles si se proporcionó para esta cuenta
-                        chart_id = chart_ids.get(str(ch_idx)) or chart_ids.get(ch_idx)
-                        if chart_id: item_attrs.append({"id": "SIZE_GRID_ID", "value_name": str(chart_id)})
-                        # Fotos de este color si están disponibles
-                        color_photos = b.get("images_by_color", {}).get(color, [])
-                        if color_photos:
-                            pics = [{"id": pid} for pid in [
-                                await _upload_pic(token, img) for img in color_photos[:5]
-                            ] if pid]
-                        else:
-                            pics = ml_picture_ids[:5] or []
-                        family = f"{brand} {model_num}".strip() or title[:60]
-                        # Shipping config
-                        shipping = {"mode": "me2", "local_pick_up": pickup_point, "free_shipping": free_shipping}
-                        if flex_shipping:
-                            shipping["methods"] = [{"id": 100009, "name": "Mercado Envios Flex"}]
-                        # Sale terms (garantia, cuotas)
-                        sale_terms = []
-                        if garantia_dias:
-                            sale_terms.append({"id": "WARRANTY_TYPE", "value_name": "Garantia del vendedor"})
-                            sale_terms.append({"id": "WARRANTY_TIME", "value_name": f"{garantia_dias} dias"})
+                        suffix     = " - ".join(filter(None, [color, size]))
+                        item_title = f"{title} - {suffix}"[:60] if suffix else title
+
+                        attrs = [{"id": "BRAND", "value_name": brand},
+                                 {"id": "GENDER", "value_name": gender}]
+                        if modelo:  attrs.append({"id": "MODEL",   "value_name": modelo})
+                        if color:   attrs.append({"id": "COLOR",   "value_name": color})
+                        if size:    attrs.append({"id": "SIZE",    "value_name": size})
+                        if chart_id:attrs.append({"id": "SIZE_GRID_ID", "value_name": str(chart_id)})
+                        if dims.get("h"): attrs.append({"id": "SELLER_PACKAGE_HEIGHT", "value_name": f"{int(float(dims['h']))} cm"})
+                        if dims.get("w"): attrs.append({"id": "SELLER_PACKAGE_WIDTH",  "value_name": f"{int(float(dims['w']))} cm"})
+                        if dims.get("l"): attrs.append({"id": "SELLER_PACKAGE_LENGTH", "value_name": f"{int(float(dims['l']))} cm"})
+                        if dims.get("p"): attrs.append({"id": "SELLER_PACKAGE_WEIGHT", "value_name": f"{int(float(dims['p'])*1000)} g"})
+
+                        family = f"{brand} {modelo}".strip() or title
+
+                        print(f"POSTING item_title={repr(item_title)} cat={cat_id} price={price} pics={len(pics)}")
                         payload = {
-                            "title": item_title,
-                            "category_id": product.get("category_id", "MLA109255"),
-                            "price": price,
-                            "currency_id": "ARS",
+                            "title":              item_title,
+                            "category_id":        cat_id,
+                            "price":              price,
+                            "currency_id":        "ARS",
                             "available_quantity": stock,
-                            "buying_mode": "buy_it_now",
-                            "listing_type_id": "gold_special",
-                            "condition": "new",
-                            "pictures": pics or [],
-                            "attributes": item_attrs,
-                            "family_name": family[:60],
-                            "shipping": shipping,
-                            "sale_terms": sale_terms,
+                            "buying_mode":        "buy_it_now",
+                            "listing_type_id":    "gold_special",
+                            "condition":          "new",
+                            "pictures":           pics,
+                            "attributes":         attrs,
+                            "family_name":        family[:60],
+                            "shipping":           shipping,
+                            "sale_terms":         sale_terms,
                         }
+
                         await asyncio.sleep(1)
-                        async with httpx.AsyncClient(timeout=30) as c:
-                            r = await c.post(f"{ML_API}/items",
-                                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                                json=payload)
-                        ok_item = r.status_code in (200, 201)
-                        try: rb = r.json()
+                        resp = None
+                        for attempt in range(3):
+                            async with httpx.AsyncClient(timeout=30) as cl:
+                                resp = await cl.post(f"{ML_API}/items",
+                                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                                    json=payload)
+                            if resp.status_code == 429:
+                                await asyncio.sleep((attempt+1)*10)
+                                continue
+                            break
+
+                        ok_item = resp.status_code in (200, 201) if resp else False
+                        try: rb = resp.json() if resp else {}
                         except: rb = {}
                         if ok_item:
                             ch_ok += 1
-                            ml_published_ids.append({"id": rb.get("id",""), "channel": ST["accounts"][ch_idx].get("name","ML"), "ch_idx": ch_idx})
+                            new_id = rb.get("id", "")
+                            new_ids.append(new_id)
+                            if sync_ml and new_id:
+                                ST["links"].append({
+                                    "ml_item_id": new_id, "ml_account_index": ch_idx,
+                                    "ml_account_name": ch_name, "ml_title": item_title,
+                                    "created_at": int(time.time())
+                                })
                         else:
-                            cause = rb.get("cause",[])
+                            cause = rb.get("cause", [])
                             ch_err = cause[0].get("message","") if cause else rb.get("message","Error")
-                            print(f"ML item error: {json.dumps(rb)[:200]}")
-                total = len(colors or [""]) * len(sizes or [""])
-                results.append({"channel": ST["accounts"][ch_idx].get("name","ML"), "ok": ch_ok>0,
-                                 "msg": f"{ch_ok}/{total} items publicados" if ch_ok>0 else ch_err,
-                                 "new_id": ml_published_ids[0]["id"] if ml_published_ids else ""})
-            except Exception as e:
-                results.append({"channel": f"cuenta_{ch_idx}", "ok": False, "msg": str(e)})
+                            print(f"ML error {resp.status_code if resp else '?'}: {json.dumps(rb)[:300]}")
 
-# Publicar en TN
-        if "tn" in channels and ST.get("tn", {}).get("store_id"):
+                total = max(1, len(colors or [""])) * max(1, len(sizes or [""]))
+                results.append({
+                    "channel": ch_name, "ok": ch_ok > 0,
+                    "msg": f"{ch_ok}/{total} items publicados" if ch_ok > 0 else ch_err,
+                    "new_ids": new_ids
+                })
+            except Exception as e:
+                results.append({"channel": f"ML{ch_idx}", "ok": False, "msg": str(e)})
+
+        # ── PUBLICAR EN TiendaNube ────────────────────────────────────────────
+        if "tn" in channels:
             try:
-                tn = ST["tn"]
-                tn_hdrs = {"Authentication": f"bearer {tn['token']}", "Content-Type": "application/json",
-                           "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"}
-                tn_variants = []
-                seen = set()
-                for color in colors:
-                    for size in sizes:
-                        key = (color, size)
-                        if key not in seen:
-                            seen.add(key)
-                            tn_variants.append({"price": str(price), "stock_management": True, "stock": stock,
-                                                "values": [{"es": color}, {"es": size}]})
-                tn_images = [{"src": f"data:image/jpeg;base64,{img}"} for img in images_base64[:10]] if images_base64 else []
-                tn_payload = {"name": {"es": title}, "description": {"es": desc}, "published": True,
-                              "attributes": ["Color", "Talle"], "variants": tn_variants, "images": tn_images}
-                async with httpx.AsyncClient(timeout=30) as c:
-                    r = await c.post(f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
-                        headers=tn_hdrs, json=tn_payload)
-                ok = r.status_code in (200, 201)
-                tn_new_id = r.json().get("id","") if ok else ""
-                results.append({"channel": "TiendaNube", "ok": ok,
-                                 "msg": "Publicado" if ok else r.json().get("description","Error"),
-                                 "new_id": tn_new_id})
+                tn = ST.get("tn", {})
+                if not tn.get("store_id"):
+                    results.append({"channel": "TiendaNube", "ok": False, "msg": "TN no conectada"})
+                else:
+                    tn_hdrs = {
+                        "Authentication": f"bearer {tn['token']}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"
+                    }
+                    tn_variants = []
+                    seen = set()
+                    for color in (colors or []):
+                        for size in (sizes or []):
+                            key = (color, size)
+                            if key not in seen:
+                                seen.add(key)
+                                vals = []
+                                if color: vals.append({"es": color})
+                                if size:  vals.append({"es": size})
+                                v = {"price": str(price), "stock_management": True, "stock": stock}
+                                if vals: v["values"] = vals
+                                tn_variants.append(v)
+                    if not tn_variants:
+                        tn_variants = [{"price": str(price), "stock_management": True, "stock": stock}]
+
+                    all_b64 = []
+                    for imgs in images_by_color.values(): all_b64.extend(imgs)
+                    if not all_b64: all_b64 = images_base64
+                    tn_images = [{"src": f"data:image/jpeg;base64,{img}"} for img in all_b64[:20]]
+
+                    tn_attrs = []
+                    if colors and sizes: tn_attrs = ["Color", "Talle"]
+                    elif colors:         tn_attrs = ["Color"]
+                    elif sizes:          tn_attrs = ["Talle"]
+
+                    tn_payload = {
+                        "name":        {"es": title},
+                        "description": {"es": desc},
+                        "published":   True,
+                        "attributes":  tn_attrs,
+                        "variants":    tn_variants,
+                        "images":      tn_images,
+                    }
+                    async with httpx.AsyncClient(timeout=30) as cl:
+                        r = await cl.post(
+                            f"https://api.tiendanube.com/v1/{tn['store_id']}/products",
+                            headers=tn_hdrs, json=tn_payload)
+                    ok_tn = r.status_code in (200, 201)
+                    try: rb_tn = r.json()
+                    except: rb_tn = {}
+                    tn_new_id = str(rb_tn.get("id", "")) if ok_tn else ""
+                    if ok_tn and sync_tn and tn_new_id:
+                        for ml_res in results:
+                            for mid in (ml_res.get("new_ids") or []):
+                                ST["links"].append({
+                                    "ml_item_id": mid, "ml_title": title,
+                                    "tn_product_id": tn_new_id, "created_at": int(time.time())
+                                })
+                    results.append({
+                        "channel": "TiendaNube", "ok": ok_tn,
+                        "msg": "Publicado" if ok_tn else rb_tn.get("description", r.text[:200] if not ok_tn else ""),
+                        "new_ids": [tn_new_id] if tn_new_id else []
+                    })
             except Exception as e:
                 results.append({"channel": "TiendaNube", "ok": False, "msg": str(e)})
-        
-        # Crear enlaces ML↔ML entre las cuentas publicadas
-        if sync_ml:
-            ml_published = [(r["channel"], r.get("new_id","")) for r in results if r.get("ok") and r.get("new_id")]
-            for i, (ch1, id1) in enumerate(ml_published):
-                for ch2, id2 in ml_published[i+1:]:
-                    ST["links"].append({
-                        "ml_item_id": id1, "ml_account_name": ch1, "ml_account_index": 0,
-                        "ml_title": product.get("titulo",""), "linked_ml_item_id": id2,
-                        "linked_ml_account": ch2, "created_at": int(time.time())
-                    })
-        
-        # Crear enlaces ML↔TN
-        if sync_tn:
-            tn_result = next((r for r in results if r.get("channel") == "TiendaNube" and r.get("ok")), None)
-            if tn_result and tn_result.get("new_id"):
-                ml_results = [r for r in results if r.get("ok") and r.get("channel") != "TiendaNube" and r.get("new_id")]
-                for r in ml_results:
-                    acc_idx = next((i for i,a in enumerate(ST["accounts"]) if a.get("name") == r["channel"]), 0)
-                    ST["links"].append({
-                        "ml_item_id": r["new_id"], "ml_account_index": acc_idx,
-                        "ml_account_name": r["channel"], "ml_title": product.get("titulo",""),
-                        "tn_product_id": str(tn_result["new_id"]), "created_at": int(time.time())
-                    })
-        
+
         save_state()
         return {"ok": True, "results": results}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-@app.get("/diag/prod_attrs/{i}")
-async def diag_prod_attrs(i: int, q: str = ""):
-    """Ver atributos de productos cacheados, buscar por título"""
-    try:
-        acc = ST["accounts"][i]
-        uid = acc.get("uid","")
-        prods = get_cached_products(uid)
-        if not prods:
-            return {"error": "no products cached"}
-        if q:
-            prods = [p for p in prods if q.lower() in p.get("title","").lower()]
-        if not prods:
-            return {"error": "no matching products"}
-        p = prods[0]
-        attrs = p.get("attributes", [])
-        return {"title": p.get("title",""), "attr_count": len(attrs), "all_attrs": attrs}
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.get("/diag/item/{item_id}")
-async def diag_item(item_id: str):
-    if not ST["accounts"]:
-        return {"error": "no accounts"}
-    try:
-        from_t = await fresh_token(0)
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}",
-                           headers={"Authorization": f"Bearer {from_t}"})
-            raw = r.text[:3000]
-            try:
-                item = r.json()
-            except Exception:
-                return {"http_status": r.status_code, "raw_response": raw}
-
-            # Obtener guía de talles si existe
-            size_grid = None
-            size_grid_error = None
-            size_attr = next((a for a in item.get("attributes",[]) if a.get("id")=="SIZE_GRID_ID"), None)
-            if size_attr:
-                chart_id = size_attr.get("value_name") or size_attr.get("value_id")
-                if chart_id:
-                    sg = await c.get(f"{ML_API}/size_charts/{chart_id}",
-                                    headers={"Authorization": f"Bearer {from_t}"})
-                    try:
-                        size_grid = sg.json()
-                        size_grid_error = None if sg.status_code == 200 else f"HTTP {sg.status_code}"
-                    except Exception:
-                        size_grid_error = sg.text[:200]
-
-            return {
-                "http_status": r.status_code,
-                "title": item.get("title"),
-                "category_id": item.get("category_id"),
-                "variations_count": len(item.get("variations", [])),
-                "size_grid_attr": size_attr,
-                "size_grid_response": size_grid,
-                "size_grid_error": size_grid_error,
-                "ml_error": item.get("error"),
-            }
-    except Exception as e:
-        return {"exception": str(e)}
-
-@app.get("/api/ml/{i}/charts")
-async def list_charts(i: int, _=Depends(auth)):
-    """Listar guías de talles de una cuenta ML"""
-    try:
-        t = await fresh_token(i)
-        async with httpx.AsyncClient(timeout=15) as c:
-            me_r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {t}"})
-            uid = str(me_r.json().get("id",""))
-            r = await c.post(f"{ML_API}/catalog/charts/search",
-                headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"},
-                json={"site_id": "MLA", "seller_id": int(uid) if uid.isdigit() else uid})
-            if r.status_code == 200:
-                charts = r.json().get("charts", [])
-                result = []
-                for ch in charts:
-                    sizes = []
-                    for row in (ch.get("rows") or []):
-                        sv = next((v.get("name","") for a in row.get("attributes",[])
-                                   if a.get("id")=="SIZE" for v in a.get("values",[])), "")
-                        if sv:
-                            sizes.append(sv)
-                    result.append({"id": str(ch["id"]), "name": ch.get("names",{}).get("MLA",""),
-                                   "domain": ch.get("domain_id",""), "sizes": sizes})
-                return {"charts": result}
-            return {"charts": [], "error": r.status_code, "body": r.text[:200]}
-    except Exception as e:
         import traceback
-        return {"charts": [], "error": str(e), "trace": traceback.format_exc()[:500]}
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:500]}
+
 
 @app.post("/api/duplicate/with_chart")
 async def dup_with_chart(request: Request, _=Depends(auth)):
