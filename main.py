@@ -2049,7 +2049,12 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
         images_base64 = b.get("images_base64", [])  # fotos ya generadas
         sync_ml = b.get("sync_ml", False)
         sync_tn = b.get("sync_tn", False)
-        chart_ids = b.get("chart_ids", {})  # {acc_idx: chart_id} guias por cuenta
+        chart_ids = b.get("chart_ids", {})
+        free_shipping = b.get("free_shipping", False)
+        flex_shipping = b.get("flex", False)
+        pickup_point = b.get("pickup", False)
+        cuotas = b.get("cuotas", False)
+        garantia_dias = b.get("garantia", 90)
         
         results = []
         
@@ -2070,14 +2075,20 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
             except Exception as e:
                 print(f"Error subiendo fotos: {e}")
         
-        title = product.get("titulo", "")
-        price = product.get("precio", 0)
-        stock = product.get("stock_por_variante", 100)
-        colors = product.get("colores", [])
-        sizes = product.get("talles", [])
-        brand = product.get("marca", "")
-        model_num = product.get("modelo", "")
-        desc = product.get("descripcion", title)
+        # titulo puede venir de varios campos
+        title = (product.get("titulo") or product.get("titulo_sugerido") or "").strip()
+        price = float(product.get("precio") or product.get("price") or 0)
+        stock = int(product.get("stock_por_variante") or product.get("stock") or 100)
+        colors = product.get("colores") or product.get("colores_detectados") or []
+        sizes = product.get("talles") or product.get("talles_sugeridos") or []
+        brand = product.get("marca") or product.get("brand") or ""
+        model_num = product.get("modelo") or product.get("model") or ""
+        desc = product.get("descripcion") or title
+        print(f"AI publish: title={repr(title)} price={price} colors={colors} sizes={sizes}")
+        if not title:
+            return {"ok": False, "error": "Falta el titulo del producto"}
+        if not price:
+            return {"ok": False, "error": "Falta el precio del producto"}
         
         # Atributos ML base
         base_attrs = [{"id": "GENDER", "value_name": product.get("genero", "Mujer")}]
@@ -2119,6 +2130,15 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                         else:
                             pics = ml_picture_ids[:5] or []
                         family = f"{brand} {model_num}".strip() or title[:60]
+                        # Shipping config
+                        shipping = {"mode": "me2", "local_pick_up": pickup_point, "free_shipping": free_shipping}
+                        if flex_shipping:
+                            shipping["methods"] = [{"id": 100009, "name": "Mercado Envios Flex"}]
+                        # Sale terms (garantia, cuotas)
+                        sale_terms = []
+                        if garantia_dias:
+                            sale_terms.append({"id": "WARRANTY_TYPE", "value_name": "Garantia del vendedor"})
+                            sale_terms.append({"id": "WARRANTY_TIME", "value_name": f"{garantia_dias} dias"})
                         payload = {
                             "title": item_title,
                             "category_id": product.get("category_id", "MLA109255"),
@@ -2131,6 +2151,8 @@ async def ai_publish_product(req: Request, _=Depends(auth)):
                             "pictures": pics or [],
                             "attributes": item_attrs,
                             "family_name": family[:60],
+                            "shipping": shipping,
+                            "sale_terms": sale_terms,
                         }
                         await asyncio.sleep(1)
                         async with httpx.AsyncClient(timeout=30) as c:
