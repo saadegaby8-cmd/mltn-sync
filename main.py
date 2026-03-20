@@ -424,20 +424,67 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
     if i < 0 or i >= len(ST["accounts"]):
         raise HTTPException(404)
     uid = ST["accounts"][i]["uid"]
-    products = get_cached_products(uid)
-    if products is None:
+    products = get_cached_products(uid) or []
+
+    # Verificar si hay items nuevos en ML que no estan en cache
+    try:
+        token = await fresh_token(i)
+        hdrs = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{ML_API}/users/{uid}/items/search?status=active&limit=1", headers=hdrs)
+            if r.status_code == 200:
+                ml_total = r.json().get("paging", {}).get("total", 0)
+                cached_count = len(products)
+                if ml_total > cached_count:
+                    # Hay items nuevos — traer los IDs que no tenemos
+                    diff = ml_total - cached_count
+                    existing_ids = {p["id"] for p in products}
+                    new_items = []
+                    offset = 0
+                    async with httpx.AsyncClient(timeout=15) as c2:
+                        while offset < min(diff + 20, 200):
+                            r2 = await c2.get(
+                                f"{ML_API}/users/{uid}/items/search?status=active&limit=50&offset={offset}",
+                                headers=hdrs)
+                            if r2.status_code != 200: break
+                            ids = r2.json().get("results", [])
+                            if not ids: break
+                            missing = [iid for iid in ids if iid not in existing_ids]
+                            if missing:
+                                # Traer detalles de los nuevos
+                                for batch_start in range(0, len(missing), 20):
+                                    batch = missing[batch_start:batch_start+20]
+                                    r3 = await c2.get(
+                                        f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title,price,available_quantity,status,thumbnail,category_id,variations",
+                                        headers=hdrs)
+                                    if r3.status_code == 200:
+                                        for item_wrap in r3.json():
+                                            item = item_wrap.get("body", {}) if "body" in item_wrap else item_wrap
+                                            if item.get("id"):
+                                                new_items.append(item)
+                                                existing_ids.add(item["id"])
+                            if len(missing) < 5: break  # ya no hay nuevos en este offset
+                            offset += 50
+                    if new_items:
+                        products = products + new_items
+                        set_cached_products(uid, products)
+    except Exception as e:
+        print(f"Auto-refresh check error: {e}")
+
+    if not products:
         return {"products": [], "total": 0, "synced": False,
                 "msg": "Productos no sincronizados. Presiona Sincronizar."}
+    all_products = products
     if status != "all":
-        products = [p for p in products if p.get("status","") == status]
+        all_products = [p for p in all_products if p.get("status","") == status]
     if search:
         s = search.lower()
-        products = [p for p in products if s in p.get("title","").lower()]
-    total = len(products)
+        all_products = [p for p in all_products if s in p.get("title","").lower()]
+    total = len(all_products)
     if limit >= 9999:
-        return {"products": products, "items": products, "total": total, "synced": True, "page": 1, "limit": total}
+        return {"products": all_products, "items": all_products, "total": total, "synced": True, "page": 1, "limit": total}
     start = (page-1)*limit
-    page_products = products[start:start+limit]
+    page_products = all_products[start:start+limit]
     return {"products": page_products, "items": page_products, "total": total, "synced": True, "page": page, "limit": limit}
 
 @app.get("/api/ml/{i}/health")
