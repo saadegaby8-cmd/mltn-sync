@@ -2560,7 +2560,10 @@ function iaUpdatePublishButton() {
     + '<input type="checkbox" id="ia-sync-tn-check" checked style="width:14px;height:14px">'
     + '<span style="font-size:12px"><b>Sincronizar con TiendaNube</b></span>'
     + '</label>'
-    + '<button class="btn btn-green" style="width:100%" onclick="iaPublish()">Publicar ahora</button>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="btn btn-out" style="flex:1;font-size:11px" onclick="iaDebugPublish()">Ver datos</button>'
+    + '<button class="btn btn-green" style="flex:2" onclick="iaPublish()">Publicar ahora</button>'
+    + '</div>'
     + '</div>';
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
@@ -2649,7 +2652,10 @@ function iaShowPublishButton() {
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:12px"><input type="checkbox" id="ia-sync-check" checked> Sincronizar entre cuentas ML</label>'
     + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:12px"><input type="checkbox" id="ia-sync-tn-check" checked> Sincronizar con TiendaNube</label>'
-    + '<button class="btn btn-green" style="width:100%" onclick="iaPublish()">Publicar ahora</button>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="btn btn-out" style="flex:1;font-size:11px" onclick="iaDebugPublish()">Ver datos</button>'
+    + '<button class="btn btn-green" style="flex:2" onclick="iaPublish()">Publicar ahora</button>'
+    + '</div>'
     + '</div>';
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
@@ -2866,6 +2872,46 @@ async function iaConfirmGenerate() {
   }
   const genCount = Object.keys(iaGeneratedPhotos).length;
   iaAddBotMessage("[OK] Fotos generadas para "+genCount+" colores. Revisalas y cuando estes listo publica.");
+}
+
+async function iaDebugPublish() {
+  const syncML = document.getElementById('ia-sync-check')?.checked !== false;
+  const syncTN = document.getElementById('ia-sync-tn-check')?.checked !== false;
+  const tituloInput = document.getElementById('ia-titulo-input')?.value?.trim();
+  if (tituloInput) iaContext.titulo = tituloInput;
+  const precioInput = parseFloat(document.getElementById('ia-precio-input')?.value || '0');
+  if (precioInput > 0) iaContext.precio = precioInput;
+  const coloresInput = document.getElementById('ia-colores-input')?.value?.trim();
+  if (coloresInput) iaContext.colores = coloresInput.split(',').map(s=>s.trim()).filter(Boolean);
+  const tallesInput = document.getElementById('ia-talles-input')?.value?.trim();
+  if (tallesInput) iaContext.talles = tallesInput.split(',').map(s=>s.trim()).filter(Boolean);
+  const chartIds = {};
+  (appState.ml_accounts||[]).forEach((acc, i) => {
+    const val = document.getElementById('ia-chart-' + i)?.value?.trim();
+    if (val) chartIds[i] = val;
+  });
+  const dims = {
+    h: parseFloat(document.getElementById('ia-dim-h')?.value)||0,
+    w: parseFloat(document.getElementById('ia-dim-w')?.value)||0,
+    l: parseFloat(document.getElementById('ia-dim-l')?.value)||0,
+    p: parseFloat(document.getElementById('ia-dim-p')?.value)||0
+  };
+  try {
+    const r = await fetch('/api/ai/debug_publish', {
+      method: 'POST', headers: hdr(),
+      body: JSON.stringify({
+        product: {...iaContext, titulo: iaContext.titulo||'', colores: iaContext.colores||[], talles: iaContext.talles||[], precio: iaContext.precio||0, dims},
+        channels: [...iaSelectedChannels],
+        images_base64: Object.values(iaGeneratedPhotos).flat(),
+        images_by_color: iaGeneratedPhotos,
+        chart_ids: chartIds
+      })
+    });
+    const d = await r.json();
+    iaAddBotMessage('DEBUG:\n' + JSON.stringify(d.recibido, null, 2));
+  } catch(e) {
+    iaAddBotMessage('[Error] ' + e.message);
+  }
 }
 
 async function iaPublish() {
