@@ -1437,7 +1437,7 @@ async function startMLSync(){
         }else{
           const fetched=st.fetched||0;const total=st.total||0;
           const txt=st.status==='fetching_ids'?'Obteniendo publicaciones...':
-            `Descargando: ${fetched}${total?' / '+total:''} productos...`;
+            `Descargando: ${fetched}${total && total > fetched ? ' / '+total : ''} productos...`;
           showMsg('msg-prod','... '+txt,'info');
         }
       }catch(e){}
