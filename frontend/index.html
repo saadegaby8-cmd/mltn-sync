@@ -2124,6 +2124,8 @@ async function doDuplicate(estado, sync, agrupar, explotar, dims){
   dims = dims || null;
   const from=parseInt(document.getElementById('dup-from').value);
   const to=parseInt(document.getElementById('dup-to').value);
+  console.log('doDuplicate: from='+from+' to='+to+' sel='+dupSel.length+' ids='+JSON.stringify(dupSel.slice(0,3)));
+  if(dupSel.length===0){document.getElementById('dup-pt').textContent='[Error] No hay productos seleccionados';document.getElementById('dup-prog-panel').style.display='block';return;}
   if(from===to){showMsg('msg-dup','! Origen y destino deben ser distintos.','err');return;}
   document.getElementById('dup-prog-panel').style.display='block';
   document.getElementById('dup-res').innerHTML='';
