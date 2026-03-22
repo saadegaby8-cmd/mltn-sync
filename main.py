@@ -282,17 +282,64 @@ def get_cached_products(uid):
         try:
             raw = r.get(redis_products_key(uid))
             if raw:
-                return json.loads(raw)
-        except: pass
+                data = json.loads(raw)
+                if isinstance(data, dict) and data.get("chunked"):
+                    # Leer chunks
+                    products = []
+                    for i in range(data.get("chunks", 2)):
+                        chunk_raw = r.get(redis_products_key(uid) + f":{i}")
+                        if chunk_raw:
+                            products.extend(json.loads(chunk_raw))
+                    return products if products else None
+                return data
+        except Exception as e:
+            print(f"Cache read error: {e}")
     return None
+
+def slim_product(p):
+    """Guardar solo lo necesario para reducir tamaño en Redis"""
+    slim = {
+        "id": p.get("id",""),
+        "title": p.get("title",""),
+        "price": p.get("price",0),
+        "available_quantity": p.get("available_quantity",0),
+        "status": p.get("status",""),
+        "thumbnail": p.get("thumbnail",""),
+        "category_id": p.get("category_id",""),
+        "permalink": p.get("permalink",""),
+        "_has_variations": p.get("_has_variations",False),
+        "_variation_count": p.get("_variation_count",0),
+    }
+    if p.get("variations"):
+        slim["variations"] = [{
+            "id": v.get("id",""),
+            "available_quantity": v.get("available_quantity",0),
+            "price": v.get("price",0),
+            "_attrs": v.get("_attrs",{}),
+            "attribute_combinations": v.get("attribute_combinations",[]),
+        } for v in p["variations"][:50]]
+    return slim
 
 def set_cached_products(uid, products):
     r = get_redis()
     if r:
         try:
-            r.set(redis_products_key(uid), json.dumps(products))
+            slimmed = [slim_product(p) for p in products]
+            data = json.dumps(slimmed)
+            # Si supera 4MB partir en chunks
+            if len(data) > 4_000_000:
+                chunk_size = len(slimmed) // 2
+                r.set(redis_products_key(uid) + ":0", json.dumps(slimmed[:chunk_size]))
+                r.set(redis_products_key(uid) + ":1", json.dumps(slimmed[chunk_size:]))
+                r.set(redis_products_key(uid), json.dumps({"chunked": True, "chunks": 2, "total": len(slimmed)}))
+            else:
+                r.delete(redis_products_key(uid) + ":0")
+                r.delete(redis_products_key(uid) + ":1")
+                r.set(redis_products_key(uid), data)
             r.set(redis_status_key(uid), json.dumps({"status":"done","total":len(products),"ts":int(time.time())}))
-        except: pass
+            print(f"Cache saved: {len(products)} products, {len(data)//1024}KB")
+        except Exception as e:
+            print(f"Cache save error: {e}")
 
 def set_sync_status(uid, status, total=0, fetched=0):
     r = get_redis()
