@@ -2237,12 +2237,19 @@ async def tech_chat(req: Request, _=Depends(auth)):
                 token_status = []
                 for i, acc in enumerate(ST.get("accounts", [])):
                     uid = acc.get("uid", "")
-                    token_ok = bool(acc.get("access_token"))
+                    token_ok = bool(acc.get("token") or acc.get("access_token"))
+                    token_exp = acc.get("expiry", 0)
+                    token_expired = token_exp > 0 and time.time() > token_exp
                     cached = get_cached_products(uid)
                     cached_count = len(cached) if cached else 0
                     status_raw = get_redis().get(redis_status_key(uid)) if get_redis() else None
                     status = json.loads(status_raw) if status_raw else {}
-                    token_status.append(f"  - {acc.get('name','')}: token={'OK' if token_ok else 'FALTA'}, cache={cached_count} productos, sync_status={status.get('status','?')}, sync_total={status.get('total',0)}")
+                    token_status.append(
+                        "  - " + acc.get('name','') + ": token=" + ("OK" if token_ok else "FALTA") +
+                        (" (VENCIDO)" if token_expired else "") +
+                        ", cache=" + str(cached_count) + " productos" +
+                        ", sync=" + status.get('status','?') + "/" + str(status.get('total',0))
+                    )
                 
                 tn = ST.get("tn", {})
                 redis_ok = bool(get_redis())
