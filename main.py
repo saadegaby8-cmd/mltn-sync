@@ -1810,23 +1810,63 @@ async def process_ml_item_change(resource: str, seller_uid: int):
                 except Exception as e:
                     print(f"  family_name lookup error: {e}")
 
+        # Obtener variantes del item origen para poder matchear
+        src_variations = item.get("variations", [])
+        print(f"  Item origen tiene {len(src_variations)} variantes")
+
         for link in linked:
-            dest_id = link.get("tn_product_id")  # En ML→ML links, este es el item destino
+            dest_id = link.get("tn_product_id")
             dest_acc_idx = link.get("tn_acc_idx", link.get("ml_account_index"))
             if dest_acc_idx is None:
                 continue
             try:
                 dest_token = await fresh_token(dest_acc_idx)
-                async with httpx.AsyncClient(timeout=10) as c:
-                    r = await c.put(f"{ML_API}/items/{dest_id}",
-                        headers={"Authorization": f"Bearer {dest_token}", "Content-Type": "application/json"},
-                        json={"price": price, "available_quantity": stock})
-                if r.status_code in (200, 201):
-                    print(f"  Link sync OK: {dest_id} cuenta {dest_acc_idx} -> precio={price} stock={stock}")
-                elif "has_bids" in r.text:
-                    print(f"  Link sync SKIP: {dest_id} en subasta")
-                else:
-                    print(f"  Link sync ERROR: {dest_id}: {r.status_code} {r.text[:100]}")
+                async with httpx.AsyncClient(timeout=15) as c:
+                    # Obtener item destino con sus variantes
+                    rd = await c.get(f"{ML_API}/items/{dest_id}?attributes=variations,available_quantity,price",
+                        headers={"Authorization": f"Bearer {dest_token}"})
+                    if rd.status_code != 200:
+                        print(f"  No se pudo obtener destino {dest_id}: {rd.status_code}")
+                        continue
+                    dest_item = rd.json()
+                    dest_variations = dest_item.get("variations", [])
+
+                    if src_variations and dest_variations:
+                        # Matchear variantes por atributos (COLOR + SIZE)
+                        updated_vars = []
+                        for sv in src_variations:
+                            sv_attrs = {a["id"]: a.get("value_name","") for a in sv.get("attribute_combinations",[])}
+                            sv_stock = sv.get("available_quantity", 0)
+                            sv_price = sv.get("price", price)
+                            # Buscar variante equivalente en destino
+                            for dv in dest_variations:
+                                dv_attrs = {a["id"]: a.get("value_name","") for a in dv.get("attribute_combinations",[])}
+                                if sv_attrs == dv_attrs:
+                                    updated_vars.append({"id": dv["id"], "available_quantity": sv_stock, "price": sv_price})
+                                    break
+                        if updated_vars:
+                            r = await c.put(f"{ML_API}/items/{dest_id}",
+                                headers={"Authorization": f"Bearer {dest_token}", "Content-Type": "application/json"},
+                                json={"variations": updated_vars})
+                            if r.status_code in (200, 201):
+                                print(f"  Link sync OK: {dest_id} cuenta {dest_acc_idx} -> {len(updated_vars)} variantes actualizadas")
+                            elif "has_bids" in r.text:
+                                print(f"  Link sync SKIP: {dest_id} en subasta")
+                            else:
+                                print(f"  Link sync ERROR: {dest_id}: {r.status_code} {r.text[:150]}")
+                        else:
+                            print(f"  No se encontraron variantes matching en {dest_id}")
+                    else:
+                        # Sin variantes — actualizar item directo
+                        r = await c.put(f"{ML_API}/items/{dest_id}",
+                            headers={"Authorization": f"Bearer {dest_token}", "Content-Type": "application/json"},
+                            json={"price": price, "available_quantity": stock})
+                        if r.status_code in (200, 201):
+                            print(f"  Link sync OK: {dest_id} cuenta {dest_acc_idx} -> precio={price} stock={stock}")
+                        elif "has_bids" in r.text:
+                            print(f"  Link sync SKIP: {dest_id} en subasta")
+                        else:
+                            print(f"  Link sync ERROR: {dest_id}: {r.status_code} {r.text[:100]}")
             except Exception as e:
                 print(f"  Link sync error {dest_id}: {e}")
 
