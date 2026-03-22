@@ -1607,9 +1607,12 @@ async def duplicate(req: Request, _=Depends(auth)):
                             headers={"Authorization": f"Bearer {to_t}"},
                             json={"status": "paused"})
                     if auto_link and new_id:
+                        # Guardar family_name para poder matchear webhooks de la misma familia
+                        fam = item.get("family_name","") or item.get("title","")[:60]
                         link = {"ml_item_id": iid, "ml_acc_idx": from_idx,
                                 "tn_product_id": new_id, "tn_acc_idx": to_idx,
-                                "auto_linked": True}
+                                "auto_linked": True, "ml_title": item.get("title",""),
+                                "family_name": fam}
                         if "links" not in ST: ST["links"] = []
                         ST["links"].append(link)
                 elif r2.status_code == 429:
@@ -1776,14 +1779,36 @@ async def process_ml_item_change(resource: str, seller_uid: int):
         linked = [l for l in links if l.get("ml_item_id") == item_id and l.get("tn_product_id")]
         print(f"  Links directos para {item_id}: {len(linked)}")
 
-        # Si no hay links directos, buscar items de la misma familia por modelo
-        if not linked and model:
-            family_linked = [l for l in links
-                if extract_model(l.get("ml_title","")) == model
-                and l.get("tn_product_id")]
-            if family_linked:
-                print(f"  Links de familia modelo '{model}': {len(family_linked)}")
-                linked = family_linked
+        # Si no hay links directos, buscar por modelo o family_name
+        if not linked:
+            if model:
+                family_linked = [l for l in links
+                    if extract_model(l.get("ml_title","")) == model
+                    and l.get("tn_product_id")]
+                if family_linked:
+                    print(f"  Links de familia modelo '{model}': {len(family_linked)}")
+                    linked = family_linked
+            # Si sigue sin links, buscar por family_name del item en ML
+            if not linked:
+                try:
+                    async with httpx.AsyncClient(timeout=10) as c:
+                        rf = await c.get(f"{ML_API}/items/{item_id}?attributes=family_name,title",
+                            headers={"Authorization": f"Bearer {token}"})
+                        if rf.status_code == 200:
+                            fam = rf.json().get("family_name","")
+                            if fam:
+                                fam_linked = [l for l in links
+                                    if l.get("family_name") == fam and l.get("tn_product_id")]
+                                if not fam_linked:
+                                    # Buscar por titulo similar
+                                    fam_linked = [l for l in links
+                                        if fam in (l.get("family_name","") or l.get("ml_title","")[:60])
+                                        and l.get("tn_product_id")]
+                                if fam_linked:
+                                    print(f"  Links por family_name '{fam[:40]}': {len(fam_linked)}")
+                                    linked = fam_linked
+                except Exception as e:
+                    print(f"  family_name lookup error: {e}")
 
         for link in linked:
             dest_id = link.get("tn_product_id")  # En ML→ML links, este es el item destino
