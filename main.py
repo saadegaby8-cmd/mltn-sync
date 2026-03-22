@@ -1771,10 +1771,19 @@ async def process_ml_item_change(resource: str, seller_uid: int):
         model = extract_model(title)
         print(f"Item change: {item_id} '{title[:50]}' modelo='{model}' precio={price} stock={stock}")
 
-        # METODO 1: Buscar por enlaces directos (prioridad)
+        # METODO 1: Buscar por enlaces directos
         links = ST.get("links", [])
         linked = [l for l in links if l.get("ml_item_id") == item_id and l.get("tn_product_id")]
-        print(f"  Links encontrados para {item_id}: {len(linked)}")
+        print(f"  Links directos para {item_id}: {len(linked)}")
+
+        # Si no hay links directos, buscar items de la misma familia por modelo
+        if not linked and model:
+            family_linked = [l for l in links
+                if extract_model(l.get("ml_title","")) == model
+                and l.get("tn_product_id")]
+            if family_linked:
+                print(f"  Links de familia modelo '{model}': {len(family_linked)}")
+                linked = family_linked
 
         for link in linked:
             dest_id = link.get("tn_product_id")  # En ML→ML links, este es el item destino
