@@ -315,9 +315,16 @@ async def do_sync_products(i: int, uid: str, token: str):
     set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
-        # Usar scroll scan solo para items activos con stock
+        # Refrescar token antes de empezar por si vencio
+        try:
+            token = await fresh_token(i)
+            hdrs = {"Authorization": f"Bearer {token}"}
+        except Exception as e:
+            print(f"Error refrescando token para sync: {e}")
+
         async with httpx.AsyncClient(timeout=60) as c:
             scroll_id = None
+            first_call = True
             for _ in range(1000):
                 url = f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100&status=active"
                 if scroll_id:
@@ -327,20 +334,30 @@ async def do_sync_products(i: int, uid: str, token: str):
                     if r.status_code == 429:
                         await asyncio.sleep(60)
                         r = await c.get(url, headers=hdrs)
+                    if r.status_code == 401:
+                        # Token vencido - refrescar y reintentar
+                        token = await fresh_token(i)
+                        hdrs = {"Authorization": f"Bearer {token}"}
+                        r = await c.get(url, headers=hdrs)
                     if r.status_code != 200:
+                        print(f"Sync error {r.status_code}: {r.text[:200]}")
                         break
                     d = r.json()
                     ids = d.get("results", [])
+                    if first_call:
+                        print(f"Sync first page: status={r.status_code} ids={len(ids)} paging={d.get('paging')}")
+                        first_call = False
                     if not ids:
                         break
                     all_ids.extend(ids)
-                    all_ids = list(dict.fromkeys(all_ids))  # deduplicar manteniendo orden
+                    all_ids = list(dict.fromkeys(all_ids))
                     set_sync_status(uid, "fetching_ids", total=len(all_ids), fetched=0)
                     scroll_id = d.get("scroll_id")
                     if not scroll_id:
                         break
                     await asyncio.sleep(0.8)
-                except Exception:
+                except Exception as e:
+                    print(f"Sync loop error: {e}")
                     break
 
         if not all_ids:
@@ -426,36 +443,6 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
     uid = ST["accounts"][i]["uid"]
     products = get_cached_products(uid) or []
 
-    # Si hay diferencia con ML, traer los mas recientes
-    try:
-        token = await fresh_token(i)
-        hdrs = {"Authorization": f"Bearer {token}"}
-        existing_ids = {p["id"] for p in products}
-        async with httpx.AsyncClient(timeout=15) as c:
-            # Traer los 100 items mas recientes de ML
-            r = await c.get(
-                f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100&status=active",
-                headers=hdrs)
-            if r.status_code == 200:
-                recent_ids = r.json().get("results", [])
-                missing_ids = [iid for iid in recent_ids if iid not in existing_ids]
-                if missing_ids:
-                    print(f"Encontrados {len(missing_ids)} items nuevos para {uid}")
-                    for batch_start in range(0, len(missing_ids), 20):
-                        batch = missing_ids[batch_start:batch_start+20]
-                        r2 = await c.get(
-                            f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title,price,available_quantity,status,thumbnail,category_id",
-                            headers=hdrs)
-                        if r2.status_code == 200:
-                            for item_wrap in r2.json():
-                                item = item_wrap.get("body", item_wrap) if isinstance(item_wrap, dict) else {}
-                                if item.get("id"):
-                                    products.append(item)
-                                    existing_ids.add(item["id"])
-                    set_cached_products(uid, products)
-    except Exception as e:
-        print(f"Auto-refresh error: {e}")
-
     if not products:
         return {"products": [], "total": 0, "synced": False,
                 "msg": "Productos no sincronizados. Presiona Sincronizar."}
@@ -471,6 +458,50 @@ async def get_products(i: int, page: int = 1, limit: int = 50,
     start = (page-1)*limit
     page_products = all_products[start:start+limit]
     return {"products": page_products, "items": page_products, "total": total, "synced": True, "page": page, "limit": limit}
+
+@app.post("/api/ml/{i}/fetch_new")
+async def fetch_new_items(i: int, _=Depends(auth)):
+    """Trae solo los items nuevos que no estan en cache"""
+    if i < 0 or i >= len(ST["accounts"]):
+        raise HTTPException(404)
+    uid = ST["accounts"][i]["uid"]
+    try:
+        token = await fresh_token(i)
+        hdrs = {"Authorization": f"Bearer {token}"}
+        products = get_cached_products(uid) or []
+        existing_ids = {p["id"] for p in products}
+        new_items = []
+        async with httpx.AsyncClient(timeout=30) as c:
+            # Traer los 200 mas recientes por offset (no scan para ver los nuevos primero)
+            for offset in range(0, 200, 50):
+                r = await c.get(
+                    f"{ML_API}/users/{uid}/items/search?status=active&limit=50&offset={offset}&sort=start_time_desc",
+                    headers=hdrs)
+                if r.status_code != 200:
+                    break
+                ids = r.json().get("results", [])
+                if not ids:
+                    break
+                missing = [iid for iid in ids if iid not in existing_ids]
+                if not missing:
+                    break  # ya no hay nuevos, parar
+                for batch_start in range(0, len(missing), 20):
+                    batch = missing[batch_start:batch_start+20]
+                    r2 = await c.get(
+                        f"{ML_API}/items?ids={','.join(batch)}&attributes=id,title,price,available_quantity,status,thumbnail,category_id,variations",
+                        headers=hdrs)
+                    if r2.status_code == 200:
+                        for wrap in r2.json():
+                            item = wrap.get("body", wrap) if isinstance(wrap, dict) else {}
+                            if item.get("id") and item["id"] not in existing_ids:
+                                new_items.append(item)
+                                existing_ids.add(item["id"])
+        if new_items:
+            products = new_items + products  # nuevos primero
+            set_cached_products(uid, products)
+        return {"ok": True, "nuevos": len(new_items), "total": len(products)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.get("/api/ml/{i}/health")
 async def get_items_health(i: int, ids: str = "", _=Depends(auth)):
