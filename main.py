@@ -362,38 +362,35 @@ async def do_sync_products(i: int, uid: str, token: str):
     set_sync_status(uid, "fetching_ids", total=0, fetched=0)
     all_ids = []
     try:
-        # Refrescar token antes de empezar por si vencio
+        # Refrescar token antes de empezar
         try:
             token = await fresh_token(i)
             hdrs = {"Authorization": f"Bearer {token}"}
         except Exception as e:
-            print(f"Error refrescando token para sync: {e}")
+            print(f"Error refrescando token: {e}")
 
         async with httpx.AsyncClient(timeout=60) as c:
+            # Intentar con scroll scan primero
             scroll_id = None
-            first_call = True
-            for _ in range(1000):
+            for page in range(1000):
                 url = f"{ML_API}/users/{uid}/items/search?search_type=scan&limit=100&status=active"
                 if scroll_id:
                     url += f"&scroll_id={scroll_id}"
                 try:
                     r = await c.get(url, headers=hdrs)
-                    if r.status_code == 429:
-                        await asyncio.sleep(60)
-                        r = await c.get(url, headers=hdrs)
                     if r.status_code == 401:
-                        # Token vencido - refrescar y reintentar
                         token = await fresh_token(i)
                         hdrs = {"Authorization": f"Bearer {token}"}
                         r = await c.get(url, headers=hdrs)
+                    if r.status_code == 429:
+                        await asyncio.sleep(60)
+                        r = await c.get(url, headers=hdrs)
                     if r.status_code != 200:
-                        print(f"Sync error {r.status_code}: {r.text[:200]}")
+                        print(f"Scan error {r.status_code}: {r.text[:200]}")
                         break
                     d = r.json()
                     ids = d.get("results", [])
-                    if first_call:
-                        print(f"Sync first page: status={r.status_code} ids={len(ids)} paging={d.get('paging')}")
-                        first_call = False
+                    print(f"Scan page {page}: {len(ids)} ids, scroll={bool(d.get('scroll_id'))}")
                     if not ids:
                         break
                     all_ids.extend(ids)
@@ -402,13 +399,44 @@ async def do_sync_products(i: int, uid: str, token: str):
                     scroll_id = d.get("scroll_id")
                     if not scroll_id:
                         break
-                    await asyncio.sleep(0.8)
+                    await asyncio.sleep(0.5)
                 except Exception as e:
-                    print(f"Sync loop error: {e}")
+                    print(f"Scan loop error: {e}")
                     break
 
+            # Si scan no dio nada, usar paginacion normal como fallback
+            if not all_ids:
+                print(f"Scan vacio para {uid}, usando paginacion normal...")
+                offset = 0
+                while True:
+                    try:
+                        url = f"{ML_API}/users/{uid}/items/search?status=active&limit=100&offset={offset}"
+                        r = await c.get(url, headers=hdrs)
+                        if r.status_code == 429:
+                            await asyncio.sleep(60)
+                            r = await c.get(url, headers=hdrs)
+                        if r.status_code != 200:
+                            print(f"Paginate error {r.status_code}: {r.text[:100]}")
+                            break
+                        d = r.json()
+                        ids = d.get("results", [])
+                        total_paging = d.get("paging", {}).get("total", 0)
+                        print(f"Paginate offset={offset}: {len(ids)} ids, total={total_paging}")
+                        if not ids:
+                            break
+                        all_ids.extend(ids)
+                        all_ids = list(dict.fromkeys(all_ids))
+                        set_sync_status(uid, "fetching_ids", total=total_paging, fetched=0)
+                        if len(all_ids) >= total_paging or len(ids) < 100:
+                            break
+                        offset += 100
+                        await asyncio.sleep(0.5)
+                    except Exception as e:
+                        print(f"Paginate error: {e}")
+                        break
+
         if not all_ids:
-            set_sync_status(uid, "error: no se encontraron productos")
+            set_sync_status(uid, "error: no se encontraron productos - verificar token y conexion ML")
             SYNC_RUNNING.pop(uid, None)
             return
 
