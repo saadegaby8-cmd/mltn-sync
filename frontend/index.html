@@ -3088,6 +3088,27 @@ let canalItems = [];
 let canalPage = 1;
 const CANAL_PAGE_SIZE = 20;
 
+async function fetchNewItems(idx) {
+  const btn = event.target;
+  btn.textContent = 'Buscando...';
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/ml/${idx}/fetch_new`, {method:'POST', headers:hdr()});
+    const d = await r.json();
+    if (d.ok && d.nuevos > 0) {
+      await showCanal(idx);
+    } else if (d.ok) {
+      btn.textContent = 'Sin nuevos';
+    } else {
+      btn.textContent = 'Error: ' + d.error;
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
+}
+
 async function showCanal(idx) {
   canalAccIdx = idx;
   showPage('canal');
@@ -3105,7 +3126,9 @@ async function showCanal(idx) {
     canalItems = items;
     canalPage = 1;
     const syncMsg = data.synced === false ? ' . ! No sincronizado - ir a Sincronizar' : '';
-    document.getElementById('canal-stats').textContent = `${items.length} publicaciones${syncMsg} (total: ${data.total||0})`;
+    const newCount = (data.total||0) - items.length;
+    const newBtn = newCount > 0 ? ` <button class="btn btn-out btn-sm" onclick="fetchNewItems(${canalAccIdx})" style="margin-left:8px">+ Traer ${newCount} nuevos</button>` : '';
+    document.getElementById('canal-stats').innerHTML = `${items.length} publicaciones${syncMsg} (total: ${data.total||0})` + newBtn;
     filterCanalItems();
     // Cargar health de la primera pagina en background
     loadCanalHealth(idx, canalItems.slice(0, 20));
