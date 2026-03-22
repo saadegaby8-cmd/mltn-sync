@@ -1788,17 +1788,40 @@ async def process_ml_item_change(resource: str, seller_uid: int):
                 matching = [p for p in prods if extract_model(p.get("title","")) == model]
                 for prod in matching:
                     pid = prod.get("id","")
+                    has_variations = prod.get("_has_variations") or len(prod.get("variations", [])) > 0
                     async with httpx.AsyncClient(timeout=10) as c:
-                        r = await c.put(f"{ML_API}/items/{pid}",
-                            headers={"Authorization": f"Bearer {to_token}",
-                                     "Content-Type": "application/json"},
-                            json={"price": price, "available_quantity": stock})
+                        if has_variations:
+                            # Actualizar stock por variante
+                            variations = prod.get("variations", [])
+                            if not variations:
+                                # Traer variantes de ML
+                                rv = await c.get(f"{ML_API}/items/{pid}?attributes=variations",
+                                    headers={"Authorization": f"Bearer {to_token}"})
+                                if rv.status_code == 200:
+                                    variations = rv.json().get("variations", [])
+                            var_payload = [{"id": v["id"], "available_quantity": max(0, stock // len(variations))} for v in variations] if variations else []
+                            if var_payload:
+                                r = await c.put(f"{ML_API}/items/{pid}",
+                                    headers={"Authorization": f"Bearer {to_token}", "Content-Type": "application/json"},
+                                    json={"variations": var_payload})
+                            else:
+                                r = await c.put(f"{ML_API}/items/{pid}",
+                                    headers={"Authorization": f"Bearer {to_token}", "Content-Type": "application/json"},
+                                    json={"available_quantity": stock})
+                        else:
+                            r = await c.put(f"{ML_API}/items/{pid}",
+                                headers={"Authorization": f"Bearer {to_token}", "Content-Type": "application/json"},
+                                json={"price": price, "available_quantity": stock})
                     if r.status_code in (200, 201):
                         prod["price"] = price
                         prod["available_quantity"] = stock
-                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock}")
+                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock} vars={has_variations}")
                     else:
-                        print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code}")
+                        err = r.json() if r.content else {}
+                        if "has_bids" in r.text:
+                            print(f"Sync SKIP: {pid} cuenta {i} — en subasta, no modificable")
+                        else:
+                            print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code} {r.text[:150]}")
                 if matching:
                     set_cached_products(uid, prods)
             except Exception as e:
