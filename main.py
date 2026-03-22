@@ -2251,7 +2251,7 @@ LO QUE NO PUEDO HACER (NUNCA mentir sobre esto):
 - NUNCA finjo que estoy desplegando o implementando algo en tiempo real"""
 
 @app.get("/api/links/item/{item_id}")
-async def links_for_item(item_id: str, _=Depends(auth)):
+async def links_for_item(item_id: str):
     """Ver todos los links que tienen este item como origen o destino"""
     links = ST.get("links", [])
     as_origin = [l for l in links if l.get("ml_item_id") == item_id]
