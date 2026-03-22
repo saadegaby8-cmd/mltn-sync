@@ -2149,6 +2149,168 @@ async def _upload_pic(token: str, img_b64: str) -> str:
     except: pass
     return ""
 
+# ── ASISTENTE TECNICO INTERNO ─────────────────────────────────────────────────
+
+TECH_SYSTEM = """Sos el asistente tecnico interno de ML×TN Sync, una app de sincronizacion de stock entre MercadoLibre y TiendaNube desplegada en Railway.
+
+ARQUITECTURA DEL SISTEMA:
+- Backend: FastAPI + Python en Railway, puerto 8000
+- Frontend: HTML/JS estatico en /frontend/index.html  
+- Cache: Upstash Redis (limite ~5MB por key)
+- URL produccion: https://mltn-sync-production.up.railway.app
+
+CUENTAS ML CONECTADAS:
+- Cuenta 0: LENCERIAPORMAYORYMENOR (uid: 317994166) - cuenta MAESTRA
+- Cuenta 1: SHAMPOOSHIR (uid: 662105530)
+- Cuenta 2: SHAMPOOAVELLANEDA (uid: 1028899469)
+- TiendaNube store_id: 825640
+
+ENDPOINTS CRITICOS:
+- GET /diag → estado general (tokens ML, TN, Redis)
+- POST /api/ml/{i}/sync → sincronizar productos cuenta i
+- GET /api/ml/{i}/products → productos del cache
+- POST /api/ml/{i}/fetch_new → traer items nuevos sin sync completo
+- POST /api/ai/publish_one → publicar en un canal
+- GET /api/state → estado general de la app
+- POST /tn/callback → conectar TiendaNube
+
+PROBLEMAS CONOCIDOS Y SOLUCIONES:
+1. "no se encontraron productos" en sync → token vencido, ir a /diag y reconectar
+2. Cache muestra menos productos que ML → Redis lleno, hacer sync completo
+3. "body.invalid_fields [title]" → titulo vacio o con caracteres invalidos
+4. "Failed to fetch" al publicar → imagenes muy grandes o timeout, comprimir fotos
+5. TiendaNube "Expecting value" → token TN vencido, reconectar desde Configuracion
+6. Redis guarda en chunks si supera 4MB → normal, get_cached_products lo maneja
+7. Rate limit 429 → esperar 60s o reducir frecuencia de requests
+8. "has_bids" → item en subasta, no se puede modificar (limitacion de ML)
+9. Token refresh cada 5 horas automatico, tambien al arrancar
+
+ESTADO ACTUAL DEL SISTEMA puedes consultarlo con herramientas de diagnostico.
+Cuando el usuario reporta un problema, primero diagnostica con los datos disponibles, luego da pasos concretos para solucionarlo. Si podes auto-fix algo, hazlo directamente."""
+
+@app.post("/api/tech/chat")
+async def tech_chat(req: Request, _=Depends(auth)):
+    """Asistente tecnico con conocimiento del sistema"""
+    try:
+        b = await req.json()
+        messages = b.get("messages", [])
+        include_diag = b.get("include_diag", False)
+
+        # Recopilar estado del sistema para dar contexto
+        diag_ctx = ""
+        if include_diag:
+            try:
+                # Estado de tokens
+                token_status = []
+                for i, acc in enumerate(ST.get("accounts", [])):
+                    uid = acc.get("uid", "")
+                    token_ok = bool(acc.get("access_token"))
+                    cached = get_cached_products(uid)
+                    cached_count = len(cached) if cached else 0
+                    status_raw = get_redis().get(redis_status_key(uid)) if get_redis() else None
+                    status = json.loads(status_raw) if status_raw else {}
+                    token_status.append(f"  - {acc.get('name','')}: token={'OK' if token_ok else 'FALTA'}, cache={cached_count} productos, sync_status={status.get('status','?')}, sync_total={status.get('total',0)}")
+                
+                tn = ST.get("tn", {})
+                redis_ok = bool(get_redis())
+                
+                diag_ctx = "ESTADO ACTUAL DEL SISTEMA:\nCuentas ML:\n" + "\n".join(token_status) + "\n" +                     "TiendaNube: store_id=" + str(tn.get('store_id','NO CONECTADA')) +                     ", token=" + ("OK" if tn.get('token') else "FALTA") + "\n" +                     "Redis: " + ("CONECTADO" if redis_ok else "SIN CONEXION") + "\n" +                     "Sync corriendo: " + str(list(SYNC_RUNNING.keys()))
+            except Exception as e:
+                diag_ctx = "Error obteniendo diagnostico: " + str(e)
+
+        system = TECH_SYSTEM
+        if diag_ctx:
+            system += "\n\n" + diag_ctx
+
+        ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post("https://api.anthropic.com/v1/messages",
+                headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01"},
+                json={"model":"claude-sonnet-4-20250514","max_tokens":1000,
+                      "system":system,"messages":messages})
+        if r.status_code == 200:
+            reply = r.json()["content"][0]["text"]
+            return {"ok": True, "reply": reply}
+        return {"ok": False, "error": f"API error {r.status_code}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@app.post("/api/tech/autofix")
+async def tech_autofix(req: Request, _=Depends(auth)):
+    """Auto-fix problemas comunes"""
+    try:
+        b = await req.json()
+        action = b.get("action", "")
+        results = []
+
+        if action == "refresh_tokens":
+            # Refrescar todos los tokens
+            for i, acc in enumerate(ST.get("accounts", [])):
+                try:
+                    await fresh_token(i)
+                    results.append({"acc": acc.get("name",""), "ok": True, "msg": "Token refrescado"})
+                except Exception as e:
+                    results.append({"acc": acc.get("name",""), "ok": False, "msg": str(e)})
+
+        elif action == "check_redis":
+            r = get_redis()
+            if r:
+                try:
+                    r.ping()
+                    total_keys = len(r.keys("mltn:*"))
+                    results.append({"ok": True, "msg": f"Redis OK, {total_keys} keys mltn:*"})
+                except Exception as e:
+                    results.append({"ok": False, "msg": str(e)})
+            else:
+                results.append({"ok": False, "msg": "Redis no configurado"})
+
+        elif action == "check_ml_tokens":
+            for i, acc in enumerate(ST.get("accounts", [])):
+                try:
+                    token = await fresh_token(i)
+                    async with httpx.AsyncClient(timeout=10) as c:
+                        r = await c.get(f"{ML_API}/users/me", headers={"Authorization": f"Bearer {token}"})
+                    ok = r.status_code == 200
+                    results.append({"acc": acc.get("name",""), "ok": ok, 
+                                    "msg": f"UID: {r.json().get('id','?')}" if ok else f"Error {r.status_code}"})
+                except Exception as e:
+                    results.append({"acc": acc.get("name",""), "ok": False, "msg": str(e)})
+
+        elif action == "check_tn":
+            tn = ST.get("tn", {})
+            if not tn.get("store_id"):
+                results.append({"ok": False, "msg": "TiendaNube no conectada"})
+            else:
+                try:
+                    async with httpx.AsyncClient(timeout=10) as c:
+                        r = await c.get(
+                            f"https://api.tiendanube.com/v1/{tn['store_id']}/store",
+                            headers={"Authentication": f"bearer {tn['token']}",
+                                     "User-Agent": "MLTNSync/1.0 (gabysaade9@gmail.com)"})
+                    ok = r.status_code == 200
+                    results.append({"ok": ok, "msg": f"TN OK: {r.json().get('name','?')}" if ok else f"Error {r.status_code}: {r.text[:100]}"})
+                except Exception as e:
+                    results.append({"ok": False, "msg": str(e)})
+
+        elif action == "cache_stats":
+            for i, acc in enumerate(ST.get("accounts", [])):
+                uid = acc.get("uid", "")
+                cached = get_cached_products(uid)
+                count = len(cached) if cached else 0
+                size = 0
+                r = get_redis()
+                if r:
+                    try:
+                        raw = r.get(redis_products_key(uid))
+                        size = len(raw) if raw else 0
+                    except: pass
+                results.append({"acc": acc.get("name",""), "cached": count, "size_kb": size//1024})
+
+        return {"ok": True, "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.post("/api/ai/debug_publish")
 async def debug_publish(req: Request, _=Depends(auth)):
     """Debug: muestra exactamente que llega al backend antes de publicar"""
