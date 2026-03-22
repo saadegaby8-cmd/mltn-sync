@@ -149,9 +149,14 @@ async def ml_callback(code: str = None, error: str = None):
             data={"grant_type":"authorization_code","client_id":ML_APP_ID,
                   "client_secret":ML_SECRET,"code":code,"redirect_uri":REDIRECT_URI},
             headers={"Content-Type":"application/x-www-form-urlencoded"})
-        td = r.json()
+        try:
+            td = r.json() if r.content else {}
+        except Exception:
+            td = {}
     if "access_token" not in td:
-        return RedirectResponse(f"{APP_URL}/?error=token_failed")
+        err = td.get("message", td.get("error", f"HTTP {r.status_code} - codigo expirado o invalido"))
+        print(f"ML callback error: {err} | status={r.status_code} | body={r.text[:200]}")
+        return RedirectResponse(f"{APP_URL}/?error=token_failed&msg={err}")
     token = td["access_token"]
     uid = str(td.get("user_id",""))
     async with httpx.AsyncClient(timeout=10) as c:
