@@ -1747,85 +1747,81 @@ async def sync_stock_by_model(model: str, qty_sold: int, sold_acc_idx: int, sold
             print(f"sync_stock_by_model error cuenta {i}: {e}")
 
 async def process_ml_item_change(resource: str, seller_uid: int):
-    """Cuando cambia un item en LENCERIA, propagar precio/stock a las otras cuentas"""
+    """Cuando cambia un item en LENCERIA, propagar precio/stock via enlaces"""
     try:
-        # Verificar que es LENCERIA (cuenta maestra = índice 0)
         master_acc = ST.get("accounts", [{}])[0]
         if int(master_acc.get("uid", 0)) != seller_uid:
-            return  # Solo propagar cambios de la cuenta maestra
-        
+            return
+
         item_id = resource.strip("/").split("/")[-1]
         token = await fresh_token(0)
-        
+
         # Obtener datos actuales del item en LENCERIA
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{ML_API}/items/{item_id}?attributes=title,price,available_quantity,attributes,variations",
+            r = await c.get(f"{ML_API}/items/{item_id}?attributes=title,price,available_quantity,variations",
                 headers={"Authorization": f"Bearer {token}"})
             if r.status_code != 200:
+                print(f"No se pudo obtener item {item_id}: {r.status_code}")
                 return
             item = r.json()
-        
-        title = item.get("title", "")
+
         price = item.get("price", 0)
         stock = item.get("available_quantity", 0)
+        title = item.get("title", "")
         model = extract_model(title)
-        
-        if not model:
-            return
-        
-        print(f"Item change: modelo '{model}' precio={price} stock={stock}")
-        
-        # Propagar a las otras cuentas ML
-        for i, acc in enumerate(ST.get("accounts", [])):
-            if i == 0:
-                continue  # saltar LENCERIA
+        print(f"Item change: {item_id} '{title[:50]}' modelo='{model}' precio={price} stock={stock}")
+
+        # METODO 1: Buscar por enlaces directos (prioridad)
+        links = ST.get("links", [])
+        linked = [l for l in links if l.get("ml_item_id") == item_id and l.get("tn_product_id")]
+        print(f"  Links encontrados para {item_id}: {len(linked)}")
+
+        for link in linked:
+            dest_id = link.get("tn_product_id")  # En ML→ML links, este es el item destino
+            dest_acc_idx = link.get("tn_acc_idx", link.get("ml_account_index"))
+            if dest_acc_idx is None:
+                continue
             try:
-                to_token = await fresh_token(i)
-                uid = acc.get("uid", "")
-                prods = get_cached_products(uid)
-                if not prods:
+                dest_token = await fresh_token(dest_acc_idx)
+                async with httpx.AsyncClient(timeout=10) as c:
+                    r = await c.put(f"{ML_API}/items/{dest_id}",
+                        headers={"Authorization": f"Bearer {dest_token}", "Content-Type": "application/json"},
+                        json={"price": price, "available_quantity": stock})
+                if r.status_code in (200, 201):
+                    print(f"  Link sync OK: {dest_id} cuenta {dest_acc_idx} -> precio={price} stock={stock}")
+                elif "has_bids" in r.text:
+                    print(f"  Link sync SKIP: {dest_id} en subasta")
+                else:
+                    print(f"  Link sync ERROR: {dest_id}: {r.status_code} {r.text[:100]}")
+            except Exception as e:
+                print(f"  Link sync error {dest_id}: {e}")
+
+        # METODO 2: Fallback por modelo si no hay links
+        if not linked and model:
+            print(f"  Sin links directos, buscando por modelo '{model}'...")
+            for i, acc in enumerate(ST.get("accounts", [])):
+                if i == 0:
                     continue
-                matching = [p for p in prods if extract_model(p.get("title","")) == model]
-                for prod in matching:
-                    pid = prod.get("id","")
-                    has_variations = prod.get("_has_variations") or len(prod.get("variations", [])) > 0
-                    async with httpx.AsyncClient(timeout=10) as c:
-                        if has_variations:
-                            # Actualizar stock por variante
-                            variations = prod.get("variations", [])
-                            if not variations:
-                                # Traer variantes de ML
-                                rv = await c.get(f"{ML_API}/items/{pid}?attributes=variations",
-                                    headers={"Authorization": f"Bearer {to_token}"})
-                                if rv.status_code == 200:
-                                    variations = rv.json().get("variations", [])
-                            var_payload = [{"id": v["id"], "available_quantity": max(0, stock // len(variations))} for v in variations] if variations else []
-                            if var_payload:
-                                r = await c.put(f"{ML_API}/items/{pid}",
-                                    headers={"Authorization": f"Bearer {to_token}", "Content-Type": "application/json"},
-                                    json={"variations": var_payload})
-                            else:
-                                r = await c.put(f"{ML_API}/items/{pid}",
-                                    headers={"Authorization": f"Bearer {to_token}", "Content-Type": "application/json"},
-                                    json={"available_quantity": stock})
-                        else:
+                try:
+                    to_token = await fresh_token(i)
+                    uid = acc.get("uid", "")
+                    prods = get_cached_products(uid) or []
+                    matching = [p for p in prods if extract_model(p.get("title","")) == model]
+                    print(f"  Cuenta {i} ({acc.get('name','')}): {len(matching)} con modelo '{model}'")
+                    for prod in matching:
+                        pid = prod.get("id","")
+                        async with httpx.AsyncClient(timeout=10) as c:
                             r = await c.put(f"{ML_API}/items/{pid}",
                                 headers={"Authorization": f"Bearer {to_token}", "Content-Type": "application/json"},
                                 json={"price": price, "available_quantity": stock})
-                    if r.status_code in (200, 201):
-                        prod["price"] = price
-                        prod["available_quantity"] = stock
-                        print(f"Sync OK: {pid} cuenta {i} -> precio={price} stock={stock} vars={has_variations}")
-                    else:
-                        err = r.json() if r.content else {}
-                        if "has_bids" in r.text:
-                            print(f"Sync SKIP: {pid} cuenta {i} — en subasta, no modificable")
+                        if r.status_code in (200, 201):
+                            print(f"  Modelo sync OK: {pid} cuenta {i}")
+                        elif "has_bids" in r.text:
+                            print(f"  Modelo sync SKIP: {pid} en subasta")
                         else:
-                            print(f"Sync ERROR: {pid} cuenta {i}: {r.status_code} {r.text[:150]}")
-                if matching:
-                    set_cached_products(uid, prods)
-            except Exception as e:
-                print(f"process_ml_item_change error cuenta {i}: {e}")
+                            print(f"  Modelo sync ERROR: {pid}: {r.status_code} {r.text[:100]}")
+                except Exception as e:
+                    print(f"  Modelo sync error cuenta {i}: {e}")
         
         # Propagar a TiendaNube si está conectada
         if ST.get("tn", {}).get("store_id") and ST.get("tn", {}).get("token"):
@@ -2253,6 +2249,14 @@ LO QUE NO PUEDO HACER (NUNCA mentir sobre esto):
 - NO puedo crear endpoints nuevos
 - Si algo requiere cambio de codigo, digo claramente "esto requiere que el desarrollador lo implemente en el codigo"
 - NUNCA finjo que estoy desplegando o implementando algo en tiempo real"""
+
+@app.get("/api/links/item/{item_id}")
+async def links_for_item(item_id: str, _=Depends(auth)):
+    """Ver todos los links que tienen este item como origen o destino"""
+    links = ST.get("links", [])
+    as_origin = [l for l in links if l.get("ml_item_id") == item_id]
+    as_dest = [l for l in links if l.get("tn_product_id") == item_id]
+    return {"item_id": item_id, "as_origin": as_origin, "as_dest": as_dest, "total_links": len(links)}
 
 @app.post("/api/tech/chat")
 async def tech_chat(req: Request, _=Depends(auth)):
