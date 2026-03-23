@@ -293,6 +293,7 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <div class="nav-i" onclick="showPage('enlaces')">🔗 Mis enlaces</div>
       <div class="nav-i" onclick="showPage('sincronizar')">🔄 Sincronizar</div>
       <div class="nav-i" onclick="showPage('log')">📋 Historial</div>
+      <div class="nav-i" onclick="showPage('links-ai')">🤝 Asistente de Enlaces</div>
       <div class="nav-i" onclick="showPage('tech')">🔧 Asistente Tecnico</div>
     </div>
     <div class="s-bottom">
@@ -929,6 +930,16 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       </div>
 
       <!-- LOG -->
+      <div class="page" id="page-links-ai" style="display:none;flex-direction:column;height:100%">
+  <div class="page-header"><div class="page-title">Asistente de Enlaces</div></div>
+  <div id="lai-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px"></div>
+  <div style="padding:12px 16px;border-top:1px solid #f0f2f6;display:flex;gap:8px">
+    <input id="lai-input" type="text" placeholder="Ej: Enlaza el pijama 31729 con SHAMPOOSHIR y AVELLANEDA..."
+      style="flex:1;padding:10px 14px;border:1px solid #dde1e9;border-radius:20px;font-size:13px;outline:none"
+      onkeydown="if(event.key==='Enter')laiSend()">
+    <button class="btn btn-blue" style="border-radius:20px;padding:10px 16px" onclick="laiSend()">Enviar</button>
+  </div>
+</div>
       <div class="page" id="page-tech" style="display:none;flex-direction:column;height:100%">
   <div class="page-header"><div class="page-title">Asistente Tecnico</div></div>
   <div style="padding:12px 16px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #f0f2f6">
@@ -3310,6 +3321,151 @@ async function techDiag() {
     techAddMsg('Error: ' + e.message, 'bot');
   }
 }
+
+// ── ASISTENTE DE ENLACES ─────────────────────────────────────────────────────
+let laiHistory = [];
+let laiPendingLinks = []; // enlaces pendientes de confirmacion
+
+function laiMsg(text, role, extra) {
+  const el = document.getElementById('lai-messages');
+  if (!el) return;
+  const div = document.createElement('div');
+  div.style = 'max-width:95%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;'
+    + (role==='user'
+      ? 'background:#2563eb;color:#fff;align-self:flex-end;white-space:pre-wrap'
+      : 'background:#f8f9ff;border:1px solid #e8ecf0;align-self:flex-start;white-space:pre-wrap');
+  div.textContent = text;
+  if (extra) { div.appendChild(document.createElement('br')); div.appendChild(extra); }
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  return div;
+}
+
+async function laiSend() {
+  const input = document.getElementById('lai-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  laiMsg(text, 'user');
+  laiHistory.push({role:'user', content: text});
+  const typing = laiMsg('Buscando productos y variantes...', 'bot');
+  try {
+    const r = await fetch('/api/links/ai_chat', {
+      method:'POST', headers:hdr(),
+      body: JSON.stringify({messages: laiHistory, state: {
+        accounts: appState.ml_accounts,
+        links_count: (appState.links||[]).length
+      }})
+    });
+    const d = await r.json();
+    typing.remove();
+    if (d.ok) {
+      laiHistory.push({role:'assistant', content: d.reply});
+      // Si hay propuestas de links, mostrar con botones de confirmacion
+      if (d.proposals && d.proposals.length > 0) {
+        laiPendingLinks = d.proposals;
+        const wrap = document.createElement('div');
+        wrap.style = 'margin-top:8px;display:flex;flex-direction:column;gap:6px';
+        d.proposals.forEach(function(p, i) {
+          const row = document.createElement('div');
+          row.style = 'display:flex;align-items:center;gap:8px;padding:8px;background:#fff;border:1px solid #e8ecf0;border-radius:8px;font-size:12px';
+          row.innerHTML = '<span style="flex:1"><b>'+p.src_title.slice(0,35)+'</b> → <b>'+p.dest_title.slice(0,35)+'</b>'
+            + (p.src_var ? '<br><span style="color:#7a8299">'+p.src_var+' → '+p.dest_var+'</span>' : '')
+            + '<br><span style="color:#7a8299">'+p.src_acc+' → '+p.dest_acc+'</span></span>';
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-sm btn-green';
+          btn.textContent = 'Enlazar';
+          btn.onclick = function() { laiConfirmLink(p, btn); };
+          const btnNo = document.createElement('button');
+          btnNo.className = 'btn btn-sm btn-out';
+          btnNo.textContent = 'No';
+          btnNo.onclick = function() { row.style.opacity='0.4'; };
+          row.appendChild(btn);
+          row.appendChild(btnNo);
+          wrap.appendChild(row);
+        });
+        const allBtn = document.createElement('button');
+        allBtn.className = 'btn btn-green btn-sm';
+        allBtn.style = 'margin-top:4px';
+        allBtn.textContent = 'Enlazar todos ('+d.proposals.length+')';
+        allBtn.onclick = function() { laiConfirmAll(); };
+        wrap.appendChild(allBtn);
+        const msgDiv = document.createElement('div');
+        msgDiv.style = 'max-width:95%;padding:10px 14px;border-radius:12px;font-size:13px;background:#f8f9ff;border:1px solid #e8ecf0;align-self:flex-start';
+        msgDiv.textContent = d.reply;
+        msgDiv.appendChild(document.createElement('br'));
+        msgDiv.appendChild(wrap);
+        document.getElementById('lai-messages').appendChild(msgDiv);
+        document.getElementById('lai-messages').scrollTop = 99999;
+      } else {
+        laiMsg(d.reply, 'bot');
+      }
+    } else {
+      laiMsg('Error: ' + d.error, 'bot');
+    }
+  } catch(e) {
+    typing.remove();
+    laiMsg('Error: ' + e.message, 'bot');
+  }
+}
+
+async function laiConfirmLink(proposal, btn) {
+  btn.textContent = 'Guardando...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/links/add', {
+      method:'POST', headers:hdr(),
+      body: JSON.stringify({
+        ml_item_id: proposal.src_id,
+        ml_variation_id: proposal.src_var_id || null,
+        ml_account_index: proposal.src_acc_idx,
+        ml_account_name: proposal.src_acc,
+        ml_title: proposal.src_title,
+        tn_product_id: proposal.dest_id,
+        tn_variation_id: proposal.dest_var_id || null,
+        tn_acc_idx: proposal.dest_acc_idx,
+        tn_product_name: proposal.dest_title,
+        auto_linked: true,
+        family_name: proposal.src_title
+      })
+    });
+    const d = await r.json();
+    btn.textContent = d.ok !== false ? 'Enlazado' : 'Error';
+    btn.className = 'btn btn-sm ' + (d.ok !== false ? 'btn-blue' : 'btn-red');
+    if (d.ok !== false) await loadState();
+  } catch(e) {
+    btn.textContent = 'Error';
+  }
+}
+
+async function laiConfirmAll() {
+  for (const p of laiPendingLinks) {
+    await fetch('/api/links/add', {
+      method:'POST', headers:hdr(),
+      body: JSON.stringify({
+        ml_item_id: p.src_id, ml_variation_id: p.src_var_id || null,
+        ml_account_index: p.src_acc_idx, ml_account_name: p.src_acc,
+        ml_title: p.src_title, tn_product_id: p.dest_id,
+        tn_variation_id: p.dest_var_id || null, tn_acc_idx: p.dest_acc_idx,
+        tn_product_name: p.dest_title, auto_linked: true, family_name: p.src_title
+      })
+    });
+  }
+  await loadState();
+  laiMsg('Enlazados ' + laiPendingLinks.length + ' productos.', 'bot');
+  laiPendingLinks = [];
+}
+
+// Iniciar asistente cuando se abre la pagina
+document.addEventListener('DOMContentLoaded', function() {
+  const orig = window.showPage;
+  window.showPage = function(name) {
+    orig && orig(name);
+    if (name === 'links-ai' && !laiHistory.length) {
+      laiMsg('Hola. Dime que producto queres enlazar y entre que cuentas. Puedo buscar automaticamente las variantes equivalentes.\n\nEj: "Enlazame el pijama 31729 de LENCERIA con SHAMPOOSHIR" o "Busca en todas las cuentas el articulo MLA1686865537"', 'bot');
+    }
+  };
+});
 
 loadState();
 setInterval(loadState,30000);
