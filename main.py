@@ -2324,6 +2324,115 @@ LO QUE NO PUEDO HACER (NUNCA mentir sobre esto):
 - Si algo requiere cambio de codigo, digo claramente "esto requiere que el desarrollador lo implemente en el codigo"
 - NUNCA finjo que estoy desplegando o implementando algo en tiempo real"""
 
+@app.post("/api/links/ai_chat")
+async def links_ai_chat(req: Request, _=Depends(auth)):
+    """Asistente de enlaces: busca productos equivalentes y propone links"""
+    try:
+        b = await req.json()
+        messages = b.get("messages", [])
+        state = b.get("state", {})
+        accounts = ST.get("accounts", [])
+        existing_links = ST.get("links", [])
+
+        # Construir contexto del sistema
+        acc_info = "\n".join([f"  - Cuenta {i}: {a.get('name','')} (uid: {a.get('uid','')})"
+                              for i, a in enumerate(accounts)])
+        existing_count = len(existing_links)
+
+        system = f"""Sos el asistente de enlaces de ML×TN Sync. Tu trabajo es ayudar a enlazar productos entre cuentas de MercadoLibre para que sus stocks se sincronicen automaticamente.
+
+CUENTAS DISPONIBLES:
+{acc_info}
+
+TOTAL ENLACES EXISTENTES: {existing_count}
+
+COMO FUNCIONA:
+- Cuando se enlaza un item de LENCERIA (cuenta 0) con uno de SHAMPOOSHIR (cuenta 1), al cambiar el stock en LENCERIA se actualiza automaticamente en SHAMPOOSHIR.
+- Los enlaces son por item completo o por variante especifica (talle/color).
+- Para enlazar, necesitas: item origen (cuenta 0), item destino (cuenta 1 o 2), y opcionalmente variante especifica.
+
+TU FLUJO:
+1. El usuario te dice que producto enlazar (por nombre, modelo o ID)
+2. Vos buscas en el cache de las cuentas los productos equivalentes
+3. Si encuentra matches automaticos (mismo modelo/nombre), propones los enlaces con format JSON
+4. El usuario confirma y se guardan
+
+FORMATO DE RESPUESTA CON PROPUESTAS:
+Cuando encontres matches, tu respuesta debe terminar con:
+PROPOSALS_JSON: [array de propuestas]
+
+Cada propuesta tiene:
+{{
+  "src_id": "MLA...", "src_title": "titulo", "src_acc": "nombre", "src_acc_idx": 0,
+  "src_var_id": "123" o null, "src_var": "Rosa / XL" o null,
+  "dest_id": "MLA...", "dest_title": "titulo", "dest_acc": "nombre", "dest_acc_idx": 1,
+  "dest_var_id": "456" o null, "dest_var": "Rosa / XL" o null
+}}
+
+BUSQUEDA EN CACHE:
+Tenes acceso al endpoint /api/ml/{{idx}}/products para buscar productos.
+Cuando el usuario pida enlazar algo, usa la funcion search_products para buscar.
+
+Si no hay suficiente info, pedila. Siempre confirma antes de enlazar."""
+
+        # Check if we need to search products
+        last_user_msg = messages[-1]["content"] if messages else ""
+
+        # Auto-search products mentioned in the message
+        search_results = {}
+        import re
+        model_match = re.search(r'(\d{4,6})', last_user_msg)
+        mla_match = re.search(r'MLA\d+', last_user_msg)
+
+        if model_match or mla_match:
+            search_term = mla_match.group(0) if mla_match else model_match.group(1)
+            for i, acc in enumerate(accounts):
+                uid = acc.get("uid","")
+                prods = get_cached_products(uid) or []
+                if mla_match:
+                    matches = [p for p in prods if p.get("id") == search_term]
+                else:
+                    matches = [p for p in prods if extract_model(p.get("title","")) == search_term]
+                if matches:
+                    search_results[acc.get("name",f"Cuenta {i}")] = [
+                        {"id": p["id"], "title": p.get("title",""), "stock": p.get("available_quantity",0),
+                         "variations": [{"id": v["id"], "attrs": {a["id"]: a.get("value_name","") for a in v.get("attribute_combinations",[])}, "stock": v.get("available_quantity",0)}
+                                       for v in p.get("variations",[])[:20]]}
+                        for p in matches[:5]
+                    ]
+
+        if search_results:
+            import json as json_mod
+            system += "\n\nRESULTADOS DE BUSQUEDA AUTOMATICA:\n" + json_mod.dumps(search_results, ensure_ascii=False)
+
+        ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY","")
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post("https://api.anthropic.com/v1/messages",
+                headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01"},
+                json={"model":"claude-sonnet-4-20250514","max_tokens":2000,"system":system,"messages":messages})
+
+        if r.status_code != 200:
+            return {"ok": False, "error": f"API error {r.status_code}"}
+
+        reply_full = r.json()["content"][0]["text"]
+
+        # Extract proposals if present
+        proposals = []
+        if "PROPOSALS_JSON:" in reply_full:
+            parts = reply_full.split("PROPOSALS_JSON:")
+            reply_text = parts[0].strip()
+            try:
+                proposals = json.loads(parts[1].strip())
+            except:
+                proposals = []
+        else:
+            reply_text = reply_full
+
+        return {"ok": True, "reply": reply_text, "proposals": proposals}
+    except Exception as e:
+        import traceback
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:300]}
+
 @app.post("/api/links/suggest")
 async def suggest_link(req: Request, _=Depends(auth)):
     """IA: sugerir producto a enlazar por similitud de titulo"""
