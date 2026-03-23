@@ -2373,8 +2373,53 @@ async def links_ai_chat(req: Request, _=Depends(auth)):
             if matches:
                 found[i] = matches
 
+        # Si no se encontro en cache, buscar directamente en ML via API
         if not found:
-            return {"ok": True, "reply": f"No encontre productos con '{search_term}' en ninguna cuenta. Verificá que el modelo/ID sea correcto y que el cache esté actualizado (hacé Sincronizar).", "proposals": []}
+            print(f"No encontrado en cache, buscando en ML API para '{search_term}'...")
+            for i, acc in enumerate(accounts):
+                try:
+                    token = await fresh_token(i)
+                    hdrs = {"Authorization": f"Bearer {token}"}
+                    async with httpx.AsyncClient(timeout=15) as c:
+                        if search_term.startswith("MLA"):
+                            r = await c.get(f"{ML_API}/items/{search_term}?attributes=id,title,available_quantity,variations,attribute_combinations",
+                                headers=hdrs)
+                            if r.status_code == 200:
+                                item = r.json()
+                                uid = acc.get("uid","")
+                                # Verificar que este item pertenece a esta cuenta
+                                seller_id = str(item.get("seller_id",""))
+                                if seller_id == str(uid):
+                                    # Procesar variaciones
+                                    for v in item.get("variations",[]):
+                                        v["_attrs"] = {a["id"]: a.get("value_name","") for a in v.get("attribute_combinations",[])}
+                                    item["_has_variations"] = len(item.get("variations",[])) > 0
+                                    item["_variation_count"] = len(item.get("variations",[]))
+                                    found[i] = [item]
+                        else:
+                            # Buscar por titulo en ML
+                            r = await c.get(f"{ML_API}/users/{acc.get('uid','')}/items/search?q={search_term}&limit=5",
+                                headers=hdrs)
+                            if r.status_code == 200:
+                                ids = r.json().get("results",[])
+                                if ids:
+                                    r2 = await c.get(f"{ML_API}/items?ids={','.join(ids[:5])}&attributes=id,title,available_quantity,variations,seller_id",
+                                        headers=hdrs)
+                                    if r2.status_code == 200:
+                                        for wrap in r2.json():
+                                            item = wrap.get("body", wrap) if isinstance(wrap, dict) else {}
+                                            if item.get("id") and extract_model(item.get("title","")) == search_term:
+                                                for v in item.get("variations",[]):
+                                                    v["_attrs"] = {a["id"]: a.get("value_name","") for a in v.get("attribute_combinations",[])}
+                                                item["_has_variations"] = len(item.get("variations",[])) > 0
+                                                item["_variation_count"] = len(item.get("variations",[]))
+                                                if i not in found: found[i] = []
+                                                found[i].append(item)
+                except Exception as e:
+                    print(f"ML API search error cuenta {i}: {e}")
+
+        if not found:
+            return {"ok": True, "reply": "No encontre '" + str(search_term) + "' en ninguna cuenta (ni en cache ni en ML directo). Verifica el ID/modelo y que el producto exista en esas cuentas.", "proposals": []}
 
         acc_names = {i: acc.get("name","ML"+str(i)) for i, acc in enumerate(accounts)}
         found_summary = []
