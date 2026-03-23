@@ -2516,10 +2516,10 @@ async function iaSearchClone() {
     const d = await r.json();
     if (d.results && d.results.length) {
       res.innerHTML = d.results.map(function(p) {
-        return '<div style="padding:8px 10px;border:1px solid #e8ecf0;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px" onclick="iaSelectClone(this.dataset.id)">'
+        return '<div data-id="'+p.id+'" style="padding:8px 10px;border:1px solid #e8ecf0;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px" onclick="iaSelectClone(this.dataset.id)">'
           + '<div><div style="font-size:12px;font-weight:500">'+p.title.slice(0,55)+'</div>'
           + '<div style="font-size:10px;color:#7a8299">'+p.id+'</div></div>'
-          + '<button class="btn btn-blue btn-sm" onclick="event.stopPropagation();iaSelectClone(this.dataset.id)">Usar</button></div>';
+          + '<button data-id="'+p.id+'" class="btn btn-blue btn-sm" onclick="event.stopPropagation();iaSelectClone(this.dataset.id)">Usar</button></div>';
       }).join('');
     } else {
       res.innerHTML = '<div style="font-size:12px;color:#7a8299">Sin resultados. Prueba con otro texto.</div>';
