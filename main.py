@@ -2758,6 +2758,128 @@ async def debug_publish(req: Request, _=Depends(auth)):
         import traceback
         return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:500]}
 
+@app.post("/api/ai/search_clone")
+async def search_clone(req: Request, _=Depends(auth)):
+    """Buscar publicaciones existentes para clonar"""
+    try:
+        b = await req.json()
+        q = b.get("q","").strip()
+        acc_idx = int(b.get("acc_idx", 0))
+        if not q:
+            return {"results": []}
+        # Buscar en cache primero
+        uid = ST["accounts"][acc_idx]["uid"]
+        prods = get_cached_products(uid) or []
+        # Si es un MLA ID directo
+        if q.startswith("MLA"):
+            matches = [p for p in prods if p.get("id") == q]
+        else:
+            ql = q.lower()
+            matches = [p for p in prods if ql in (p.get("title","")).lower()]
+        # Si no hay en cache, buscar en ML
+        if not matches:
+            token = await fresh_token(acc_idx)
+            async with httpx.AsyncClient(timeout=15) as c:
+                if q.startswith("MLA"):
+                    r = await c.get(f"{ML_API}/items/{q}?attributes=id,title",
+                        headers={"Authorization": f"Bearer {token}"})
+                    if r.status_code == 200:
+                        item = r.json()
+                        if item.get("id"):
+                            matches = [{"id": item["id"], "title": item.get("title","")}]
+                else:
+                    r = await c.get(f"{ML_API}/sites/MLA/search?seller_id={uid}&q={q}&limit=10",
+                        headers={"Authorization": f"Bearer {token}"})
+                    if r.status_code == 200:
+                        matches = [{"id": i["id"], "title": i.get("title","")}
+                                  for i in r.json().get("results",[])]
+        return {"results": [{"id": p["id"], "title": p.get("title","")} for p in matches[:8]]}
+    except Exception as e:
+        return {"results": [], "error": str(e)}
+
+@app.get("/api/ai/load_clone/{item_id}")
+async def load_clone(item_id: str, _=Depends(auth)):
+    """Cargar todos los datos de una publicacion para clonar"""
+    try:
+        # Buscar en que cuenta esta este item
+        token = None
+        for i, acc in enumerate(ST.get("accounts",[])):
+            uid = acc.get("uid","")
+            prods = get_cached_products(uid) or []
+            if any(p.get("id") == item_id for p in prods):
+                token = await fresh_token(i)
+                acc_idx = i
+                break
+        if not token:
+            # Intentar con cuenta 0
+            token = await fresh_token(0)
+            acc_idx = 0
+
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.get(f"{ML_API}/items/{item_id}",
+                headers={"Authorization": f"Bearer {token}"})
+            if r.status_code != 200:
+                return {"ok": False, "error": f"No se pudo obtener item: {r.status_code}"}
+            item = r.json()
+
+        title = item.get("title","")
+        category_id = item.get("category_id","")
+        price = item.get("price", 0)
+        attrs = item.get("attributes", [])
+        variations = item.get("variations", [])
+
+        # Extraer datos clave
+        brand = next((a.get("value_name","") for a in attrs if a.get("id")=="BRAND"), "")
+        model_num = next((a.get("value_name","") for a in attrs if a.get("id")=="MODEL"), "")
+        gender = next((a.get("value_name","") for a in attrs if a.get("id")=="GENDER"), "Mujer")
+        chart_id_raw = next((a.get("value_name","") for a in attrs if a.get("id")=="SIZE_GRID_ID"), "")
+        season = next((a.get("value_name","") for a in attrs if a.get("id")=="SEASON"), "")
+        # Dimensiones
+        dims = {
+            "h": next((a.get("value_name","").replace(" cm","") for a in attrs if a.get("id")=="SELLER_PACKAGE_HEIGHT"), ""),
+            "w": next((a.get("value_name","").replace(" cm","") for a in attrs if a.get("id")=="SELLER_PACKAGE_WIDTH"), ""),
+            "l": next((a.get("value_name","").replace(" cm","") for a in attrs if a.get("id")=="SELLER_PACKAGE_LENGTH"), ""),
+            "p": next((a.get("value_name","").replace(" g","") for a in attrs if a.get("id")=="SELLER_PACKAGE_WEIGHT"), ""),
+        }
+        # Convertir peso a kg
+        if dims["p"]:
+            try: dims["p"] = str(float(dims["p"]) / 1000)
+            except: pass
+
+        # Colores y talles de variantes
+        colores = list({next((a.get("value_name","") for a in v.get("attribute_combinations",[]) if a.get("id")=="COLOR"), "") for v in variations if variations})
+        talles = list({next((a.get("value_name","") for a in v.get("attribute_combinations",[]) if a.get("id")=="SIZE"), "") for v in variations if variations})
+        colores = [c for c in colores if c]
+        talles = [t for t in talles if t]
+
+        # Chart IDs por cuenta (si existe en cuenta actual, asumir mismo para las otras)
+        chart_ids = {}
+        if chart_id_raw:
+            chart_ids[str(acc_idx)] = chart_id_raw
+
+        context = {
+            "titulo": title,
+            "titulo_sugerido": title,
+            "categoria": category_id,
+            "category_id": category_id,
+            "precio": price,
+            "marca": brand,
+            "modelo": model_num,
+            "genero": gender,
+            "temporada": season,
+            "colores": colores,
+            "talles": talles,
+            "dims": dims,
+            "chart_ids": chart_ids,
+            "cloned_from": item_id,
+            "cloned_attrs": attrs,  # Guardar todos los attrs para reusar
+        }
+
+        return {"ok": True, "context": context}
+    except Exception as e:
+        import traceback
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:300]}
+
 @app.post("/api/ai/publish_one")
 async def ai_publish_one(req: Request, _=Depends(auth)):
     """Publica en UN solo canal - llamar una vez por canal para mostrar progreso"""
@@ -2858,15 +2980,22 @@ async def ai_publish_one(req: Request, _=Depends(auth)):
             for size in (sizes or [""]):
                 suffix     = " - ".join(filter(None, [color, size]))
                 item_title = f"{title} - {suffix}"[:60] if suffix else title
-                attrs = [{"id":"BRAND","value_name":brand},{"id":"GENDER","value_name":gender}]
-                if modelo:    attrs.append({"id":"MODEL",    "value_name":modelo})
+                # Si viene de un clon, usar los attrs del original como base
+                cloned_attrs = product.get("cloned_attrs", [])
+                if cloned_attrs:
+                    # Filtrar attrs del clon, excluir COLOR/SIZE que vienen de la variante
+                    skip_ids = {"COLOR","SIZE","SIZE_GRID_ID","SELLER_PACKAGE_HEIGHT","SELLER_PACKAGE_WIDTH","SELLER_PACKAGE_LENGTH","SELLER_PACKAGE_WEIGHT"}
+                    attrs = [a for a in cloned_attrs if a.get("id") not in skip_ids and a.get("value_name")]
+                else:
+                    attrs = [{"id":"BRAND","value_name":brand},{"id":"GENDER","value_name":gender}]
+                    if modelo: attrs.append({"id":"MODEL","value_name":modelo})
                 if color:     attrs.append({"id":"COLOR",    "value_name":color})
                 if size:      attrs.append({"id":"SIZE",     "value_name":size})
                 if chart_id:  attrs.append({"id":"SIZE_GRID_ID","value_name":str(chart_id)})
-                if dims.get("h"): attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":f"{int(float(dims['h']))} cm"})
-                if dims.get("w"): attrs.append({"id":"SELLER_PACKAGE_WIDTH", "value_name":f"{int(float(dims['w']))} cm"})
-                if dims.get("l"): attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":f"{int(float(dims['l']))} cm"})
-                if dims.get("p"): attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":f"{int(float(dims['p'])*1000)} g"})
+                if dims.get("h"): attrs.append({"id":"SELLER_PACKAGE_HEIGHT","value_name":str(int(float(dims["h"])))+" cm"})
+                if dims.get("w"): attrs.append({"id":"SELLER_PACKAGE_WIDTH", "value_name":str(int(float(dims["w"])))+" cm"})
+                if dims.get("l"): attrs.append({"id":"SELLER_PACKAGE_LENGTH","value_name":str(int(float(dims["l"])))+" cm"})
+                if dims.get("p"): attrs.append({"id":"SELLER_PACKAGE_WEIGHT","value_name":str(int(float(dims["p"])*1000))+" g"})
                 family  = f"{brand} {modelo}".strip() or title
                 payload = {
                     "title": item_title, "category_id": cat_id,
