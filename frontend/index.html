@@ -862,6 +862,21 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
               </div>
             </div>
 
+            <!-- Clonar desde publicacion existente -->
+            <div class="panel">
+              <div class="panel-hd"><h3>📋 Clonar desde publicacion existente</h3></div>
+              <div class="panel-bd">
+                <div style="font-size:12px;color:#7a8299;margin-bottom:10px">Buscá una publicacion similar ya existente y tomamos todos sus datos: categoria, atributos, dimensiones, guia de talles.</div>
+                <div style="display:flex;gap:8px;margin-bottom:8px">
+                  <input type="text" id="ia-clone-search" placeholder="Buscar por titulo o pegar ID (MLA...)" 
+                    style="flex:1;padding:8px 12px;border:1px solid #dde1e9;border-radius:8px;font-size:12px;outline:none;font-family:Inter,sans-serif"
+                    onkeydown="if(event.key==='Enter')iaSearchClone()">
+                  <button class="btn btn-blue btn-sm" onclick="iaSearchClone()" id="ia-clone-btn">Buscar</button>
+                </div>
+                <div id="ia-clone-results" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto"></div>
+              </div>
+            </div>
+
             <!-- Fotos generadas -->
             <div class="panel" id="ia-photos-panel" style="display:none">
               <div class="panel-hd">
@@ -2484,7 +2499,67 @@ async function doSync(){
   btn.innerHTML=' Sincronizar ahora';btn.disabled=false;
 }
 
-// -- IA PUBLICAR --------------------------------------------------------------
+// -- IA PUBLICAR
+// Clonar desde publicacion existente
+async function iaSearchClone() {
+  const q = document.getElementById('ia-clone-search').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('ia-clone-btn');
+  btn.textContent = 'Buscando...'; btn.disabled = true;
+  const res = document.getElementById('ia-clone-results');
+  res.innerHTML = '<div style="font-size:12px;color:#7a8299">Buscando...</div>';
+  try {
+    const r = await fetch('/api/ai/search_clone', {
+      method:'POST', headers:hdr(),
+      body: JSON.stringify({q: q, acc_idx: 0})
+    });
+    const d = await r.json();
+    if (d.results && d.results.length) {
+      res.innerHTML = d.results.map(function(p) {
+        return '<div style="padding:8px 10px;border:1px solid #e8ecf0;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px" onclick="iaSelectClone(this.dataset.id)">'
+          + '<div><div style="font-size:12px;font-weight:500">'+p.title.slice(0,55)+'</div>'
+          + '<div style="font-size:10px;color:#7a8299">'+p.id+'</div></div>'
+          + '<button class="btn btn-blue btn-sm" onclick="event.stopPropagation();iaSelectClone(this.dataset.id)">Usar</button></div>';
+      }).join('');
+    } else {
+      res.innerHTML = '<div style="font-size:12px;color:#7a8299">Sin resultados. Prueba con otro texto.</div>';
+    }
+  } catch(e) {
+    res.innerHTML = '<div style="font-size:12px;color:#e74c3c">Error: '+e.message+'</div>';
+  }
+  btn.textContent = 'Buscar'; btn.disabled = false;
+}
+
+async function iaSelectClone(itemId) {
+  const res = document.getElementById('ia-clone-results');
+  res.innerHTML = '<div style="font-size:12px;color:#7a8299">Cargando datos del producto...</div>';
+  try {
+    const r = await fetch('/api/ai/load_clone/' + itemId, {headers: hdr()});
+    const d = await r.json();
+    if (!d.ok) { res.innerHTML = '<div style="font-size:12px;color:#e74c3c">Error: '+d.error+'</div>'; return; }
+    // Cargar todos los datos al contexto
+    iaContext = {...iaContext, ...d.context};
+    // Actualizar panel de publicar
+    iaShowPublishButton();
+    // Actualizar grid de variantes si hay colores
+    if (iaContext.colores && iaContext.colores.length) {
+      document.getElementById('ia-photos-panel').style.display = 'block';
+      iaRenderVariantsGrid();
+    }
+    // Mostrar en chat
+    iaAddBotMessage('Cargue los datos de "'+d.context.titulo+'". Ya tiene:\n'
+      + '- Categoria: '+d.context.category_id+'\n'
+      + '- '+(d.context.talles||[]).length+' talles: '+(d.context.talles||[]).join(', ')+'\n'
+      + '- Marca: '+(d.context.marca||'?')+', Modelo: '+(d.context.modelo||'?')+'\n'
+      + '- Guia de talles: '+(d.context.chart_ids ? JSON.stringify(d.context.chart_ids) : 'ninguna')+'\n\n'
+      + 'Ahora sube las fotos del nuevo producto y ajusta el titulo y precio. Todo lo demas ya esta configurado.');
+    res.innerHTML = '<div style="font-size:12px;color:#00a381;padding:8px">Datos cargados de: '+d.context.titulo.slice(0,50)+'</div>';
+  } catch(e) {
+    res.innerHTML = '<div style="font-size:12px;color:#e74c3c">Error: '+e.message+'</div>';
+  }
+}
+
+// -----------------------------------------------------------
 let iaImageBase64 = '';
 let iaImageType = 'image/jpeg';
 let iaContext = {};
