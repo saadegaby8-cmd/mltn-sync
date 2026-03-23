@@ -960,18 +960,29 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
 
 <!-- LINK MODAL -->
 <div class="modal-bg" id="link-modal">
-  <div class="modal">
+  <div class="modal" style="max-width:480px;width:95%">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <h3>Enlazar con Tienda Nube</h3>
-    <div id="modal-ml-info" style="font-size:13px;color:#7a8299;margin-bottom:14px"></div>
-    <input type="text" class="tn-search" id="tn-prod-search" placeholder="Buscar producto en TN..." oninput="filterTNProds()" />
-    <div class="tn-prod-list" id="tn-prod-list"><div class="empty"><div class="ei">⏳</div>Cargando productos de TN...</div></div>
-    <div id="modal-var-sel" style="display:none;margin-top:10px">
-      <div style="font-size:12px;font-weight:600;color:#7a8299;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Variante de TN (opcional)</div>
-      <select class="fg" id="tn-var-sel" style="width:100%"><option value="">— Sin variante específica —</option></select>
+    <h3 id="modal-title">Enlazar producto</h3>
+    <div id="modal-ml-info" style="font-size:12px;color:#7a8299;margin-bottom:12px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="tab-ml-btn" class="btn btn-blue btn-sm" onclick="switchLinkTab('ml')" style="flex:1">Cuenta ML</button>
+      <button id="tab-tn-btn" class="btn btn-out btn-sm" onclick="switchLinkTab('tn')" style="flex:1">TiendaNube</button>
     </div>
-    <div style="display:flex;gap:8px;margin-top:16px">
-      <button class="btn btn-blue" onclick="saveLink()">Guardar enlace</button>
+    <div id="tab-ml-panel">
+      <select id="link-ml-dest" style="width:100%;padding:8px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;margin-bottom:10px"></select>
+      <input type="text" class="tn-search" id="ml-prod-search" placeholder="Buscar por titulo o ID en esa cuenta..." oninput="filterMLProds()" />
+      <div class="tn-prod-list" id="ml-prod-list"><div class="empty"><div class="ei"></div>Selecciona una cuenta arriba</div></div>
+    </div>
+    <div id="tab-tn-panel" style="display:none">
+      <input type="text" class="tn-search" id="tn-prod-search" placeholder="Buscar producto en TN..." oninput="filterTNProds()" />
+      <div class="tn-prod-list" id="tn-prod-list"><div class="empty"><div class="ei">⏳</div>Cargando productos de TN...</div></div>
+      <div id="modal-var-sel" style="display:none;margin-top:10px">
+        <div style="font-size:12px;font-weight:600;color:#7a8299;margin-bottom:6px">Variante de TN (opcional)</div>
+        <select class="fg" id="tn-var-sel" style="width:100%"><option value="">— Sin variante especifica —</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-blue" onclick="saveLink()" style="flex:1">Guardar enlace</button>
       <button class="btn btn-out" onclick="closeModal()">Cancelar</button>
     </div>
     <div id="msg-modal" class="msg"></div>
@@ -1153,8 +1164,12 @@ function applyLinksFilter(){
     const mlName = l.ml_account_name || 'ML';
     const mlTitle = l.ml_title || l.ml_item_id;
     const mlVar = l.ml_variation_id ? ` . Var: ${l.ml_variation_id}` : '';
-    const destName = l.tn_product_name || l.tn_product_id;
-    const destSub = l.tn_product_id ? `TiendaNube . ID ${l.tn_product_id}` : '';
+    // Determinar si es link ML-ML o ML-TN
+    const isMLML = l.tn_acc_idx !== undefined || l.auto_linked;
+    const destAccName = isMLML ? (appState.ml_accounts[l.tn_acc_idx]?.name || 'ML') : 'TiendaNube';
+    const destId = l.tn_product_id || '';
+    const destName = l.tn_product_name || destId;
+    const destSub = destId ? `${destAccName} . ID ${destId}` : '';
     const date = l.created_at ? new Date(l.created_at*1000).toLocaleDateString('es-AR') : '';
     return `<tr>
       <td><span style="font-size:11px;background:#eef4ff;color:#4f9eff;padding:2px 7px;border-radius:4px;font-weight:600">${mlName}</span></td>
@@ -2221,22 +2236,74 @@ function closeChartModal(){
 }
 
 // -- LINK MODAL -----------------------------------------------------------------
+let linkTab = 'ml';
+let mlProds = [], mlProdsFilt = [], selectedMLProd = null;
+
+function switchLinkTab(tab) {
+  linkTab = tab;
+  document.getElementById('tab-ml-panel').style.display = tab==='ml' ? 'block' : 'none';
+  document.getElementById('tab-tn-panel').style.display = tab==='tn' ? 'block' : 'none';
+  document.getElementById('tab-ml-btn').className = 'btn btn-sm ' + (tab==='ml' ? 'btn-blue' : 'btn-out');
+  document.getElementById('tab-tn-btn').className = 'btn btn-sm ' + (tab==='tn' ? 'btn-blue' : 'btn-out');
+}
+
 async function openModal(itemId, varId, accIdx, title){
   modalML={item_id:itemId,var_id:varId,acc_idx:accIdx,title};
-  selectedTNProd=null;
-  document.getElementById('modal-ml-info').textContent='Enlazar: '+title;
+  selectedTNProd=null; selectedMLProd=null;
+  document.getElementById('modal-ml-info').textContent='Producto: '+title;
   document.getElementById('tn-prod-search').value='';
+  document.getElementById('ml-prod-search').value='';
   document.getElementById('modal-var-sel').style.display='none';
   document.getElementById('msg-modal').className='msg';
   document.getElementById('link-modal').classList.add('show');
-  document.getElementById('tn-prod-list').innerHTML='<div class="empty"><div class="ei">...</div>Cargando...</div>';
-  try{
-    const r=await fetch('/api/tn/products',{headers:hdr()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'TN no conectada');
-    tnProds=d.products||[];tnProdsFilt=[...tnProds];
-    renderTNProdList();
-  }catch(e){document.getElementById('tn-prod-list').innerHTML=`<div class="empty"><div class="ei">[Error]</div>${e.message}</div>`;}
+  // Populate ML accounts selector (exclude current)
+  const sel = document.getElementById('link-ml-dest');
+  sel.innerHTML = appState.ml_accounts
+    .map((a,i) => i!==accIdx ? `<option value="${i}">${a.name}</option>` : '')
+    .join('');
+  switchLinkTab('ml');
+  // Load ML products for first available account
+  if(sel.options.length) loadMLProdsForLink(parseInt(sel.options[0].value));
+  sel.onchange = function(){ loadMLProdsForLink(parseInt(this.value)); };
+  // Load TN products in background
+  fetch('/api/tn/products',{headers:hdr()}).then(r=>r.json()).then(d=>{
+    tnProds=d.products||[];tnProdsFilt=[...tnProds]; renderTNProdList();
+  }).catch(e=>{document.getElementById('tn-prod-list').innerHTML='<div class="empty">'+e.message+'</div>';});
+}
+
+async function loadMLProdsForLink(accIdx) {
+  selectedMLProd = null;
+  const el = document.getElementById('ml-prod-list');
+  el.innerHTML = '<div class="empty"><div class="ei">...</div>Cargando...</div>';
+  try {
+    const r = await fetch('/api/ml/'+accIdx+'/products?limit=9999', {headers:hdr()});
+    const d = await r.json();
+    mlProds = d.products || d.items || [];
+    mlProdsFilt = [...mlProds];
+    renderMLProdList();
+  } catch(e) { el.innerHTML = '<div class="empty">[Error] '+e.message+'</div>'; }
+}
+
+function filterMLProds(){
+  const q = document.getElementById('ml-prod-search').value.toLowerCase();
+  mlProdsFilt = q ? mlProds.filter(p => (p.title||'').toLowerCase().includes(q) || (p.id||'').includes(q)) : [...mlProds];
+  renderMLProdList();
+}
+
+function renderMLProdList(){
+  const el = document.getElementById('ml-prod-list');
+  if(!mlProdsFilt.length){el.innerHTML='<div class="empty">Sin resultados</div>';return;}
+  el.innerHTML = mlProdsFilt.slice(0,80).map(function(p){
+    var sel = selectedMLProd && selectedMLProd.id===p.id;
+    return '<div class="tn-prod-item '+(sel?'sel':'')+'" data-id="'+p.id+'" onclick="selectMLProd(this.dataset.id)">'
+      +'<div class="tpn">'+(p.title||p.id)+'</div>'
+      +'<div class="tpv">'+p.id+' . stock: '+(p.available_quantity||0)+'</div></div>';
+  }).join('');
+}
+
+function selectMLProd(id){
+  selectedMLProd = mlProds.find(p=>p.id===id);
+  document.querySelectorAll('#ml-prod-list .tn-prod-item').forEach(el=>el.classList.toggle('sel',el.dataset.id===id));
 }
 
 function filterTNProds(){
@@ -2252,44 +2319,69 @@ function renderTNProdList(){
     const name=p.name?.es||p.name||'ID '+p.id;
     const variants=p.variants||[];
     const sel=selectedTNProd?.id===p.id;
-    return `<div class="tn-prod-item ${sel?'sel':''}" onclick="selectTNProd(${p.id})" data-id="${p.id}">
-      <div class="tpn">${name}</div>
-      <div class="tpv">${variants.length} variante(s) . ID ${p.id}</div>
-    </div>`;
+    return '<div class="tn-prod-item '+(sel?'sel':'')+'" onclick="selectTNProd('+p.id+')" data-id="'+p.id+'">'
+      +'<div class="tpn">'+name+'</div>'
+      +'<div class="tpv">'+variants.length+' variante(s) . ID '+p.id+'</div></div>';
   }).join('');
 }
 
 function selectTNProd(id){
   selectedTNProd=tnProds.find(p=>p.id===id);
-  document.querySelectorAll('.tn-prod-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.id)===id));
+  document.querySelectorAll('#tn-prod-list .tn-prod-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.id)===id));
   const variants=selectedTNProd?.variants||[];
   const varSel=document.getElementById('tn-var-sel');
-  varSel.innerHTML='<option value="">- Sin variante especifica -</option>'+variants.map(v=>`<option value="${v.id}">${(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id}</option>`).join('');
+  varSel.innerHTML='<option value="">- Sin variante especifica -</option>'+variants.map(v=>'<option value="'+v.id+'">'+(v.values||[]).map(vv=>vv.es||vv.en||'').join(' / ')||'Variante '+v.id+'</option>').join('');
   document.getElementById('modal-var-sel').style.display=variants.length>0?'block':'none';
 }
 
 async function saveLink(){
-  if(!selectedTNProd){showMsg('msg-modal','! Selecciona un producto de TN.','err');return;}
-  const tnVarId=document.getElementById('tn-var-sel').value||null;
-  try{
-    const tnProdName = selectedTNProd.name?.es || selectedTNProd.name || String(selectedTNProd.id);
-    const mlAccName = appState.ml_accounts[modalML.acc_idx]?.name || 'ML';
-    const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
-      ml_item_id:modalML.item_id,
-      ml_variation_id:modalML.var_id,
-      ml_account_index:modalML.acc_idx,
-      ml_account_name:mlAccName,
-      ml_title:modalML.title,
-      tn_product_id:String(selectedTNProd.id),
-      tn_variant_id:tnVarId,
-      tn_product_name:tnProdName
-    })});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.detail||'Error');
-    showMsg('msg-modal','OK Enlace guardado.','ok');
-    await loadState();
-    setTimeout(closeModal,800);
-  }catch(e){showMsg('msg-modal','[Error] '+e.message,'err');}
+  const mlAccName = appState.ml_accounts[modalML.acc_idx]?.name || 'ML';
+  if(linkTab==='ml'){
+    if(!selectedMLProd){showMsg('msg-modal','! Selecciona un producto de ML.','err');return;}
+    const destAccIdx = parseInt(document.getElementById('link-ml-dest').value);
+    const destAccName = appState.ml_accounts[destAccIdx]?.name || 'ML';
+    try{
+      const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
+        ml_item_id: modalML.item_id,
+        ml_variation_id: modalML.var_id,
+        ml_account_index: modalML.acc_idx,
+        ml_account_name: mlAccName,
+        ml_title: modalML.title,
+        tn_product_id: selectedMLProd.id,
+        tn_acc_idx: destAccIdx,
+        tn_product_name: selectedMLProd.title,
+        ml_account_name_dest: destAccName,
+        auto_linked: true,
+        family_name: modalML.title
+      })});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.detail||'Error');
+      showMsg('msg-modal','OK Enlace ML guardado.','ok');
+      await loadState();
+      setTimeout(closeModal,800);
+    }catch(e){showMsg('msg-modal','[Error] '+e.message,'err');}
+  } else {
+    if(!selectedTNProd){showMsg('msg-modal','! Selecciona un producto de TN.','err');return;}
+    const tnVarId=document.getElementById('tn-var-sel').value||null;
+    try{
+      const tnProdName = selectedTNProd.name?.es || selectedTNProd.name || String(selectedTNProd.id);
+      const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
+        ml_item_id:modalML.item_id,
+        ml_variation_id:modalML.var_id,
+        ml_account_index:modalML.acc_idx,
+        ml_account_name:mlAccName,
+        ml_title:modalML.title,
+        tn_product_id:String(selectedTNProd.id),
+        tn_variant_id:tnVarId,
+        tn_product_name:tnProdName
+      })});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.detail||'Error');
+      showMsg('msg-modal','OK Enlace TN guardado.','ok');
+      await loadState();
+      setTimeout(closeModal,800);
+    }catch(e){showMsg('msg-modal','[Error] '+e.message,'err');}
+  }
 }
 
 async function removeLink(mlId,mlVarId){
