@@ -3341,13 +3341,18 @@ function laiMsg(text, role, extra) {
   return div;
 }
 
+let laiLastSearchTerm = '';
+
 async function laiSend() {
   const input = document.getElementById('lai-input');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
+  // Si el mensaje no tiene un ID/modelo pero hay uno previo, incluirlo en contexto
+  const hasId = /MLA\d+|\b\d{4,6}\b/.test(text);
+  const msgWithCtx = (!hasId && laiLastSearchTerm) ? text + ' (contexto: ' + laiLastSearchTerm + ')' : text;
   laiMsg(text, 'user');
-  laiHistory.push({role:'user', content: text});
+  laiHistory.push({role:'user', content: msgWithCtx});
   const typing = laiMsg('Buscando productos y variantes...', 'bot');
   try {
     const r = await fetch('/api/links/ai_chat', {
@@ -3360,6 +3365,9 @@ async function laiSend() {
     const d = await r.json();
     typing.remove();
     if (d.ok) {
+      // Guardar ultimo termino buscado para contexto
+      const idMatch = (text || '').match(/MLA\d+|\b\d{4,6}\b/);
+      if (idMatch) laiLastSearchTerm = idMatch[0];
       laiHistory.push({role:'assistant', content: d.reply});
       // Si hay propuestas de links, mostrar con botones de confirmacion
       if (d.proposals && d.proposals.length > 0) {
