@@ -2847,10 +2847,26 @@ async def load_clone(item_id: str, _=Depends(auth)):
             except: pass
 
         # Colores y talles de variantes
-        colores = list({next((a.get("value_name","") for a in v.get("attribute_combinations",[]) if a.get("id")=="COLOR"), "") for v in variations if variations})
-        talles = list({next((a.get("value_name","") for a in v.get("attribute_combinations",[]) if a.get("id")=="SIZE"), "") for v in variations if variations})
-        colores = [c for c in colores if c]
-        talles = [t for t in talles if t]
+        colores_set = set()
+        talles_set = set()
+        for v in variations:
+            for a in v.get("attribute_combinations", []):
+                aid = a.get("id","")
+                val = a.get("value_name","")
+                if not val: continue
+                if aid == "COLOR":
+                    colores_set.add(val)
+                elif aid == "SIZE":
+                    talles_set.add(val)
+        colores = sorted(colores_set)
+        talles = sorted(talles_set)
+        # Tambien buscar en atributos del item si no hay en variantes
+        if not colores:
+            color_attr = next((a.get("value_name","") for a in attrs if a.get("id")=="COLOR"), "")
+            if color_attr: colores = [color_attr]
+        if not talles:
+            size_attr = next((a.get("value_name","") for a in attrs if a.get("id")=="SIZE"), "")
+            if size_attr: talles = [size_attr]
 
         # Chart IDs por cuenta (si existe en cuenta actual, asumir mismo para las otras)
         chart_ids = {}
