@@ -2324,6 +2324,67 @@ LO QUE NO PUEDO HACER (NUNCA mentir sobre esto):
 - Si algo requiere cambio de codigo, digo claramente "esto requiere que el desarrollador lo implemente en el codigo"
 - NUNCA finjo que estoy desplegando o implementando algo en tiempo real"""
 
+@app.post("/api/links/suggest")
+async def suggest_link(req: Request, _=Depends(auth)):
+    """IA: sugerir producto a enlazar por similitud de titulo"""
+    try:
+        b = await req.json()
+        title = b.get("title","")
+        item_id = b.get("item_id","")
+        dest_acc_idx = int(b.get("dest_acc_idx", 1))
+
+        if dest_acc_idx >= len(ST["accounts"]):
+            return {"match_id": None}
+
+        uid = ST["accounts"][dest_acc_idx]["uid"]
+        prods = get_cached_products(uid) or []
+        if not prods:
+            return {"match_id": None, "msg": "Sin productos en cache"}
+
+        # Extraer modelo del titulo origen
+        model = extract_model(title)
+
+        # 1. Match exacto por modelo
+        if model:
+            for p in prods:
+                if extract_model(p.get("title","")) == model:
+                    return {"match_id": p["id"], "match_title": p.get("title",""), "method": "modelo"}
+
+        # 2. Match por palabras clave del titulo
+        title_words = set(w.lower() for w in title.split() if len(w) > 3)
+        best_match = None
+        best_score = 0
+        for p in prods:
+            p_words = set(w.lower() for w in (p.get("title","")).split() if len(w) > 3)
+            if not p_words: continue
+            common = len(title_words & p_words)
+            score = common / max(len(title_words), len(p_words), 1)
+            if score > best_score:
+                best_score = score
+                best_match = p
+
+        if best_match and best_score >= 0.4:
+            return {"match_id": best_match["id"], "match_title": best_match.get("title",""), "method": "titulo", "score": round(best_score,2)}
+
+        # 3. Usar Claude para match semántico si hay API key
+        ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY","")
+        if ANTHROPIC_KEY and prods:
+            candidates = [{"id": p["id"], "title": p.get("title","")} for p in prods[:50]]
+            prompt = f"Titulo origen: '{title}'. Encontra el producto mas similar de esta lista. Responde SOLO con el id, nada mas:\n" + "\n".join(f"{c['id']}: {c['title']}" for c in candidates)
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.post("https://api.anthropic.com/v1/messages",
+                    headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01"},
+                    json={"model":"claude-haiku-4-5-20251001","max_tokens":50,"messages":[{"role":"user","content":prompt}]})
+                if r.status_code == 200:
+                    reply = r.json()["content"][0]["text"].strip()
+                    matched = next((p for p in prods if p["id"] == reply), None)
+                    if matched:
+                        return {"match_id": matched["id"], "match_title": matched.get("title",""), "method": "ia"}
+
+        return {"match_id": None, "msg": "Sin coincidencia"}
+    except Exception as e:
+        return {"match_id": None, "error": str(e)}
+
 @app.get("/api/links/item/{item_id}")
 async def links_for_item(item_id: str):
     """Ver todos los links que tienen este item como origen o destino"""
