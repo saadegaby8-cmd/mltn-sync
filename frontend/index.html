@@ -969,9 +969,16 @@ td{padding:9px 12px;font-size:13px;vertical-align:middle}
       <button id="tab-tn-btn" class="btn btn-out btn-sm" onclick="switchLinkTab('tn')" style="flex:1">TiendaNube</button>
     </div>
     <div id="tab-ml-panel">
-      <select id="link-ml-dest" style="width:100%;padding:8px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px;margin-bottom:10px"></select>
-      <input type="text" class="tn-search" id="ml-prod-search" placeholder="Buscar por titulo o ID en esa cuenta..." oninput="filterMLProds()" />
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <select id="link-ml-dest" style="flex:1;padding:8px 10px;border:1px solid #dde1e9;border-radius:7px;font-size:13px"></select>
+        <button id="ai-suggest-btn" class="btn btn-sm" style="background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;white-space:nowrap" onclick="aiSuggestLink()">IA Sugerir</button>
+      </div>
+      <input type="text" class="tn-search" id="ml-prod-search" placeholder="Buscar por titulo o ID..." oninput="filterMLProds()" />
       <div class="tn-prod-list" id="ml-prod-list"><div class="empty"><div class="ei"></div>Selecciona una cuenta arriba</div></div>
+      <div id="ml-var-sel-wrap" style="display:none;margin-top:8px">
+        <div style="font-size:11px;font-weight:600;color:#7a8299;margin-bottom:4px">Variante destino (opcional)</div>
+        <select id="ml-var-sel" style="width:100%;padding:6px 10px;border:1px solid #dde1e9;border-radius:6px;font-size:12px"></select>
+      </div>
     </div>
     <div id="tab-tn-panel" style="display:none">
       <input type="text" class="tn-search" id="tn-prod-search" placeholder="Buscar producto en TN..." oninput="filterTNProds()" />
@@ -2295,15 +2302,64 @@ function renderMLProdList(){
   if(!mlProdsFilt.length){el.innerHTML='<div class="empty">Sin resultados</div>';return;}
   el.innerHTML = mlProdsFilt.slice(0,80).map(function(p){
     var sel = selectedMLProd && selectedMLProd.id===p.id;
+    var hasVars = p._has_variations || (p.variations && p.variations.length > 0);
     return '<div class="tn-prod-item '+(sel?'sel':'')+'" data-id="'+p.id+'" onclick="selectMLProd(this.dataset.id)">'
       +'<div class="tpn">'+(p.title||p.id)+'</div>'
-      +'<div class="tpv">'+p.id+' . stock: '+(p.available_quantity||0)+'</div></div>';
+      +'<div class="tpv">'+p.id+(hasVars?' . '+p._variation_count+' variantes':' . stock: '+(p.available_quantity||0))+'</div></div>';
   }).join('');
 }
 
+let selectedMLVar = null;
+
 function selectMLProd(id){
   selectedMLProd = mlProds.find(p=>p.id===id);
+  selectedMLVar = null;
   document.querySelectorAll('#ml-prod-list .tn-prod-item').forEach(el=>el.classList.toggle('sel',el.dataset.id===id));
+  // Show variation selector if item has variations
+  var varWrap = document.getElementById('ml-var-sel-wrap');
+  var varSel = document.getElementById('ml-var-sel');
+  var vars = selectedMLProd && selectedMLProd.variations || [];
+  if(vars.length > 0){
+    varSel.innerHTML = '<option value="">— Sin variante especifica (todo el item) —</option>'
+      + vars.map(function(v){
+        var attrs = (v.attribute_combinations||[]).map(function(a){return a.value_name||'';}).join(' / ');
+        return '<option value="'+v.id+'">'+attrs+' (stock: '+v.available_quantity+')</option>';
+      }).join('');
+    varWrap.style.display = 'block';
+    varSel.onchange = function(){ selectedMLVar = this.value || null; };
+  } else {
+    varWrap.style.display = 'none';
+  }
+}
+
+async function aiSuggestLink(){
+  const btn = document.getElementById('ai-suggest-btn');
+  btn.textContent = 'Buscando...';
+  btn.disabled = true;
+  const destAccIdx = parseInt(document.getElementById('link-ml-dest').value);
+  try {
+    const r = await fetch('/api/links/suggest', {
+      method:'POST', headers:hdr(),
+      body: JSON.stringify({
+        title: modalML.title,
+        item_id: modalML.item_id,
+        dest_acc_idx: destAccIdx
+      })
+    });
+    const d = await r.json();
+    if(d.match_id){
+      // Auto-select the suggested product
+      document.getElementById('ml-prod-search').value = d.match_title || '';
+      filterMLProds();
+      setTimeout(function(){ selectMLProd(d.match_id); }, 100);
+      btn.textContent = 'Encontrado: '+d.match_title.slice(0,30)+'...';
+    } else {
+      btn.textContent = 'Sin sugerencia — busca manual';
+    }
+  } catch(e) {
+    btn.textContent = 'Error IA';
+  }
+  btn.disabled = false;
 }
 
 function filterTNProds(){
@@ -2343,11 +2399,12 @@ async function saveLink(){
     try{
       const r=await fetch('/api/links/add',{method:'POST',headers:hdr(),body:JSON.stringify({
         ml_item_id: modalML.item_id,
-        ml_variation_id: modalML.var_id,
+        ml_variation_id: modalML.var_id || null,
         ml_account_index: modalML.acc_idx,
         ml_account_name: mlAccName,
         ml_title: modalML.title,
         tn_product_id: selectedMLProd.id,
+        tn_variation_id: selectedMLVar || null,
         tn_acc_idx: destAccIdx,
         tn_product_name: selectedMLProd.title,
         ml_account_name_dest: destAccName,
