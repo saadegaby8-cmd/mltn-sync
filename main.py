@@ -2326,112 +2326,156 @@ LO QUE NO PUEDO HACER (NUNCA mentir sobre esto):
 
 @app.post("/api/links/ai_chat")
 async def links_ai_chat(req: Request, _=Depends(auth)):
-    """Asistente de enlaces: busca productos equivalentes y propone links"""
+    """Asistente de enlaces: busca, matchea variantes y propone links"""
     try:
         b = await req.json()
         messages = b.get("messages", [])
-        state = b.get("state", {})
         accounts = ST.get("accounts", [])
-        existing_links = ST.get("links", [])
+        existing_links = {l.get("ml_item_id","") for l in ST.get("links", [])}
 
-        # Construir contexto del sistema
-        acc_info = "\n".join([f"  - Cuenta {i}: {a.get('name','')} (uid: {a.get('uid','')})"
-                              for i, a in enumerate(accounts)])
-        existing_count = len(existing_links)
+        last_msg = messages[-1]["content"] if messages else ""
 
-        system = f"""Sos el asistente de enlaces de ML×TN Sync. Tu trabajo es ayudar a enlazar productos entre cuentas de MercadoLibre para que sus stocks se sincronicen automaticamente.
+        # 1. Extraer modelo o ID del mensaje
+        import re as re_mod
+        model_match = re_mod.search(r'\b(\d{4,6})\b', last_msg)
+        mla_match = re_mod.search(r'(MLA\d+)', last_msg)
+        search_term = mla_match.group(1) if mla_match else (model_match.group(1) if model_match else None)
 
-CUENTAS DISPONIBLES:
-{acc_info}
+        # 2. Si no hay termino, usar Claude para extraerlo
+        if not search_term:
+            ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY","")
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.post("https://api.anthropic.com/v1/messages",
+                    headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01"},
+                    json={"model":"claude-haiku-4-5-20251001","max_tokens":100,
+                          "messages":[{"role":"user","content":
+                            f"Del texto: '{last_msg}', extrae SOLO el numero de modelo (4-6 digitos) o ID de MercadoLibre (MLA...). Responde SOLO con el valor, nada mas. Si no hay ninguno, responde NINGUNO."}]})
+                if r.status_code == 200:
+                    extracted = r.json()["content"][0]["text"].strip()
+                    if extracted != "NINGUNO" and extracted:
+                        mla2 = re_mod.search(r'(MLA\d+)', extracted)
+                        mod2 = re_mod.search(r'\b(\d{4,6})\b', extracted)
+                        if mla2: search_term = mla2.group(1)
+                        elif mod2: search_term = mod2.group(1)
 
-TOTAL ENLACES EXISTENTES: {existing_count}
+        if not search_term:
+            return {"ok": True, "reply": "No encontre un numero de modelo o ID de ML en tu mensaje. Dime el modelo (ej: 31729) o el ID (ej: MLA1686865537) del producto que queres enlazar.", "proposals": []}
 
-COMO FUNCIONA:
-- Cuando se enlaza un item de LENCERIA (cuenta 0) con uno de SHAMPOOSHIR (cuenta 1), al cambiar el stock en LENCERIA se actualiza automaticamente en SHAMPOOSHIR.
-- Los enlaces son por item completo o por variante especifica (talle/color).
-- Para enlazar, necesitas: item origen (cuenta 0), item destino (cuenta 1 o 2), y opcionalmente variante especifica.
+        # 3. Buscar en todas las cuentas
+        found = {}  # {acc_idx: [productos]}
+        for i, acc in enumerate(accounts):
+            uid = acc.get("uid","")
+            prods = get_cached_products(uid) or []
+            if mla_match or (search_term and search_term.startswith("MLA")):
+                matches = [p for p in prods if p.get("id") == search_term]
+            else:
+                matches = [p for p in prods if extract_model(p.get("title","")) == search_term]
+            if matches:
+                found[i] = matches
 
-TU FLUJO:
-1. El usuario te dice que producto enlazar (por nombre, modelo o ID)
-2. Vos buscas en el cache de las cuentas los productos equivalentes
-3. Si encuentra matches automaticos (mismo modelo/nombre), propones los enlaces con format JSON
-4. El usuario confirma y se guardan
+        if not found:
+            return {"ok": True, "reply": f"No encontre productos con '{search_term}' en ninguna cuenta. Verificá que el modelo/ID sea correcto y que el cache esté actualizado (hacé Sincronizar).", "proposals": []}
 
-FORMATO DE RESPUESTA CON PROPUESTAS:
-Cuando encontres matches, tu respuesta debe terminar con:
-PROPOSALS_JSON: [array de propuestas]
+        acc_names = {i: acc.get("name","ML"+str(i)) for i, acc in enumerate(accounts)}
+        found_summary = []
+        for i, prods in found.items():
+            for p in prods:
+                vars_txt = ""
+                if p.get("variations"):
+                    vars_txt = f" ({len(p['variations'])} variantes)"
+                found_summary.append(f"  [{acc_names[i]}] {p['id']}: {p.get('title','')[:50]}{vars_txt}")
 
-Cada propuesta tiene:
-{{
-  "src_id": "MLA...", "src_title": "titulo", "src_acc": "nombre", "src_acc_idx": 0,
-  "src_var_id": "123" o null, "src_var": "Rosa / XL" o null,
-  "dest_id": "MLA...", "dest_title": "titulo", "dest_acc": "nombre", "dest_acc_idx": 1,
-  "dest_var_id": "456" o null, "dest_var": "Rosa / XL" o null
-}}
-
-BUSQUEDA EN CACHE:
-Tenes acceso al endpoint /api/ml/{{idx}}/products para buscar productos.
-Cuando el usuario pida enlazar algo, usa la funcion search_products para buscar.
-
-Si no hay suficiente info, pedila. Siempre confirma antes de enlazar."""
-
-        # Check if we need to search products
-        last_user_msg = messages[-1]["content"] if messages else ""
-
-        # Auto-search products mentioned in the message
-        search_results = {}
-        import re
-        model_match = re.search(r'(\d{4,6})', last_user_msg)
-        mla_match = re.search(r'MLA\d+', last_user_msg)
-
-        if model_match or mla_match:
-            search_term = mla_match.group(0) if mla_match else model_match.group(1)
-            for i, acc in enumerate(accounts):
-                uid = acc.get("uid","")
-                prods = get_cached_products(uid) or []
-                if mla_match:
-                    matches = [p for p in prods if p.get("id") == search_term]
-                else:
-                    matches = [p for p in prods if extract_model(p.get("title","")) == search_term]
-                if matches:
-                    search_results[acc.get("name",f"Cuenta {i}")] = [
-                        {"id": p["id"], "title": p.get("title",""), "stock": p.get("available_quantity",0),
-                         "variations": [{"id": v["id"], "attrs": {a["id"]: a.get("value_name","") for a in v.get("attribute_combinations",[])}, "stock": v.get("available_quantity",0)}
-                                       for v in p.get("variations",[])[:20]]}
-                        for p in matches[:5]
-                    ]
-
-        if search_results:
-            import json as json_mod
-            system += "\n\nRESULTADOS DE BUSQUEDA AUTOMATICA:\n" + json_mod.dumps(search_results, ensure_ascii=False)
-
-        ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY","")
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.post("https://api.anthropic.com/v1/messages",
-                headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01"},
-                json={"model":"claude-sonnet-4-20250514","max_tokens":2000,"system":system,"messages":messages})
-
-        if r.status_code != 200:
-            return {"ok": False, "error": f"API error {r.status_code}"}
-
-        reply_full = r.json()["content"][0]["text"]
-
-        # Extract proposals if present
+        # 4. Generar propuestas de links
         proposals = []
-        if "PROPOSALS_JSON:" in reply_full:
-            parts = reply_full.split("PROPOSALS_JSON:")
-            reply_text = parts[0].strip()
-            try:
-                proposals = json.loads(parts[1].strip())
-            except:
-                proposals = []
-        else:
-            reply_text = reply_full
+        acc_idxs = sorted(found.keys())
 
-        return {"ok": True, "reply": reply_text, "proposals": proposals}
+        if len(acc_idxs) < 2:
+            only_acc = acc_idxs[0] if acc_idxs else 0
+            reply = "Solo encontre el producto en " + str(acc_names.get(only_acc,"una cuenta")) + ":\n" + "\n".join(found_summary)
+            reply += "\n\nNo hay producto equivalente en otras cuentas. Primero duplicalo."
+            return {"ok": True, "reply": reply, "proposals": []}
+
+        # Usar cuenta 0 (LENCERIA) como origen si está presente, sino la primera
+        src_idx = 0 if 0 in found else acc_idxs[0]
+        dest_idxs = [i for i in acc_idxs if i != src_idx]
+
+        for src_prod in found[src_idx]:
+            src_vars = src_prod.get("variations", [])
+            src_id = src_prod["id"]
+            src_title = src_prod.get("title","")
+
+            # Ya tiene link? Skipear
+            if src_id in existing_links:
+                continue
+
+            for dest_idx in dest_idxs:
+                for dest_prod in found[dest_idx]:
+                    dest_vars = dest_prod.get("variations", [])
+                    dest_id = dest_prod["id"]
+                    dest_title = dest_prod.get("title","")
+
+                    if src_vars and dest_vars:
+                        # Matchear variante por variante por atributos
+                        for sv in src_vars:
+                            sv_attrs = sv.get("_attrs", {})
+                            if not sv_attrs:
+                                sv_attrs = {a.get("id",""): a.get("value_name","") for a in sv.get("attribute_combinations",[])}
+                            sv_label = " / ".join(v for v in sv_attrs.values() if v)
+
+                            for dv in dest_vars:
+                                dv_attrs = dv.get("_attrs", {})
+                                if not dv_attrs:
+                                    dv_attrs = {a.get("id",""): a.get("value_name","") for a in dv.get("attribute_combinations",[])}
+                                dv_label = " / ".join(v for v in dv_attrs.values() if v)
+
+                                # Match si los atributos son iguales
+                                if sv_attrs and dv_attrs:
+                                    # Comparar COLOR y SIZE
+                                    sv_color = sv_attrs.get("COLOR","").lower()
+                                    sv_size = sv_attrs.get("SIZE","").lower()
+                                    dv_color = dv_attrs.get("COLOR","").lower()
+                                    dv_size = dv_attrs.get("SIZE","").lower()
+                                    color_match = (not sv_color and not dv_color) or sv_color == dv_color
+                                    size_match = (not sv_size and not dv_size) or sv_size == dv_size
+                                    if color_match and size_match:
+                                        proposals.append({
+                                            "src_id": src_id, "src_title": src_title,
+                                            "src_acc": acc_names[src_idx], "src_acc_idx": src_idx,
+                                            "src_var_id": str(sv["id"]), "src_var": sv_label,
+                                            "dest_id": dest_id, "dest_title": dest_title,
+                                            "dest_acc": acc_names[dest_idx], "dest_acc_idx": dest_idx,
+                                            "dest_var_id": str(dv["id"]), "dest_var": dv_label,
+                                        })
+                    else:
+                        # Sin variantes — enlazar item completo
+                        proposals.append({
+                            "src_id": src_id, "src_title": src_title,
+                            "src_acc": acc_names[src_idx], "src_acc_idx": src_idx,
+                            "src_var_id": None, "src_var": None,
+                            "dest_id": dest_id, "dest_title": dest_title,
+                            "dest_acc": acc_names[dest_idx], "dest_acc_idx": dest_idx,
+                            "dest_var_id": None, "dest_var": None,
+                        })
+
+        if not proposals:
+            reply = "Encontre el producto en " + str(len(acc_idxs)) + " cuentas:\n" + "\n".join(found_summary)
+            reply += "\n\nPero no pude generar propuestas automaticas (puede que ya esten todos enlazados o que las variantes no coincidan en COLOR/SIZE). Usa el modal de enlazar manualmente."
+            return {"ok": True, "reply": reply, "proposals": []}
+
+        reply = "Encontre " + str(len(proposals)) + " enlaces posibles para el modelo '" + str(search_term) + "':\n\n"
+        reply += "\n".join([
+            f"  {p['src_acc']} {p.get('src_var','') or ''} → {p['dest_acc']} {p.get('dest_var','') or ''}"
+            for p in proposals[:10]
+        ])
+        if len(proposals) > 10:
+            reply += "\n  ... y " + str(len(proposals)-10) + " mas"
+        reply += "\n\nConfirma los que quieras enlazar:"
+        return {"ok": True, "reply": reply, "proposals": proposals}
+
     except Exception as e:
         import traceback
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:300]}
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:400]}
+
 
 @app.post("/api/links/suggest")
 async def suggest_link(req: Request, _=Depends(auth)):
