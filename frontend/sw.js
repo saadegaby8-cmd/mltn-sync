@@ -1,4 +1,4 @@
-const CACHE = 'mltn-v61';
+const CACHE = 'mltn-v62';
 const STATIC = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
