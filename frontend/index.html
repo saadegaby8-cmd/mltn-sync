@@ -2539,20 +2539,53 @@ async function iaSelectClone(itemId) {
     if (!d.ok) { res.innerHTML = '<div style="font-size:12px;color:#e74c3c">Error: '+d.error+'</div>'; return; }
     // Cargar todos los datos al contexto
     iaContext = {...iaContext, ...d.context};
-    // Actualizar panel de publicar
+    // Pre-completar campos del panel de publicar
     iaShowPublishButton();
-    // Actualizar grid de variantes si hay colores
-    if (iaContext.colores && iaContext.colores.length) {
-      document.getElementById('ia-photos-panel').style.display = 'block';
-      iaRenderVariantsGrid();
-    }
+    // Despues de mostrar el panel, pre-llenar los inputs
+    setTimeout(function() {
+      var t = document.getElementById('ia-titulo-input');
+      if (t) t.value = d.context.titulo || '';
+      var p = document.getElementById('ia-precio-input');
+      if (p) p.value = d.context.precio || '';
+      var m = document.getElementById('ia-marca-input');
+      if (m) m.value = d.context.marca || '';
+      var mo = document.getElementById('ia-modelo-input');
+      if (mo) mo.value = d.context.modelo || '';
+      var col = document.getElementById('ia-colores-input');
+      if (col) col.value = (d.context.colores||[]).join(', ');
+      var tal = document.getElementById('ia-talles-input');
+      if (tal) tal.value = (d.context.talles||[]).join(', ');
+      // Dimensiones
+      if (d.context.dims) {
+        var dh = document.getElementById('ia-dim-h'); if (dh) dh.value = d.context.dims.h || '';
+        var dw = document.getElementById('ia-dim-w'); if (dw) dw.value = d.context.dims.w || '';
+        var dl = document.getElementById('ia-dim-l'); if (dl) dl.value = d.context.dims.l || '';
+        var dp = document.getElementById('ia-dim-p'); if (dp) dp.value = d.context.dims.p || '';
+      }
+      // Guias de talles por cuenta
+      if (d.context.chart_ids) {
+        Object.entries(d.context.chart_ids).forEach(function(entry) {
+          var el = document.getElementById('ia-chart-' + entry[0]);
+          if (el) el.value = entry[1];
+        });
+      }
+      // Actualizar colores en iaContext y re-render grid
+      if (d.context.colores && d.context.colores.length) {
+        iaContext.colores = d.context.colores;
+        iaContext.talles = d.context.talles;
+        document.getElementById('ia-photos-panel').style.display = 'block';
+        iaRenderVariantsGrid();
+      }
+    }, 200);
     // Mostrar en chat
-    iaAddBotMessage('Cargue los datos de "'+d.context.titulo+'". Ya tiene:\n'
+    var msg = 'Cargue los datos de "'+d.context.titulo.slice(0,50)+'":\n'
       + '- Categoria: '+d.context.category_id+'\n'
-      + '- '+(d.context.talles||[]).length+' talles: '+(d.context.talles||[]).join(', ')+'\n'
+      + '- Colores: '+(d.context.colores||[]).join(', ') || 'ninguno' +'\n'
+      + '- Talles: '+(d.context.talles||[]).join(', ') || 'ninguno' +'\n'
       + '- Marca: '+(d.context.marca||'?')+', Modelo: '+(d.context.modelo||'?')+'\n'
-      + '- Guia de talles: '+(d.context.chart_ids ? JSON.stringify(d.context.chart_ids) : 'ninguna')+'\n\n'
-      + 'Ahora sube las fotos del nuevo producto y ajusta el titulo y precio. Todo lo demas ya esta configurado.');
+      + '- Guia de talles: '+(d.context.chart_ids && Object.keys(d.context.chart_ids).length ? JSON.stringify(d.context.chart_ids) : 'ninguna')+'\n\n'
+      + 'Ya complete todos los campos. Subi las fotos y publical!';
+    iaAddBotMessage(msg);
     res.innerHTML = '<div style="font-size:12px;color:#00a381;padding:8px">Datos cargados de: '+d.context.titulo.slice(0,50)+'</div>';
   } catch(e) {
     res.innerHTML = '<div style="font-size:12px;color:#e74c3c">Error: '+e.message+'</div>';
